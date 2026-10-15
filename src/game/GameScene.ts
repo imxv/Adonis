@@ -1,23 +1,21 @@
 import Phaser from 'phaser';
 import { TAU, angleDiff, clamp, dist, dist2, hexToNum, lerp, segCircle } from '../core/math';
-import { rand } from '../core/rng';
+import { Rng, rand } from '../core/rng';
 import type { Element } from '../core/stats';
 import { audio } from '../audio/audio';
 import { ENEMIES, AFFIXES, PETS, type Affix, type EnemyKind } from '../data/enemies';
-import { SPELLS } from '../data/spells';
+import { SPELLS, SPELL_ORDER } from '../data/spells';
 import { UPGRADE_BY_ID } from '../data/upgrades';
-import { weaponLevelCount, weaponLevelDamage, type WeaponInstance } from '../data/weapons';
+import { WEAPON_ORDER, weaponLevelCount, weaponLevelDamage, type WeaponInstance } from '../data/weapons';
 import { E } from '../pixel/palette';
 import { K, buildCommonTextures, buildKitTextures, buildRoom, textTexture } from '../styles/textures';
 import type { StyleKit } from '../styles/types';
 import { ui } from '../ui/ui';
-import { ARENA, VIEW, clampToArena } from './arena';
+import { ARENA, DIRS, DOOR, OPPOSITE, clampToArena, type Dir } from './arena';
 import { bossDeath, spawnBoss, updateBoss } from './boss';
 import { updateEnemyAI } from './enemyAI';
 import {
   ELEMENT_COLOR,
-  type Door,
-  type DoorReward,
   type Enemy,
   type Hazard,
   type Img,
@@ -30,23 +28,22 @@ import {
   type Telegraph,
   type Visual,
 } from './entities';
+import { generateFloor, neighbour, type Floor, type Room } from './floor';
 import { DEPTH, Fx } from './fx';
 import { syncPets, updatePets } from './pets';
-import { COMBAT_ROOMS, LEVELS, applyChoice, evolutionsReady, newRun, rollChoices, xpForLevel, type Choice, type RunState } from './run';
+import { LEVELS, applyChoice, evolutionsReady, newRun, rollChoices, xpForLevel, type Choice, type RunState } from './run';
 import { clearSpellVisuals, updateSpells } from './spells';
 
 type Mode = 'title' | 'play' | 'choose' | 'pause' | 'transition' | 'dead' | 'end';
 
-const DOOR_INFO: Record<DoorReward, { glyph: string; label: string }> = {
-  rare: { glyph: '升', label: '稀有加成' },
-  weapon: { glyph: '枪', label: '新枪械' },
-  pet: { glyph: '宠', label: '宠物' },
-  heal: { glyph: '愈', label: '回满生命' },
-  elite: { glyph: '险', label: '精英 双倍奖励' },
-  boss: { glyph: '王', label: '宿敌' },
-  next: { glyph: '门', label: '下一层' },
-  victory: { glyph: '花', label: '终章' },
-};
+interface Pedestal {
+  x: number;
+  y: number;
+  ped: Img;
+  item: Img;
+  choice: Choice;
+  id: string;
+}
 
 export class GameScene extends Phaser.Scene {
   run!: RunState;
@@ -67,17 +64,21 @@ export class GameScene extends Phaser.Scene {
   obstacles: Obstacle[] = [];
   hazards: Hazard[] = [];
   pets: Pet[] = [];
-  doors: Door[] = [];
   telegraphs: Telegraph[] = [];
   visuals: Visual[] = [];
+  pedestals: Pedestal[] = [];
+  bars: Partial<Record<Dir, Img>> = {};
+  trapdoor?: Img;
+  floor!: Floor;
+  room!: Room;
   mode: Mode = 'title';
-  roomCleared = false;
-  roomTime = 0;
-  roomDur = 30;
+  waves: { kind: EnemyKind; elite: boolean }[][] = [];
+  waveIdx = 0;
+  waveTimer = 0;
+  hordeT = 0;
+  hordeDur = 0;
   spawnT = 0;
-  swarmT = 6;
-  eliteMid = false;
-  hordeOver = false;
+  swarmT = 0;
   pendingSpawns = 0;
   combo = 0;
   comboT = 0;
@@ -93,13 +94,11 @@ export class GameScene extends Phaser.Scene {
   nextId = 1;
   boss?: Enemy;
   hudT = 0;
-  roomKills = 0;
   params = new URLSearchParams(location.search);
   private closePause?: () => void;
   time0 = 0;
-  aimX = 0;
-  aimY = 0;
-  private camOff = { x: 0, y: 0 };
+  aimX = 320;
+  aimY = 120;
 
   constructor() {
     super('game');
@@ -136,7 +135,7 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  // ---------------------------------------------------------------- run flow
+  // ---------------------------------------------------------------- run and floors
 
   startRun() {
     this.clearRoom(true);
@@ -163,17 +162,19 @@ export class GameScene extends Phaser.Scene {
       .particles(0, 0, K('pt', kit), {
         x: { min: ARENA.left, max: ARENA.right },
         y: { min: ARENA.top, max: ARENA.bottom },
-        lifespan: { min: 4000, max: 7000 },
+        lifespan: { min: 3000, max: 6000 },
         speedX: { min: -8, max: 8 },
         speedY: kit.id === 'volcano' || kit.id === 'factory' ? { min: -16, max: -4 } : { min: -3, max: 10 },
         alpha: { onUpdate: (_p: unknown, _k: string, t: number) => Math.sin(t * Math.PI) * 0.7 },
-        frequency: 140,
+        frequency: 260,
         quantity: 1,
       } as any)
       .setDepth(DEPTH.particles + 0.5);
+    this.floor = generateFloor(new Rng(this.run.seed + this.run.level * 7919), this.run.level);
     ui.showHud(true);
     ui.banner(`第 ${['一', '二', '三', '四'][this.run.level]} 层`, kit.name, kit.en, kit.subtitle, first ? 2400 : 2200);
-    this.enterRoom();
+    const startRoom = this.params.get('room') === 'boss' && first ? this.floor.boss : this.floor.start;
+    this.enterRoom(startRoom);
     if (!first) this.cameras.main.fadeIn(420, 255, 255, 255);
   }
 
@@ -182,8 +183,7 @@ export class GameScene extends Phaser.Scene {
     const sprite = this.add.image(0, 0, 'knight-a').setDepth(DEPTH.player).setOrigin(0.5, 0.85);
     const gun = this.add.image(0, 0, 'gun-bolt').setDepth(DEPTH.gun);
     const gun2 = this.add.image(0, 0, 'gun-bolt').setDepth(DEPTH.gun - 0.2).setVisible(false);
-    this.player = { x: 512, y: 560, vx: 0, vy: 0, r: 5, aim: -Math.PI / 2, iframes: 0, dashT: 0, dashCd: 0, dashX: 0, dashY: 0, trailT: 0, walkT: 0, sinceHit: 9, armorT: 0, skillT: 0, skillCd: 0, punch: 0, sprite, gun, gun2, shadow };
-    this.cameras.main.startFollow(sprite, true, 0.14, 0.14);
+    this.player = { x: ARENA.cx, y: ARENA.cy, vx: 0, vy: 0, r: 5, aim: -Math.PI / 2, iframes: 0, dashT: 0, dashCd: 0, dashX: 0, dashY: 0, trailT: 0, walkT: 0, sinceHit: 9, armorT: 0, skillT: 0, skillCd: 0, punch: 0, sprite, gun, gun2, shadow };
   }
 
   clearRoom(all = false) {
@@ -194,113 +194,185 @@ export class GameScene extends Phaser.Scene {
     this.eproj = [];
     for (const p of this.pickups) {
       if (!all && p.kind === 'gem' && !p.dead) this.gainXp(p.value);
+      (p.sprite.getData('glow') as Img | undefined)?.destroy();
       p.sprite.destroy();
     }
     this.pickups = [];
     this.obstacles.forEach((o) => o.sprite.destroy());
     this.obstacles = [];
     this.hazards = [];
-    this.doors.forEach((d) => [d.sprite, d.badge, d.label, d.glow].forEach((o) => o.destroy()));
-    this.doors = [];
     this.telegraphs = [];
     this.visuals = [];
+    this.pedestals.forEach((p) => (p.ped.destroy(), p.item.destroy()));
+    this.pedestals = [];
+    Object.values(this.bars).forEach((b) => b?.destroy());
+    this.bars = {};
+    this.trapdoor?.destroy();
+    this.trapdoor = undefined;
     this.boss = undefined;
     this.pendingSpawns = 0;
     clearSpellVisuals(this);
+    ui.clearLabels();
   }
 
-  enterRoom() {
+  /** Enter a room; `from` is the side of the previous room we walked out of. */
+  enterRoom(room: Room, from?: Dir) {
     this.clearRoom();
-    const roomKey = buildRoom(this, this.kit, this.run.seed + this.run.level * 101 + this.run.room * 7);
+    this.room = room;
+    room.visited = true;
+    for (const d of DIRS) {
+      const n = neighbour(this.floor, room, d);
+      if (n) n.seen = true;
+    }
+    const key = buildRoom(this, this.kit, room.seed, room.doors);
     this.bg?.destroy();
-    this.bg = this.add.image(0, 0, roomKey).setOrigin(0).setDepth(DEPTH.bg);
+    this.bg = this.add.image(0, 0, key).setOrigin(0).setDepth(DEPTH.bg);
     this.decals?.destroy();
     this.decals = this.add.renderTexture(0, 0, ARENA.w, ARENA.h).setOrigin(0).setDepth(DEPTH.decal);
     const p = this.player;
-    p.x = ARENA.w / 2;
-    p.y = ARENA.bottom - 40;
+    const [ex, ey] = from ? DOOR.entry[OPPOSITE[from]] : [ARENA.cx, ARENA.cy + 40];
+    p.x = ex;
+    p.y = ey;
     p.vx = p.vy = 0;
-    this.cameras.main.centerOn(p.x, p.y);
+    p.iframes = Math.max(p.iframes, 0.6);
     this.pets.forEach((pet) => {
-      pet.x = p.x + rand(-20, 20);
-      pet.y = p.y + 10;
+      pet.x = p.x + rand(-10, 10);
+      pet.y = p.y + rand(-10, 10);
     });
-    this.roomCleared = false;
-    this.roomTime = 0;
-    this.spawnT = 1;
-    this.swarmT = 8;
-    this.eliteMid = false;
-    this.hordeOver = false;
-    this.roomKills = 0;
     this.mode = 'play';
-    const lvl = this.run.level;
-    this.roomDur = 28 + this.run.room * 6 + lvl * 4;
-    if (this.run.room >= COMBAT_ROOMS) {
-      this.layoutObstacles(true);
-      audio.setIntensity(2);
-      this.time.delayedCall(700, () => {
-        this.boss = spawnBoss(this, this.run.level === LEVELS - 1 ? 'boar' : 'guardian');
-      });
-    } else {
-      this.layoutObstacles(false);
-      audio.setIntensity(1);
+    this.waveIdx = 0;
+    this.waveTimer = 0;
+    this.hordeT = 0;
+    const rng = new Rng(room.seed);
+    const fresh = !room.cleared;
+    switch (room.type) {
+      case 'start':
+        if (this.run.level === 0) {
+          ui.label('hint1', ARENA.cx, ARENA.cy + 62, 'WASD 移动 · 鼠标瞄准射击', '#c0cbdc', 8);
+          ui.label('hint2', ARENA.cx, ARENA.cy + 76, '空格 冲刺 · E 双持 · Q 换枪', '#c0cbdc', 8);
+        }
+        audio.setIntensity(0);
+        break;
+      case 'treasure':
+        this.layoutObstacles(rng, 'open');
+        if (!room.itemTaken) this.spawnPedestals(room);
+        audio.setIntensity(0);
+        break;
+      case 'boss':
+        this.layoutObstacles(rng, 'boss');
+        if (fresh) {
+          audio.setIntensity(2);
+          this.time.delayedCall(700, () => {
+            this.boss = spawnBoss(this, this.run.level === LEVELS - 1 ? 'boar' : 'guardian');
+          });
+        } else this.spawnTrapdoor();
+        break;
+      case 'horde':
+        this.layoutObstacles(rng, 'open');
+        if (fresh) {
+          this.hordeDur = 22 + this.run.level * 5;
+          this.spawnT = 0.6;
+          this.swarmT = 6;
+          audio.setIntensity(2);
+          ui.toast(`尸潮来袭 · 坚持 ${this.hordeDur} 秒`, 1800);
+        }
+        break;
+      default:
+        this.layoutObstacles(rng, 'combat');
+        if (fresh) {
+          this.planWaves(rng);
+          this.spawnWave(0);
+          audio.setIntensity(1);
+        } else audio.setIntensity(0);
     }
+    this.setDoors(!fresh || room.type === 'start' || room.type === 'treasure', false);
   }
 
-  layoutObstacles(boss: boolean) {
-    const rng = this.run.rng;
-    const cx = ARENA.w / 2;
-    const cy = (ARENA.top + ARENA.bottom) / 2;
-    const presets: [number, number][][] = boss
-      ? [
-          [
-            [cx - 300, cy - 150],
-            [cx + 300, cy - 150],
-            [cx - 300, cy + 150],
-            [cx + 300, cy + 150],
-          ],
-        ]
-      : [
-          [
-            [cx - 200, cy - 110],
-            [cx + 200, cy - 110],
-            [cx - 200, cy + 110],
-            [cx + 200, cy + 110],
-          ],
-          [
-            [cx, cy],
-            [cx - 140, cy],
-            [cx + 140, cy],
-            [cx - 330, cy - 150],
-            [cx + 330, cy + 150],
-          ],
-          [
-            [cx - 260, cy - 140],
-            [cx - 90, cy - 40],
-            [cx + 90, cy + 40],
-            [cx + 260, cy + 140],
-          ],
-          [
-            [cx - 120, cy - 130],
-            [cx + 120, cy - 130],
-            [cx - 120, cy + 130],
-            [cx + 120, cy + 130],
-            [cx - 360, cy],
-            [cx + 360, cy],
-          ],
-        ];
-    const layout = rng.pick(presets);
-    for (const [x, y] of layout) this.addObstacle('pillar', x, y);
-    if (!boss) {
-      const n = rng.int(3, 6);
-      for (let i = 0; i < n; i++) {
-        for (let tries = 0; tries < 20; tries++) {
-          const x = rng.range(ARENA.left + 40, ARENA.right - 40);
-          const y = rng.range(ARENA.top + 40, ARENA.bottom - 80);
-          if (this.obstacles.every((o) => dist(o.x, o.y, x, y) > o.r + 40) && dist(x, y, ARENA.w / 2, ARENA.bottom - 40) > 80) {
-            this.addObstacle(rng.chance(0.55) ? 'barrel' : 'crate', x, y);
-            break;
-          }
+  setDoors(open: boolean, animate = true) {
+    for (const d of DIRS) {
+      if (!this.room.doors[d]) continue;
+      const [x, y] = DOOR.pos[d];
+      if (open) {
+        const b = this.bars[d];
+        if (b) {
+          this.tweens.add({ targets: b, alpha: 0, duration: 200, onComplete: () => b.destroy() });
+          this.fx.dust(x, y, 4);
+        }
+        delete this.bars[d];
+      } else if (!this.bars[d]) {
+        const img = this.add.image(x, y + (d === 'up' ? 4 : 0), d === 'up' || d === 'down' ? 'bars-h' : 'bars-v').setDepth(DEPTH.doors);
+        if (animate) img.setAlpha(0);
+        this.bars[d] = img;
+        if (animate) this.tweens.add({ targets: img, alpha: 1, duration: 150 });
+      }
+    }
+    if (animate) audio[open ? 'door' : 'block']();
+  }
+
+  get doorsOpen() {
+    return Object.keys(this.bars).length === 0;
+  }
+
+  layoutObstacles(rng: Rng, kind: 'combat' | 'open' | 'boss') {
+    const { cx, cy } = ARENA;
+    const presets: [number, number][][] =
+      kind === 'boss'
+        ? [
+            [
+              [cx - 190, cy - 80],
+              [cx + 190, cy - 80],
+              [cx - 190, cy + 80],
+              [cx + 190, cy + 80],
+            ],
+          ]
+        : kind === 'open'
+          ? [
+              [
+                [cx - 220, cy - 90],
+                [cx + 220, cy - 90],
+                [cx - 220, cy + 90],
+                [cx + 220, cy + 90],
+              ],
+            ]
+          : [
+              [
+                [cx - 150, cy - 70],
+                [cx + 150, cy - 70],
+                [cx - 150, cy + 70],
+                [cx + 150, cy + 70],
+              ],
+              [
+                [cx, cy],
+                [cx - 110, cy],
+                [cx + 110, cy],
+              ],
+              [
+                [cx - 180, cy - 80],
+                [cx - 60, cy - 26],
+                [cx + 60, cy + 26],
+                [cx + 180, cy + 80],
+              ],
+              [
+                [cx - 100, cy - 75],
+                [cx + 100, cy - 75],
+                [cx - 100, cy + 75],
+                [cx + 100, cy + 75],
+                [cx - 230, cy],
+                [cx + 230, cy],
+              ],
+              [],
+            ];
+    for (const [x, y] of rng.pick(presets)) this.addObstacle('pillar', x, y);
+    if (kind !== 'combat') return;
+    const n = rng.int(2, 4);
+    for (let i = 0; i < n; i++) {
+      for (let tries = 0; tries < 20; tries++) {
+        const x = rng.range(ARENA.left + 30, ARENA.right - 30);
+        const y = rng.range(ARENA.top + 30, ARENA.bottom - 30);
+        const nearDoor = DIRS.some((d) => dist(x, y, DOOR.entry[d][0], DOOR.entry[d][1]) < 50);
+        if (!nearDoor && this.obstacles.every((o) => dist(o.x, o.y, x, y) > o.r + 30)) {
+          this.addObstacle(rng.chance(0.55) ? 'barrel' : 'crate', x, y);
+          break;
         }
       }
     }
@@ -315,104 +387,54 @@ export class GameScene extends Phaser.Scene {
   // ---------------------------------------------------------------- spawning
 
   enemyKinds(): EnemyKind[] {
-    const { level, room } = this.run;
-    return (Object.keys(ENEMIES) as EnemyKind[]).filter((k) => ENEMIES[k].minLevel <= level || room >= 2);
+    const depth = this.room?.depth ?? 0;
+    return (Object.keys(ENEMIES) as EnemyKind[]).filter((k) => ENEMIES[k].minLevel <= this.run.level || depth >= 3);
   }
 
-  offscreenPoint(): [number, number] {
-    const v = this.cameras.main.worldView;
+  planWaves(rng: Rng) {
+    const level = this.run.level;
+    const depth = Math.min(this.room.depth, 5);
+    const budget = 9 + level * 7 + depth * 1.6;
+    const waveCount = depth >= 3 ? 3 : 2;
+    const kinds = this.enemyKinds();
+    let elites = rng.chance(0.15 + level * 0.12 + depth * 0.03) ? 1 : 0;
+    this.waves = [];
+    for (let w = 0; w < waveCount; w++) {
+      let left = Math.round((budget * (0.8 + w * 0.25)) / waveCount);
+      const wave: { kind: EnemyKind; elite: boolean }[] = [];
+      while (left > 0) {
+        const kind = rng.weighted(kinds, (q) => ENEMIES[q].weight);
+        const elite = elites > 0 && w === waveCount - 1;
+        if (elite) elites--;
+        wave.push({ kind, elite });
+        left -= ENEMIES[kind].cost + (elite ? 4 : 0);
+      }
+      this.waves.push(wave);
+    }
+  }
+
+  /** A point on the floor away from the player and the doors. */
+  spawnPoint(minDist = 110): [number, number] {
     const rng = this.run.rng;
-    for (let i = 0; i < 24; i++) {
-      const x = rng.range(ARENA.left + 12, ARENA.right - 12);
-      const y = rng.range(ARENA.top + 12, ARENA.bottom - 12);
-      const inView = x > v.x - 16 && x < v.right + 16 && y > v.y - 16 && y < v.bottom + 16;
-      if (!inView && this.obstacles.every((o) => dist2(o.x, o.y, x, y) > (o.r + 10) ** 2)) return [x, y];
-    }
-    const a = rng.range(0, TAU);
-    return clampToArena(this.player.x + Math.cos(a) * 220, this.player.y + Math.sin(a) * 150, 12);
-  }
-
-  updateHorde(dt: number) {
-    if (this.roomCleared || this.mode !== 'play') return;
-    const run = this.run;
-    const alive = this.enemies.filter((e) => !e.dead && !e.boss).length;
-    if (run.room >= COMBAT_ROOMS) {
-      // Boss rooms keep a thin trickle of fodder for XP and chaos.
-      this.spawnT -= dt;
-      if (this.boss && !this.boss.dead && this.spawnT <= 0 && alive < 14) {
-        this.spawnT = 3.2;
-        const [x, y] = this.offscreenPoint();
-        for (let i = 0; i < 3; i++) this.spawnEnemy(run.rng.pick(['wanderer', 'bat'] as EnemyKind[]), x + rand(-12, 12), y + rand(-12, 12));
-      }
-      return;
-    }
-    this.roomTime += dt;
-    const k = Math.min(1, this.roomTime / this.roomDur);
-    const cap = 70 + run.level * 30;
-    if (!this.hordeOver) {
-      this.spawnT -= dt;
-      if (this.spawnT <= 0 && alive < cap) {
-        this.spawnT = lerp(1.1, 0.42, k) / (1 + run.level * 0.22);
-        const [x, y] = this.offscreenPoint();
-        const n = 1 + Math.floor(k * 3) + run.level + (run.room >> 1);
-        const kinds = this.enemyKinds();
-        for (let i = 0; i < n; i++) {
-          const kind = run.rng.weighted(kinds, (q) => ENEMIES[q].weight);
-          this.spawnEnemy(kind, x + rand(-14, 14), y + rand(-14, 14));
-        }
-      }
-      this.swarmT -= dt;
-      if (this.swarmT <= 0) {
-        this.swarmT = 12;
-        this.swarm();
-      }
-      if (!this.eliteMid && k >= 0.5) {
-        this.eliteMid = true;
-        const [x, y] = this.offscreenPoint();
-        this.spawnEnemy(run.rng.pick(this.enemyKinds()), x, y, true);
-      }
-      if (this.roomTime >= this.roomDur) {
-        this.hordeOver = true;
-        const elites = run.eliteNext ? 2 : 1;
-        for (let i = 0; i < elites; i++) {
-          const [x, y] = this.offscreenPoint();
-          this.spawnEnemy(run.rng.pick(this.enemyKinds()), x, y, true);
-        }
-        this.enemies.forEach((e) => (e.hurry = true));
-        ui.toast('尸潮退去 · 清理残敌');
-      }
-    } else if (alive === 0 && this.pendingSpawns === 0) {
-      this.onRoomCleared();
-    }
-  }
-
-  /** Vampire Survivors style events: a bat swarm from one side, or a ring of slimes closing in. */
-  swarm() {
-    const run = this.run;
     const p = this.player;
-    if (run.rng.chance(0.5)) {
-      const fromLeft = p.x > ARENA.w / 2;
-      const x = fromLeft ? ARENA.left + 10 : ARENA.right - 10;
-      const n = 8 + run.level * 4;
-      for (let i = 0; i < n; i++) {
-        const e = this.spawnEnemy('bat', x, clamp(p.y + rand(-90, 90), ARENA.top + 10, ARENA.bottom - 10));
-        e.state = 'swarm';
-        e.facing = fromLeft ? 0 : Math.PI;
-      }
-      ui.toast('蝙蝠群来袭', 900);
-    } else {
-      const n = 12 + run.level * 4;
-      const R = 150;
-      for (let i = 0; i < n; i++) {
-        const a = (i / n) * TAU;
-        const [x, y] = clampToArena(p.x + Math.cos(a) * R, p.y + Math.sin(a) * R * 0.75, 10);
-        this.queueSpawn('wanderer', x, y);
-      }
-      ui.toast('包围', 900);
+    for (let i = 0; i < 40; i++) {
+      const x = rng.range(ARENA.left + 14, ARENA.right - 14);
+      const y = rng.range(ARENA.top + 14, ARENA.bottom - 14);
+      if (dist2(x, y, p.x, p.y) < minDist * minDist) continue;
+      if (this.obstacles.some((o) => !o.dead && dist2(o.x, o.y, x, y) < (o.r + 10) ** 2)) continue;
+      return [x, y];
+    }
+    return [p.x < ARENA.cx ? ARENA.right - 30 : ARENA.left + 30, ARENA.cy];
+  }
+
+  spawnWave(i: number) {
+    for (const s of this.waves[i]) {
+      const [x, y] = this.spawnPoint();
+      this.queueSpawn(s.kind, x, y, s.elite);
     }
   }
 
-  queueSpawn(kind: EnemyKind, x: number, y: number, elite = false, mini = false) {
+  queueSpawn(kind: EnemyKind, x: number, y: number, elite = false, mini = false, delay = 0.7) {
     this.pendingSpawns++;
     this.telegraphs.push({
       kind: 'spawn',
@@ -420,7 +442,7 @@ export class GameScene extends Phaser.Scene {
       y,
       r: elite ? 14 : 9,
       t: 0,
-      dur: 0.7,
+      dur: delay,
       onDone: () => {
         this.pendingSpawns--;
         if (this.mode === 'dead' || this.mode === 'end') return;
@@ -431,8 +453,9 @@ export class GameScene extends Phaser.Scene {
 
   spawnEnemy(kind: EnemyKind, x: number, y: number, elite = false, mini = false): Enemy {
     const def = ENEMIES[kind];
-    const { level, room, rng } = this.run;
-    const scaleHp = (1 + level * 0.65 + room * 0.12) * (mini ? 0.5 : 1);
+    const { level, rng } = this.run;
+    const depth = this.room?.depth ?? 0;
+    const scaleHp = (1 + level * 0.65 + depth * 0.08) * (mini ? 0.5 : 1);
     const affix: Affix | undefined = elite ? rng.pick(Object.keys(AFFIXES) as Affix[]) : undefined;
     const hp = def.hp * scaleHp * (elite ? 5 : 1) * (affix === 'tough' ? 1.4 : 1);
     const size = elite ? 1.6 : mini ? 0.8 : 1;
@@ -468,7 +491,6 @@ export class GameScene extends Phaser.Scene {
       sprite,
       shadow,
       mini,
-      hurry: this.hordeOver,
     };
     if (kind === 'shield') e.extra = this.add.image(x, y, K('shield', this.kit)).setDepth(DEPTH.enemy + 0.1);
     if (elite) {
@@ -486,15 +508,88 @@ export class GameScene extends Phaser.Scene {
     e.ring?.destroy();
   }
 
+  updateRoom(dt: number) {
+    const room = this.room;
+    if (room.cleared || this.mode !== 'play') return;
+    const alive = this.enemies.filter((e) => !e.dead && !e.boss).length;
+    switch (room.type) {
+      case 'combat': {
+        this.waveTimer += dt;
+        const waveSize = this.waves[this.waveIdx]?.length ?? 1;
+        if (this.waveIdx < this.waves.length - 1 && (alive + this.pendingSpawns <= Math.floor(waveSize * 0.3) || this.waveTimer > 9)) {
+          this.waveIdx++;
+          this.waveTimer = 0;
+          this.spawnWave(this.waveIdx);
+        } else if (this.waveIdx === this.waves.length - 1 && alive === 0 && this.pendingSpawns === 0) this.onRoomCleared();
+        break;
+      }
+      case 'horde': {
+        this.hordeT += dt;
+        const k = Math.min(1, this.hordeT / this.hordeDur);
+        if (this.hordeT < this.hordeDur) {
+          this.spawnT -= dt;
+          if (this.spawnT <= 0 && alive < 60 + this.run.level * 20) {
+            this.spawnT = lerp(0.9, 0.38, k) / (1 + this.run.level * 0.2);
+            const [x, y] = this.spawnPoint(140);
+            const n = 2 + Math.floor(k * 3) + this.run.level;
+            for (let i = 0; i < n; i++) {
+              const kind = this.run.rng.weighted(this.enemyKinds(), (q) => ENEMIES[q].weight);
+              this.queueSpawn(kind, x + rand(-14, 14), y + rand(-14, 14), false, false, 0.45);
+            }
+          }
+          this.swarmT -= dt;
+          if (this.swarmT <= 0) {
+            this.swarmT = 8;
+            this.swarm();
+          }
+        } else if (alive === 0 && this.pendingSpawns === 0) this.onRoomCleared();
+        break;
+      }
+      case 'boss': {
+        this.spawnT -= dt;
+        if (this.boss && !this.boss.dead && this.spawnT <= 0 && alive < 10) {
+          this.spawnT = 3.5;
+          const [x, y] = this.spawnPoint(140);
+          for (let i = 0; i < 3; i++) this.queueSpawn(this.run.rng.pick(['wanderer', 'bat'] as EnemyKind[]), x + rand(-12, 12), y + rand(-12, 12), false, false, 0.5);
+        }
+        break;
+      }
+    }
+  }
+
+  /** Vampire Survivors moments inside a room: a bat stream from one side, or a ring of slimes closing in. */
+  swarm() {
+    const run = this.run;
+    const p = this.player;
+    if (run.rng.chance(0.5)) {
+      const fromLeft = p.x > ARENA.cx;
+      const x = fromLeft ? ARENA.left + 8 : ARENA.right - 8;
+      const n = 8 + run.level * 4;
+      for (let i = 0; i < n; i++) {
+        const e = this.spawnEnemy('bat', x, clamp(p.y + rand(-70, 70), ARENA.top + 8, ARENA.bottom - 8));
+        e.state = 'swarm';
+        e.facing = fromLeft ? 0 : Math.PI;
+      }
+      ui.toast('蝙蝠群', 800);
+    } else {
+      const n = 10 + run.level * 4;
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * TAU;
+        const [x, y] = clampToArena(p.x + Math.cos(a) * 110, p.y + Math.sin(a) * 80, 10);
+        this.queueSpawn('wanderer', x, y);
+      }
+      ui.toast('包围', 800);
+    }
+  }
+
   // ---------------------------------------------------------------- update
 
   update(_t: number, dms: number) {
     const realDt = Math.min(dms, 50) / 1000;
     this.fx.update(realDt);
     if (!this.kit) return;
-    const cam = this.cameras.main;
     const ptr = this.input.activePointer;
-    const wp = cam.getWorldPoint(ptr.x, ptr.y);
+    const wp = this.cameras.main.getWorldPoint(ptr.x, ptr.y);
     this.aimX = wp.x;
     this.aimY = wp.y;
     this.drawCursor();
@@ -512,7 +607,6 @@ export class GameScene extends Phaser.Scene {
     }
     const dt = realDt * this.slowScale;
     this.time0 += dt;
-
     if (this.mode === 'play') {
       this.updatePlayer(dt);
       this.updateWeapons(dt);
@@ -525,8 +619,8 @@ export class GameScene extends Phaser.Scene {
     this.updateHazards(dt);
     this.updateTelegraphs(dt);
     if (this.mode === 'play') {
-      this.updateHorde(dt);
-      this.updateDoors(dt);
+      this.updateRoom(dt);
+      this.updateExits();
     }
     this.comboT -= dt;
     if (this.comboT <= 0 && this.combo > 0) this.combo = 0;
@@ -538,7 +632,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   hudTick(dt: number) {
-    if (!this.run) return;
+    if (!this.run || !this.floor) return;
     this.hudT -= dt;
     if (this.hudT > 0) return;
     this.hudT = 1 / 20;
@@ -561,12 +655,11 @@ export class GameScene extends Phaser.Scene {
       spells: run.spells.map((s) => ({ id: s.id, level: s.level, evolved: s.evolved })),
       pets: run.pets,
       level: run.level,
-      room: run.room,
-      rooms: COMBAT_ROOMS,
       styleName: this.kit.name,
-      timer: run.room >= COMBAT_ROOMS ? -1 : this.hordeOver ? 0 : Math.max(0, this.roomDur - this.roomTime),
+      timer: this.room.type === 'horde' && !this.room.cleared ? Math.max(0, this.hordeDur - this.hordeT) : 0,
       kills: run.kills,
       combo: this.combo,
+      map: [...this.floor.rooms.values()].map((r) => ({ gx: r.gx, gy: r.gy, type: r.type, visited: r.visited, seen: r.seen, current: r === this.room, cleared: r.cleared })),
       boss: b ? { name: b.boss!.name, ratio: Math.max(0, b.hp / b.maxHp), phaseMark: b.kind === 'boar' ? 0.5 : 0.55 } : undefined,
     });
   }
@@ -602,17 +695,13 @@ export class GameScene extends Phaser.Scene {
     p.sinceHit += dt;
     p.skillCd -= dt;
     if (p.skillT > 0) p.skillT -= dt;
-
-    // Armor regenerates after a short break from damage.
     if (p.sinceHit > 2.2 && this.run.armor < this.run.mods.maxArmor) {
       p.armorT -= dt;
       if (p.armorT <= 0) {
         p.armorT = 0.9;
         this.run.armor++;
-        audio.pickup(3);
       }
     }
-
     if ((Phaser.Input.Keyboard.JustDown(k.SPACE) || Phaser.Input.Keyboard.JustDown(k.SHIFT)) && p.dashCd <= 0) {
       p.dashX = il > 0 ? ix : Math.cos(p.aim);
       p.dashY = il > 0 ? iy : Math.sin(p.aim);
@@ -624,8 +713,8 @@ export class GameScene extends Phaser.Scene {
     }
     if (p.dashT > 0) {
       p.dashT -= dt;
-      p.vx = p.dashX * 330;
-      p.vy = p.dashY * 330;
+      p.vx = p.dashX * 320;
+      p.vy = p.dashY * 320;
       p.trailT -= dt;
       if (p.trailT <= 0) {
         p.trailT = 0.025;
@@ -654,13 +743,39 @@ export class GameScene extends Phaser.Scene {
     const moving = Math.hypot(p.vx, p.vy) > 20;
     if (moving) p.walkT += dt;
     p.sprite.setTexture(moving && Math.floor(p.walkT * 8) % 2 ? 'knight-b' : 'knight-a');
+  }
 
-    // Camera leans toward the cursor, like Soul Knight.
-    const lx = clamp(this.aimX - p.x, -200, 200) * 0.18;
-    const ly = clamp(this.aimY - p.y, -120, 120) * 0.18;
-    this.camOff.x += (-lx - this.camOff.x) * Math.min(1, dt * 6);
-    this.camOff.y += (-ly - this.camOff.y) * Math.min(1, dt * 6);
-    this.cameras.main.setFollowOffset(this.camOff.x, this.camOff.y);
+  /** Walk into an open doorway to move to the next room. */
+  updateExits() {
+    if (!this.doorsOpen) return;
+    const p = this.player;
+    const h = DOOR.half - 3;
+    for (const d of DIRS) {
+      if (!this.room.doors[d]) continue;
+      const hit =
+        (d === 'up' && Math.abs(p.x - ARENA.cx) < h && p.y <= ARENA.top + p.r + 1) ||
+        (d === 'down' && Math.abs(p.x - ARENA.cx) < h && p.y >= ARENA.bottom - p.r - 1) ||
+        (d === 'left' && Math.abs(p.y - ARENA.cy) < h && p.x <= ARENA.left + p.r + 1) ||
+        (d === 'right' && Math.abs(p.y - ARENA.cy) < h && p.x >= ARENA.right - p.r - 1);
+      if (hit) {
+        this.goThrough(d);
+        return;
+      }
+    }
+  }
+
+  goThrough(d: Dir) {
+    const next = neighbour(this.floor, this.room, d);
+    if (!next) return;
+    this.mode = 'transition';
+    const cam = this.cameras.main;
+    cam.fadeOut(110, 11, 10, 18);
+    cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      this.enterRoom(next, d);
+      cam.fadeIn(150, 11, 10, 18);
+      if (next.type === 'treasure' && !next.itemTaken) ui.toast('宝箱房 · 三选一', 1200);
+      if (next.type === 'boss' && !next.cleared) audio.roar();
+    });
   }
 
   switchGun() {
@@ -678,7 +793,7 @@ export class GameScene extends Phaser.Scene {
     p.skillCd = 14;
     audio.levelUp();
     this.fx.ring(p.x, p.y - 4, 40, E.cyan, 300);
-    this.fx.callout(p.x, p.y - 22, '双持', E.cyan, 12);
+    this.fx.callout(p.x, p.y - 26, '双持！', E.cyan, 12);
   }
 
   fireRateMult() {
@@ -710,7 +825,6 @@ export class GameScene extends Phaser.Scene {
     return d;
   }
 
-  /** Where bullets leave the gun. */
   muzzle(off = false): [number, number] {
     const p = this.player;
     const g = off ? p.gun2 : p.gun;
@@ -798,7 +912,9 @@ export class GameScene extends Phaser.Scene {
     const sprite = this.add.image(x, y, tkey[kind]).setDepth(enemy ? DEPTH.ebullet : DEPTH.proj).setRotation(kind === 'bolt' ? a : 0);
     const base: Record<ProjKind, number> = { bolt: 3, pellet: 2.5, blade: 5, shell: 3, shard: 2, orb: 3, axe: 4, ebullet: 3, ebig: 5 };
     sprite.setScale(Math.max(0.6, r / base[kind]));
-    const p: Proj = { kind, x, y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, r, dmg, pierce, life, knock, src, sprite, hit: new Set(), dead: false };
+    // Player shots sweep from the body centre, so point-blank enemies still get hit.
+    const [px, py] = enemy ? [x, y] : [this.player.x, this.player.y - 4];
+    const p: Proj = { kind, x, y, px, py, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, r, dmg, pierce, life, knock, src, sprite, hit: new Set(), dead: false };
     (enemy ? this.eproj : this.pproj).push(p);
     return p;
   }
@@ -907,7 +1023,7 @@ export class GameScene extends Phaser.Scene {
       }
       for (const e of this.enemies) {
         if (e.dead || p.hit.has(e)) continue;
-        if (dist2(p.x, p.y, e.x, e.y) > (e.r + p.r) ** 2) continue;
+        if (!segCircle(p.px ?? p.x, p.py ?? p.y, p.x, p.y, e.x, e.y - 3, e.r + p.r)) continue;
         const inA = Math.atan2(-p.vy, -p.vx);
         if (e.kind === 'shield' && Math.abs(angleDiff(e.facing, inA)) < 1.0 && e.status.frozen <= 0 && p.kind !== 'axe') {
           this.fx.sparks(p.x, p.y, 4, 'white');
@@ -930,6 +1046,8 @@ export class GameScene extends Phaser.Scene {
         this.killProj(p);
         break;
       }
+      p.px = p.x;
+      p.py = p.y;
       if (!p.dead) p.sprite.setPosition(Math.round(p.x), Math.round(p.y));
     }
     this.pproj = this.pproj.filter((p) => !p.dead);
@@ -988,7 +1106,7 @@ export class GameScene extends Phaser.Scene {
       const ey = cy + dy * len;
       for (const e of this.enemies) {
         if (e.dead || hitSet.has(e)) continue;
-        if (segCircle(cx, cy, ex, ey, e.x, e.y, e.r + width / 2)) {
+        if (segCircle(cx, cy, ex, ey, e.x, e.y - 3, e.r + width / 2)) {
           hitSet.add(e);
           this.damageEnemy(e, dmg, { src, kx: dx, ky: dy, knock, ignoreShield: true });
         }
@@ -1094,7 +1212,6 @@ export class GameScene extends Phaser.Scene {
       }
     }
     this.fx.number(e.x, e.y - e.r * 2 - 4, dmg, { crit, small: o.dot, color: o.color });
-
     if (o.element) this.applyElement(e, o.element, dmg);
     if (!o.dot && !o.noElement) {
       for (const el of ['fire', 'ice', 'shock'] as Element[]) {
@@ -1120,7 +1237,7 @@ export class GameScene extends Phaser.Scene {
     const s = e.status;
     const pow = this.run.mods.elementPower;
     const reaction = (name: string, color: string) => {
-      this.fx.callout(e.x, e.y - e.r * 2 - 10, name, color, 10);
+      this.fx.callout(e.x, e.y - e.r * 2 - 12, name, color, 11);
       this.fx.sparks(e.x, e.y, 8, el);
     };
     if (el === 'fire') {
@@ -1175,7 +1292,6 @@ export class GameScene extends Phaser.Scene {
     e.dead = true;
     const run = this.run;
     run.kills++;
-    this.roomKills++;
     this.combo++;
     this.comboT = 2.2;
     run.maxCombo = Math.max(run.maxCombo, this.combo);
@@ -1183,15 +1299,16 @@ export class GameScene extends Phaser.Scene {
     audio.kill(this.combo);
     this.fx.burst(e.x, e.y - 4, e.elite ? 16 : 6);
     this.fx.petals(e.x, e.y - 4, e.elite ? 8 : 2);
-    this.bloom(e.x, e.y, e.boss ? 2.5 : e.elite ? 1.4 : rand(0.6, 1));
+    this.bloom(e.x, e.y, e.boss ? 2 : e.elite ? 2 : 1);
     this.stop(e.elite ? 0.08 : 0.012);
     if (e.elite) this.fx.shake(0.22);
-    if (this.combo > 0 && this.combo % 25 === 0) this.fx.callout(this.player.x, this.player.y - 26, `${this.combo} 连杀`, E.yellow, 12);
-    for (const s of run.spells) if (s.id === 'aura' && s.evolved && dist2(e.x, e.y, this.player.x, this.player.y) < 60 * 60) {
-      s.kills++;
-      if (s.kills % 12 === 0) this.heal(1, this.player.x, this.player.y);
+    if (this.combo > 0 && this.combo % 25 === 0) this.fx.callout(this.player.x, this.player.y - 30, `${this.combo} 连杀！`, E.yellow, 12);
+    for (const s of run.spells) {
+      if (s.id === 'aura' && s.evolved && dist2(e.x, e.y, this.player.x, this.player.y) < 60 * 60) {
+        s.kills++;
+        if (s.kills % 12 === 0) this.heal(1, this.player.x, this.player.y);
+      }
     }
-
     this.dropGem(e.x, e.y, Math.max(1, Math.round(e.xp)));
     if (e.elite) {
       this.dropChest(e.x, e.y);
@@ -1214,10 +1331,9 @@ export class GameScene extends Phaser.Scene {
     e.ring?.destroy();
   }
 
-  /** Each kill leaves an anemone on the floor; by the end of a room the floor is in bloom. */
+  /** Each kill leaves an anemone on the floor; a cleared room is in bloom. */
   bloom(x: number, y: number, scale: number) {
-    const angle = Math.floor(rand(0, 4)) * 90;
-    this.decals?.stamp('bloom', undefined, Math.round(x), Math.round(y), { angle, scale: Math.max(1, Math.round(scale)), alpha: 0.85 });
+    this.decals?.stamp('bloom', undefined, Math.round(x), Math.round(y), { angle: Math.floor(rand(0, 4)) * 90, scale, alpha: 0.85 });
   }
 
   explode(x: number, y: number, r: number, dmg: number, o: { src: string; hurtsPlayer?: number; knock?: number; small?: boolean }) {
@@ -1330,12 +1446,10 @@ export class GameScene extends Phaser.Scene {
       else s.chillStacks = 0;
       if (s.frozen > 0) s.frozen -= dt;
       if (s.shock > 0) s.shock -= dt;
-      const slowMul = (s.frozen > 0 ? 0 : 1 - Math.min(0.6, s.chillStacks * 0.2 + (s.chill > 0 ? 0.15 : 0))) * (e.hurry ? 1.4 : 1);
-
+      const slowMul = s.frozen > 0 ? 0 : 1 - Math.min(0.6, s.chillStacks * 0.2 + (s.chill > 0 ? 0.15 : 0));
       if (e.boss) updateBoss(this, e, dt, slowMul);
       else updateEnemyAI(this, e, dt, slowMul);
       if (e.dead) continue;
-
       const kd = Math.exp(-dt * 10);
       e.kx *= kd;
       e.ky *= kd;
@@ -1405,14 +1519,14 @@ export class GameScene extends Phaser.Scene {
     this.enemies = list.filter((e) => !e.dead || e.boss);
   }
 
-  // ---------------------------------------------------------------- pickups
+  // ---------------------------------------------------------------- pickups, treasure, trapdoor
 
   dropGem(x: number, y: number, value: number) {
     const tier = value >= 5 ? 3 : value >= 2 ? 2 : 1;
     const a = rand(0, TAU);
     const sp = rand(10, 40);
     const sprite = this.add.image(Math.round(x), Math.round(y), `gem-${tier}`).setDepth(DEPTH.pickup);
-    this.pickups.push({ kind: 'gem', tier, x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, value, t: 0, magnet: this.roomCleared, sprite, dead: false });
+    this.pickups.push({ kind: 'gem', tier, x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, value, t: 0, magnet: !!this.room?.cleared, sprite, dead: false });
   }
 
   dropHeart(x: number, y: number) {
@@ -1421,7 +1535,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   dropChest(x: number, y: number) {
-    const [cx, cy] = clampToArena(x, y, 10);
+    const [cx, cy] = clampToArena(x, y, 12);
     const sprite = this.add.image(Math.round(cx), Math.round(cy), 'chest').setDepth(DEPTH.pickup + 0.5).setOrigin(0.5, 0.8);
     const glow = this.add.image(cx, cy - 4, 'glow').setDepth(DEPTH.pickup).setTint(hexToNum(E.yellow)).setScale(1.6).setAlpha(0.6).setBlendMode(Phaser.BlendModes.ADD);
     this.tweens.add({ targets: glow, alpha: 0.2, yoyo: true, repeat: -1, duration: 500 });
@@ -1439,8 +1553,7 @@ export class GameScene extends Phaser.Scene {
         if (this.mode === 'play' && dist2(p.x, p.y, pl.x, pl.y) < 14 * 14) this.openChest(p);
         continue;
       }
-      const near = dist2(p.x, p.y, pl.x, pl.y) < radius * radius;
-      if (!p.magnet && p.t > 0.25 && (near || (p.kind === 'heart' && dist2(p.x, p.y, pl.x, pl.y) < 20 * 20))) p.magnet = true;
+      if (!p.magnet && p.t > 0.25 && (dist2(p.x, p.y, pl.x, pl.y) < radius * radius || (p.kind === 'heart' && dist2(p.x, p.y, pl.x, pl.y) < 20 * 20))) p.magnet = true;
       if (p.magnet && this.mode !== 'dead') {
         const a = Math.atan2(pl.y - 4 - p.y, pl.x - p.x);
         p.vx += Math.cos(a) * 900 * dt;
@@ -1474,9 +1587,10 @@ export class GameScene extends Phaser.Scene {
       }
     }
     this.pickups = this.pickups.filter((p) => !p.dead);
+    this.updatePedestals();
+    this.updateTrapdoor();
   }
 
-  /** VS-style treasure: evolutions first, otherwise a spell level or a rare upgrade. */
   openChest(p: Pickup) {
     p.dead = true;
     (p.sprite.getData('glow') as Img | undefined)?.destroy();
@@ -1492,11 +1606,114 @@ export class GameScene extends Phaser.Scene {
     let c: Choice;
     if (evo.length) c = evo[0];
     else {
-      const spellUps = run.spells.filter((s) => s.level < 5).map((s) => ({ type: 'spell-up', id: s.id }) as Choice);
-      c = spellUps.length && run.rng.chance(0.6) ? run.rng.pick(spellUps) : rollChoices(run, 'rare')[0];
+      const ups = run.spells.filter((s) => s.level < 5).map((s) => ({ type: 'spell-up', id: s.id }) as Choice);
+      c = ups.length && run.rng.chance(0.6) ? run.rng.pick(ups) : rollChoices(run, 'rare')[0];
     }
-    applyChoice(run, c);
+    this.takeChoice(c);
     ui.chestReward(c, run);
+  }
+
+  /** Treasure room: three items on pedestals, take one and the others vanish. */
+  spawnPedestals(room: Room) {
+    const run = this.run;
+    if (!room.items) {
+      const items: Choice[] = [];
+      const guns = WEAPON_ORDER.filter((id) => !run.weapons.some((w) => w.def.id === id));
+      if (guns.length) items.push({ type: 'weapon-new', id: run.rng.pick(guns) });
+      const spellsNew = SPELL_ORDER.filter((id) => !run.spells.some((s) => s.id === id));
+      if (spellsNew.length && run.spells.length < 4) items.push({ type: 'spell-new', id: run.rng.pick(spellsNew) });
+      else {
+        const up = run.spells.find((s) => s.level < 5);
+        if (up) items.push({ type: 'spell-up', id: up.id });
+      }
+      const pets = (['hound', 'dove', 'swan'] as const).filter((k) => !run.pets.includes(k));
+      if (pets.length) items.push({ type: 'pet', kind: run.rng.pick(pets) });
+      while (items.length < 3) items.push(rollChoices(run, 'rare')[0]);
+      room.items = items.slice(0, 3);
+    }
+    room.items.forEach((choice, i) => {
+      const x = ARENA.cx + (i - 1) * 96;
+      const y = ARENA.cy + 6;
+      const ped = this.add.image(x, y + 6, 'pedestal').setDepth(DEPTH.obstacle);
+      let key: string;
+      switch (choice.type) {
+        case 'weapon-new':
+          key = `gun-${choice.id}`;
+          break;
+        case 'spell-new':
+        case 'spell-up':
+        case 'evolve':
+          key = `spell-${choice.id}`;
+          break;
+        case 'pet':
+          key = `pet-${choice.kind}`;
+          break;
+        default:
+          key = textTexture(this, choice.type === 'upgrade' ? choice.def.glyph : '愈', { size: 12, color: E.yellow, outline: E.ink });
+      }
+      const item = this.add.image(x, y - 8, key).setDepth(DEPTH.obstacle + 0.5).setScale(choice.type === 'weapon-new' ? 1.5 : 2);
+      const glow = this.add.image(x, y - 8, 'glow').setDepth(DEPTH.obstacle + 0.4).setTint(hexToNum(E.yellow)).setScale(1.4).setAlpha(0.5).setBlendMode(Phaser.BlendModes.ADD);
+      item.setData('glow', glow);
+      const d = ui.describe(choice, run);
+      const id = `ped${i}`;
+      ui.label(id, x, y + 24, d.name, E.white, 8);
+      ui.label(`${id}t`, x, y + 34, d.tag, d.tagColor, 7);
+      this.pedestals.push({ x, y, ped, item, choice, id });
+    });
+  }
+
+  updatePedestals() {
+    if (!this.pedestals.length || this.mode !== 'play') return;
+    const pl = this.player;
+    for (const p of this.pedestals) {
+      p.item.setY(Math.round(p.y - 9 + Math.sin(this.time0 * 3 + p.x) * 2));
+      (p.item.getData('glow') as Img).setY(p.item.y);
+      if (dist2(p.x, p.y, pl.x, pl.y) < 14 * 14) {
+        this.takeChoice(p.choice);
+        ui.chestReward(p.choice, this.run);
+        this.room.itemTaken = true;
+        this.fx.ring(p.x, p.y - 8, 50, E.yellow, 400);
+        this.fx.sparks(p.x, p.y - 8, 16, 'gold');
+        audio.levelUp();
+        for (const q of this.pedestals) {
+          (q.item.getData('glow') as Img).destroy();
+          q.item.destroy();
+          ui.unlabel(q.id);
+          ui.unlabel(`${q.id}t`);
+          if (q !== p) this.fx.dust(q.x, q.y - 8, 8);
+        }
+        this.pedestals.forEach((q) => q.ped.setAlpha(0.6));
+        this.pedestals = [];
+        return;
+      }
+    }
+  }
+
+  spawnTrapdoor() {
+    const final = this.run.level === LEVELS - 1;
+    const x = ARENA.cx;
+    const y = ARENA.cy + 30;
+    this.trapdoor = this.add.image(x, y, final ? 'bloom' : 'trapdoor').setDepth(DEPTH.decal + 0.5).setScale(final ? 3 : 1);
+    ui.label('trap', x, y + 20, final ? '走到花上 · 结束轮回' : '下一层', E.yellow, 9);
+  }
+
+  updateTrapdoor() {
+    if (!this.trapdoor || this.mode !== 'play') return;
+    const p = this.player;
+    if (dist2(p.x, p.y, this.trapdoor.x, this.trapdoor.y) > 12 * 12) return;
+    this.mode = 'transition';
+    this.trapdoor = undefined;
+    audio.select();
+    const cam = this.cameras.main;
+    cam.fadeOut(500, 255, 255, 255);
+    cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      if (this.run.level === LEVELS - 1) {
+        this.victory();
+        return;
+      }
+      this.run.level++;
+      this.enterLevel();
+    });
   }
 
   gainXp(v: number) {
@@ -1522,22 +1739,6 @@ export class GameScene extends Phaser.Scene {
       this.takeChoice(choices[i]);
       this.pendingLevelUps--;
       this.mode = 'play';
-      if (this.pendingLevelUps > 0) this.time.delayedCall(120, () => this.openLevelUp());
-    });
-  }
-
-  offer(kind: 'rare' | 'weapon' | 'pet', then?: () => void) {
-    if (this.mode === 'choose') {
-      this.time.delayedCall(300, () => this.offer(kind, then));
-      return;
-    }
-    this.mode = 'choose';
-    const choices = rollChoices(this.run, kind);
-    const title = { rare: '稀有加成', weapon: '武器箱', pet: '宠物' }[kind];
-    ui.choices(title, '选择一项', choices, this.run, (i) => {
-      this.takeChoice(choices[i]);
-      this.mode = 'play';
-      then?.();
       if (this.pendingLevelUps > 0) this.time.delayedCall(120, () => this.openLevelUp());
     });
   }
@@ -1576,115 +1777,35 @@ export class GameScene extends Phaser.Scene {
     this.visuals = this.visuals.filter((v) => v.t < v.dur);
   }
 
-  // ---------------------------------------------------------------- rooms and doors
-
+  /** Doors open, a reward may drop. Boss rooms leave a trapdoor (or the final bloom). */
   onRoomCleared(bossDown = false) {
-    if (this.roomCleared) return;
-    this.roomCleared = true;
+    const room = this.room;
+    if (room.cleared) return;
+    room.cleared = true;
     audio.setIntensity(0);
     this.pickups.forEach((p) => p.kind === 'gem' && (p.magnet = true));
     if (this.run.pets.includes('dove')) this.heal(1, this.player.x, this.player.y);
-    const run = this.run;
-    const after = () => {
-      let rewards: DoorReward[];
-      if (bossDown) rewards = [run.level === LEVELS - 1 ? 'victory' : 'next'];
-      else if (run.room === COMBAT_ROOMS - 1) rewards = ['boss'];
-      else rewards = this.rollDoorRewards();
-      this.spawnDoors(rewards);
-    };
-    if (!bossDown) ui.toast('房间清空');
-    if (run.eliteNext && !bossDown) {
-      run.eliteNext = false;
-      this.time.delayedCall(500, () => this.offer('rare', after));
-    } else this.time.delayedCall(bossDown ? 1800 : 400, after);
-  }
-
-  rollDoorRewards(): DoorReward[] {
-    const run = this.run;
-    const pool: [DoorReward, number][] = [['rare', 30], ['weapon', 26]];
-    if (run.pets.length < 3) pool.push(['pet', run.pets.length === 0 ? 34 : 18]);
-    if (run.hp < run.mods.maxHp - 1) pool.push(['heal', 16]);
-    if (run.room < COMBAT_ROOMS - 2) pool.push(['elite', 14]);
-    const out: DoorReward[] = [];
-    while (out.length < 2 && pool.length) {
-      const pick = run.rng.weighted(pool, (p) => p[1]);
-      out.push(pick[0]);
-      pool.splice(pool.indexOf(pick), 1);
+    this.setDoors(true);
+    const rng = this.run.rng;
+    if (bossDown) {
+      this.time.delayedCall(1600, () => this.spawnTrapdoor());
+      return;
     }
-    return out;
-  }
-
-  spawnDoors(rewards: DoorReward[]) {
-    const xs = rewards.length === 1 ? [ARENA.doorSingleX] : ARENA.doorXs;
-    rewards.forEach((r, i) => {
-      const x = xs[i];
-      const y = ARENA.doorY;
-      const sprite = this.add.image(x, y, K('door', this.kit)).setDepth(DEPTH.doors).setScale(1, 0.1);
-      const glow = this.add.image(x, y + 6, 'glow').setDepth(DEPTH.doors + 0.1).setTint(hexToNum(E.yellow)).setScale(2.4).setAlpha(0).setBlendMode(Phaser.BlendModes.ADD);
-      const info = DOOR_INFO[r];
-      const badge = this.add.image(x, y + 4, textTexture(this, info.glyph, { size: 12, color: E.yellow, outline: E.ink })).setDepth(DEPTH.doors + 1).setAlpha(0);
-      const labelText = r === 'boss' ? this.kit.bossNames[this.run.level === LEVELS - 1 ? 'boar' : 'guardian'] : info.label;
-      const label = this.add.image(x, ARENA.top + 10, textTexture(this, labelText, { size: 10, color: E.white, outline: E.ink })).setDepth(DEPTH.doors + 1).setAlpha(0);
-      this.tweens.add({ targets: sprite, scaleY: 1, duration: 300, ease: 'Back.easeOut', delay: i * 120 });
-      this.tweens.add({ targets: [badge, label], alpha: 1, duration: 300, delay: 200 + i * 120 });
-      this.tweens.add({ targets: glow, alpha: 0.6, duration: 500, delay: 200 + i * 120 });
-      this.doors.push({ x, y, reward: r, sprite, badge, label, glow, open: 0 });
-    });
-    audio.door();
-    ui.toast('选择一扇门', 1200);
-  }
-
-  updateDoors(dt: number) {
-    if (!this.doors.length) return;
-    const pl = this.player;
-    for (const d of this.doors) {
-      d.open += dt;
-      d.badge.setY(Math.round(d.y + 4 + Math.sin(d.open * 4) * 2));
-      if (d.open > 0.6 && Math.abs(pl.x - d.x) < 14 && pl.y < ARENA.top + 12) {
-        this.enterDoor(d);
-        return;
-      }
+    ui.toast('房间清空', 900);
+    const { cx, cy } = ARENA;
+    if (room.type === 'horde') this.dropChest(cx, cy);
+    else {
+      const r = rng.next();
+      if (r < 0.18) this.dropChest(cx, cy);
+      else if (r < 0.4) this.dropHeart(cx, cy);
+      else if (r < 0.7) for (let i = 0; i < 4; i++) this.dropGem(cx + rand(-16, 16), cy + rand(-10, 10), 2);
     }
-  }
-
-  enterDoor(d: Door) {
-    this.mode = 'transition';
-    audio.select();
-    const run = this.run;
-    const cam = this.cameras.main;
-    const level = d.reward === 'next';
-    cam.fadeOut(level ? 500 : 240, level ? 255 : 24, level ? 255 : 20, level ? 255 : 37);
-    cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-      switch (d.reward) {
-        case 'victory':
-          this.victory();
-          return;
-        case 'next':
-          run.level++;
-          run.room = 0;
-          this.enterLevel();
-          return;
-        case 'elite':
-          run.eliteNext = true;
-          break;
-        case 'heal':
-          run.hp = run.mods.maxHp;
-          run.armor = run.mods.maxArmor;
-          break;
-      }
-      run.room++;
-      this.enterRoom();
-      cam.fadeIn(240);
-      if (d.reward === 'rare' || d.reward === 'weapon' || d.reward === 'pet') this.time.delayedCall(300, () => this.offer(d.reward as 'rare' | 'weapon' | 'pet'));
-      if (d.reward === 'heal') ui.toast('生命已回满');
-      if (d.reward === 'elite') ui.toast('精英来袭 清场后获得稀有加成');
-      if (d.reward === 'boss') audio.roar();
-    });
   }
 
   victory() {
     this.mode = 'end';
     ui.showHud(false);
+    ui.clearLabels();
     this.cameras.main.fadeIn(600, 255, 255, 255);
     ui.end(true, this.run, () => this.restart());
   }
@@ -1824,5 +1945,3 @@ export class GameScene extends Phaser.Scene {
     g.fillRect(x, y, 1, 1);
   }
 }
-
-export { VIEW };

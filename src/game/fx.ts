@@ -5,6 +5,7 @@ import type { StyleKit } from '../styles/types';
 import { ELEMENT_COLOR } from './entities';
 import type { Element } from '../core/stats';
 import { E } from '../pixel/palette';
+import { ui } from '../ui/ui';
 
 export const DEPTH = {
   bg: 0,
@@ -187,11 +188,10 @@ export class Fx {
     this.nums.push({ img, y, vy: opts.crit ? -46 : -32, life: opts.crit ? 0.7 : 0.5, max: opts.crit ? 0.7 : 0.5 });
   }
 
+  /** Words go to the sharp DOM layer; the room fills the screen, so world and UI coordinates match. */
   callout(x: number, y: number, text: string, color?: string, size = 12) {
-    const key = textTexture(this.scene, text, { size, color: color ?? E.white, outline: E.ink });
-    const img = this.scene.add.image(Math.round(x), Math.round(y), key).setDepth(DEPTH.numbers + 1).setScale(0.3);
-    this.scene.tweens.add({ targets: img, scale: 1, duration: 140, ease: 'Back.easeOut' });
-    this.scene.tweens.add({ targets: img, alpha: 0, y: y - 14, delay: 520, duration: 260, onComplete: () => img.destroy() });
+    const cam = this.scene.cameras.main;
+    ui.float(x - cam.scrollX, y - cam.scrollY, text, color ?? E.white, Math.max(8, Math.round(size * 0.8)));
   }
 
   private recycle(n: Num) {

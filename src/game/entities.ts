@@ -35,6 +35,8 @@ export interface Proj {
   kind: ProjKind;
   x: number;
   y: number;
+  px?: number;
+  py?: number;
   vx: number;
   vy: number;
   r: number;

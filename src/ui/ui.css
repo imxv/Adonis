@@ -18,21 +18,27 @@ body {
   image-rendering: pixelated;
 }
 
-#ui-root {
+#ui-wrap {
   position: fixed;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+#ui-root {
+  position: absolute;
   left: 0;
   top: 0;
   width: 640px;
   height: 360px;
-  transform-origin: 0 0;
   pointer-events: none;
   font-family: 'Press Start 2P', monospace;
   font-size: 8px;
   color: #fff;
   --accent: #e43b44;
-  --panel: rgba(24, 20, 37, 0.82);
+  --panel: rgba(24, 20, 37, 0.84);
   --line: #5a6988;
   --gold: #fee761;
+  -webkit-font-smoothing: antialiased;
 }
 
 #ui-root * {
@@ -42,6 +48,20 @@ body {
 #ui-root img {
   image-rendering: pixelated;
   display: block;
+}
+
+/* Sharp CJK text with a hard pixel outline. */
+.t {
+  font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  text-shadow: 1px 0 0 #181425, -1px 0 0 #181425, 0 1px 0 #181425, 0 -1px 0 #181425, 1px 1px 0 #181425, -1px 1px 0 #181425, 1px -1px 0 #181425, -1px -1px 0 #181425;
+}
+
+.t.glyph {
+  font-family: 'Kaiti SC', 'STKaiti', 'KaiTi', serif;
 }
 
 .hud {
@@ -60,7 +80,7 @@ body {
   position: absolute;
   left: 4px;
   top: 4px;
-  width: 128px;
+  width: 124px;
   padding: 4px 5px 3px;
   display: flex;
   flex-direction: column;
@@ -74,15 +94,10 @@ body {
   height: 9px;
 }
 
-.bar-row .ic {
-  width: 9px;
-  height: 8px;
-}
-
 .bar {
   position: relative;
   flex: 1;
-  height: 7px;
+  height: 8px;
   background: #181425;
   border: 1px solid #000;
 }
@@ -92,6 +107,7 @@ body {
   left: 0;
   top: 0;
   bottom: 0;
+  transition: width 0.12s steps(4);
 }
 
 .bar .fill::after {
@@ -108,11 +124,10 @@ body {
   position: absolute;
   inset: 0;
   text-align: center;
-  font-size: 8px;
-  line-height: 6px;
+  font-size: 6px;
+  line-height: 7px;
   color: #fff;
   text-shadow: 1px 1px 0 #000;
-  transform: scale(0.75);
 }
 
 .hp .fill { background: #e43b44; }
@@ -122,15 +137,16 @@ body {
 .slots {
   position: absolute;
   left: 4px;
-  top: 47px;
+  top: 46px;
   display: flex;
   gap: 3px;
-  align-items: flex-end;
+  align-items: center;
 }
 
 .slot {
-  width: 30px;
+  min-width: 30px;
   height: 20px;
+  padding: 0 3px;
   display: grid;
   place-items: center;
   position: relative;
@@ -140,29 +156,21 @@ body {
   box-shadow: inset 0 0 0 1px var(--gold);
 }
 
-.slot img {
-  transform: scale(1);
-}
-
 .slot .lv,
 .spell .lv {
   position: absolute;
   right: 1px;
-  bottom: 1px;
-  font-size: 8px;
-  transform: scale(0.75);
-  transform-origin: 100% 100%;
+  bottom: 0;
+  font-size: 6px;
   color: var(--gold);
   text-shadow: 1px 1px 0 #000;
 }
 
 .slot .key {
   position: absolute;
-  left: 1px;
+  right: 1px;
   top: 1px;
-  font-size: 8px;
-  transform: scale(0.6);
-  transform-origin: 0 0;
+  font-size: 5px;
   color: #8b9bb4;
 }
 
@@ -181,7 +189,7 @@ body {
 .spells {
   position: absolute;
   left: 4px;
-  top: 70px;
+  top: 69px;
   display: flex;
   gap: 2px;
 }
@@ -201,61 +209,80 @@ body {
 .pets {
   position: absolute;
   left: 4px;
-  top: 91px;
+  top: 89px;
   display: flex;
   gap: 2px;
-}
-
-.pets .slot {
-  width: 18px;
-  height: 18px;
 }
 
 .topright {
   position: absolute;
   right: 4px;
   top: 4px;
-  padding: 4px 6px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 3px;
-}
-
-.rooms {
-  display: flex;
   gap: 2px;
 }
 
-.room-dot {
-  width: 5px;
-  height: 5px;
-  background: #3a4466;
+.minimap {
+  padding: 4px;
+}
+
+.minimap .grid {
+  position: relative;
+}
+
+.minimap .cell {
+  position: absolute;
+  width: 10px;
+  height: 6px;
   border: 1px solid #000;
 }
 
-.room-dot.done { background: #8b9bb4; }
-.room-dot.now { background: var(--gold); }
-.room-dot.boss { background: #a22633; }
-.room-dot.boss.now { background: #ff0044; }
+.minimap .cell.seen { background: #262b44; box-shadow: inset 0 0 0 1px #3a4466; }
+.minimap .cell.vis { background: #5a6988; }
+.minimap .cell.cur { background: #ffffff; }
 
-.timer {
-  font-size: 8px;
-  color: #fff;
+.minimap .m {
+  position: absolute;
+  left: 3px;
+  top: 1px;
+  width: 2px;
+  height: 2px;
 }
 
+.minimap .m.boss { background: #ff0044; box-shadow: 0 0 0 1px #000; }
+.minimap .m.tre { background: #fee761; box-shadow: 0 0 0 1px #000; }
+.minimap .m.horde { background: #b55088; box-shadow: 0 0 0 1px #000; }
+
 .kills {
-  font-size: 8px;
+  font-size: 6px;
   color: #c0cbdc;
-  transform: scale(0.75);
-  transform-origin: 100% 0;
+  text-shadow: 1px 1px 0 #000;
+}
+
+.timer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 6px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+}
+
+.timer .num {
+  font-size: 12px;
+  color: #fff;
+  text-shadow: 2px 2px 0 #181425;
 }
 
 .combo {
   position: absolute;
   right: 8px;
-  top: 150px;
-  font-size: 16px;
+  top: 130px;
+  font-size: 14px;
   color: var(--gold);
   text-shadow: 2px 2px 0 #181425, -1px -1px 0 #181425, 1px -1px 0 #181425, -1px 1px 0 #181425;
   opacity: 0;
@@ -266,7 +293,7 @@ body {
   position: absolute;
   left: 200px;
   width: 240px;
-  top: 6px;
+  top: 22px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -305,6 +332,29 @@ body {
   opacity: 1;
 }
 
+.world {
+  position: absolute;
+  inset: 0;
+}
+
+.float,
+.label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+
+.float {
+  animation: floatUp 0.9s steps(12) forwards;
+}
+
+@keyframes floatUp {
+  0% { transform: translate(-50%, -50%) scale(0.4); opacity: 1; }
+  15% { transform: translate(-50%, -60%) scale(1.15); }
+  25% { transform: translate(-50%, -60%) scale(1); }
+  80% { opacity: 1; }
+  100% { transform: translate(-50%, -150%); opacity: 0; }
+}
+
 .overlay {
   position: absolute;
   inset: 0;
@@ -313,12 +363,12 @@ body {
   align-items: center;
   justify-content: center;
   pointer-events: auto;
-  background: rgba(11, 10, 18, 0.72);
+  background: rgba(11, 10, 18, 0.74);
   gap: 4px;
 }
 
 .lvlup {
-  width: 320px;
+  width: 330px;
   padding: 8px;
   display: flex;
   flex-direction: column;
@@ -334,15 +384,15 @@ body {
 .lvlup .head {
   display: flex;
   justify-content: center;
-  align-items: center;
-  gap: 6px;
+  align-items: baseline;
+  gap: 8px;
   margin-bottom: 2px;
 }
 
 .opt {
   display: grid;
   grid-template-columns: 34px 1fr;
-  gap: 6px;
+  gap: 7px;
   align-items: center;
   padding: 4px;
   background: #262b44;
@@ -370,26 +420,27 @@ body {
 .opt .icon.epic { box-shadow: inset 0 0 0 1px #b55088; }
 .opt .icon.legendary { box-shadow: inset 0 0 0 1px var(--gold); }
 
+.opt .txt {
+  min-width: 0;
+}
+
 .opt .line1 {
   display: flex;
-  align-items: center;
-  gap: 4px;
+  align-items: baseline;
+  gap: 6px;
 }
 
 .opt .desc {
-  margin-top: 2px;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
+  display: block;
+  white-space: normal;
+  margin-top: 1px;
 }
 
 .opt .k {
   position: absolute;
-  right: 3px;
-  top: 3px;
-  font-size: 8px;
-  transform: scale(0.6);
-  transform-origin: 100% 0;
+  right: 4px;
+  top: 4px;
+  font-size: 6px;
   color: #5a6988;
 }
 
@@ -401,9 +452,16 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   pointer-events: none;
   animation: bannerIn 0.4s steps(6) both;
+}
+
+.banner .en {
+  font-size: 7px;
+  letter-spacing: 2px;
+  color: var(--accent);
+  text-shadow: 1px 1px 0 #000;
 }
 
 .banner .rule {
@@ -426,7 +484,7 @@ body {
 .chest {
   position: absolute;
   left: 50%;
-  top: 112px;
+  top: 110px;
   transform: translateX(-50%);
   padding: 6px 10px;
   display: flex;
@@ -436,9 +494,15 @@ body {
   animation: popIn 0.2s steps(4) both;
 }
 
+.chest .col {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
 .title {
   background: #0b0a12;
-  gap: 6px;
+  gap: 5px;
 }
 
 .title .logo {
@@ -461,9 +525,13 @@ body {
 
 .title .start {
   margin-top: 8px;
-  padding: 6px 12px;
+  padding: 5px 12px;
   cursor: pointer;
   animation: blink 1s steps(2) infinite;
+}
+
+.title .keys {
+  margin-top: 6px;
 }
 
 @keyframes blink {
@@ -472,7 +540,7 @@ body {
 
 .btn {
   margin-top: 8px;
-  padding: 6px 12px;
+  padding: 5px 12px;
   cursor: pointer;
   background: #262b44;
   border: 1px solid #000;
@@ -492,9 +560,10 @@ body {
 }
 
 .statgrid .v {
-  font-size: 16px;
+  font-size: 14px;
   color: var(--gold);
   margin-bottom: 3px;
+  text-shadow: 2px 2px 0 #181425;
 }
 
 .statgrid > div {
@@ -524,13 +593,12 @@ body {
 }
 
 .dmg .pct {
-  font-size: 8px;
-  transform: scale(0.75);
+  font-size: 6px;
 }
 
 .build {
   margin-top: 6px;
-  max-width: 420px;
+  max-width: 440px;
   display: flex;
   flex-wrap: wrap;
   gap: 3px;
