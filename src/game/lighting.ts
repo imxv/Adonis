@@ -27,26 +27,31 @@ interface Flash {
 const M = 16;
 const TEX = 128;
 
-/** A banded radial falloff: lights read as stepped pixel rings rather than smooth airbrush. */
+/**
+ * Two falloffs. 'light' is banded, so small lights (torches, bullets) read as stepped pixel rings.
+ * 'light-soft' is smooth, for the wide light that follows the player: no visible rim, no halo.
+ */
 function lightTexture(scene: Phaser.Scene) {
   if (scene.textures.exists('light')) return;
-  const c = document.createElement('canvas');
-  c.width = c.height = TEX;
-  const ctx = c.getContext('2d')!;
-  const img = ctx.createImageData(TEX, TEX);
-  for (let y = 0; y < TEX; y++) {
-    for (let x = 0; x < TEX; x++) {
-      const d = Math.hypot(x + 0.5 - TEX / 2, y + 0.5 - TEX / 2) / (TEX / 2);
-      let v = Math.max(0, 1 - d);
-      v = v * v * (3 - 2 * v);
-      v = Math.round(v * 5) / 5;
-      const i = (y * TEX + x) * 4;
-      img.data[i] = img.data[i + 1] = img.data[i + 2] = 255;
-      img.data[i + 3] = Math.round(v * 255);
+  for (const [key, banded] of [['light', true], ['light-soft', false]] as const) {
+    const c = document.createElement('canvas');
+    c.width = c.height = TEX;
+    const ctx = c.getContext('2d')!;
+    const img = ctx.createImageData(TEX, TEX);
+    for (let y = 0; y < TEX; y++) {
+      for (let x = 0; x < TEX; x++) {
+        const d = Math.hypot(x + 0.5 - TEX / 2, y + 0.5 - TEX / 2) / (TEX / 2);
+        let v = Math.max(0, 1 - d);
+        v = v * v * (3 - 2 * v);
+        if (banded) v = Math.round(v * 5) / 5;
+        const i = (y * TEX + x) * 4;
+        img.data[i] = img.data[i + 1] = img.data[i + 2] = 255;
+        img.data[i + 3] = Math.round(v * 255);
+      }
     }
+    ctx.putImageData(img, 0, 0);
+    scene.textures.addCanvas(key, c);
   }
-  ctx.putImageData(img, 0, 0);
-  scene.textures.addCanvas('light', c);
 }
 
 /**
@@ -77,7 +82,8 @@ export class Lighting {
 
   setLevel(kit: StyleKit, d: Dungeon, seed: number) {
     // Darker biomes keep less ambient light; shadows lean cold so warm lights pop.
-    const k = Math.max(0.5, 0.92 - kit.overlay.vignette * 0.75);
+    // Kept fairly bright: the mood comes from torches and bullets, not from a spotlight on the player.
+    const k = Math.max(0.6, 0.94 - kit.overlay.vignette * 0.6);
     const [r, g, b] = hexRgb(E.white);
     this.ambient = (Math.round(r * k * 0.9) << 16) | (Math.round(g * k * 0.9) << 8) | Math.min(255, Math.round(b * k * 1.08));
     this.torches = d.torches.map(([x, y], i) => ({ x, y, r: 56, color: hexToNum(E.orange), flicker: (seed + i * 37) % 100 }));
@@ -113,14 +119,15 @@ export class Lighting {
     rt.beginDraw();
     const white = s.textures.get('__WHITE').getSourceImage() as HTMLCanvasElement;
     rt.stamp('__WHITE', undefined, 0, 0, { originX: 0, originY: 0, scaleX: W / white.width, scaleY: H / white.height, tint: this.ambient, alpha: 1, blendMode: Phaser.BlendModes.NORMAL, skipBatch: true });
-    const add = (x: number, y: number, r: number, color: number, alpha = 1) => {
+    const add = (x: number, y: number, r: number, color: number, alpha = 1, key = 'light') => {
       const lx = x - ox;
       const ly = y - oy;
       if (lx < -r || ly < -r || lx > W + r || ly > H + r) return;
-      rt.stamp('light', undefined, Math.round(lx), Math.round(ly), { scale: (r * 2) / TEX, tint: color, alpha, blendMode: Phaser.BlendModes.ADD, skipBatch: true });
+      rt.stamp(key, undefined, Math.round(lx), Math.round(ly), { scale: (r * 2) / TEX, tint: color, alpha, blendMode: Phaser.BlendModes.ADD, skipBatch: true });
     };
     const p = s.player;
-    if (p && p.sprite.visible) add(p.x, p.y - 6, 160, 0xfff3d6, 1);
+    // A wide, faint, smooth lift around the player: enough to frame the action, too soft to read as a halo.
+    if (p && p.sprite.visible) add(p.x, p.y - 6, 240, 0xffffff, 0.34, 'light-soft');
     for (const l of this.torches) {
       const f = 1 + Math.sin(this.t * 9 + l.flicker) * 0.06 + Math.sin(this.t * 23 + l.flicker * 2) * 0.03;
       add(l.x, l.y, l.r * f, l.color, 0.85);

@@ -68,9 +68,9 @@ export function updateSpells(s: GameScene, dt: number) {
         const radius = 24 * area * (1 + 0.2 * lv(L >= 2) + 0.2 * lv(L >= 4));
         const pulse = 0.5 + 0.5 * Math.sin(s.time0 * 5);
         const col = hexToNum(sp.evolved ? E.magenta : E.yellow);
-        g.fillStyle(col, 0.1 + pulse * 0.05);
+        g.fillStyle(col, 0.05 + pulse * 0.03);
         g.fillCircle(p.x, p.y - 2, radius);
-        g.lineStyle(1, col, 0.45 + pulse * 0.3);
+        g.lineStyle(1, col, 0.25 + pulse * 0.2);
         g.strokeCircle(p.x, p.y - 2, radius);
         if (sp.cd <= 0) {
           sp.cd = 0.5 * cdMul;
