@@ -11,6 +11,7 @@ import { E } from '../pixel/palette';
 import { K, buildCommonTextures, buildKitTextures, buildLevel, textTexture } from '../styles/textures';
 import type { StyleKit } from '../styles/types';
 import { ui } from '../ui/ui';
+import { settings } from '../settings';
 import { DIRS, DIR_VEC } from './dirs';
 import { bossDeath, spawnBoss, updateBoss } from './boss';
 import { T, collide, generateDungeon, openSpot, randomFloorIn, raycast, roomAt, roomCenter, solidAt, type DRoom, type Dungeon } from './dungeon';
@@ -32,7 +33,9 @@ import {
 import { DEPTH, Fx } from './fx';
 import { Lighting } from './lighting';
 import { syncPets, updatePets } from './pets';
-import { LEVELS, applyChoice, evolutionsReady, newRun, rollChoices, xpForLevel, type Choice, type RunState } from './run';
+import { LEVELS, applyChoice, evolutionsReady, newRun, restoreRun, rollChoices, snapshotRun, xpForLevel, type Choice, type RunState } from './run';
+import { addScore, clearRun, loadRun, saveRun, scoreOf, type SavedRun } from '../save';
+import { buildCodex } from '../ui/codex';
 import { clearSpellVisuals, updateSpells } from './spells';
 
 type Mode = 'title' | 'play' | 'choose' | 'pause' | 'transition' | 'dead' | 'end';
@@ -140,7 +143,8 @@ export class GameScene extends Phaser.Scene {
   boss?: Enemy;
   hudT = 0;
   params = new URLSearchParams(location.search);
-  private closePause?: () => void;
+  /** The last room the player stood in that was safe (cleared): where a continued run resumes. */
+  private safeRoom?: DRoom;
   private camX = 0;
   private camY = 0;
   private kickX = 0;
@@ -165,7 +169,10 @@ export class GameScene extends Phaser.Scene {
     this.input.mouse?.disableContextMenu();
     const kb = this.input.keyboard!;
     this.keys = kb.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,ESC,F,SHIFT,Q,E') as Record<string, Phaser.Input.Keyboard.Key>;
-    kb.on('keydown-ESC', () => this.togglePause());
+    // Esc only opens the pause page; once it is up, the page handles Esc itself.
+    kb.on('keydown-ESC', () => {
+      if (this.mode === 'play' && performance.now() - ui.closedAt > 250) this.openPause();
+    });
     kb.on('keydown-F', () => {
       if (this.mode !== 'play') return;
       this.autoFire = !this.autoFire;
@@ -181,23 +188,98 @@ export class GameScene extends Phaser.Scene {
     this.input.on('wheel', () => this.switchGun());
     this.god = this.params.has('god');
     ui.mount(this.game.canvas);
-    ui.title(async () => {
-      await audio.init();
-      this.startRun();
+    const apply = (st: ReturnType<typeof settings.get>) => {
+      audio.setVolumes(st.music, st.sfx);
+      this.light.setEnabled(st.light);
+    };
+    apply(settings.get());
+    settings.onChange(apply);
+    this.showTitle();
+  }
+
+  showTitle() {
+    this.mode = 'title';
+    ui.showHud(false);
+    ui.title({
+      save: () => loadRun(),
+      onContinue: () => {
+        const saved = loadRun();
+        if (!saved) return this.showTitle();
+        void audio.init();
+        this.startRun(saved);
+      },
+      onNew: () => {
+        void audio.init();
+        this.startRun();
+      },
+      codex: () => buildCodex(this),
     });
+  }
+
+  /** Leave the run for the main menu; progress is saved so it can be continued. */
+  quitToTitle() {
+    this.saveProgress();
+    this.clearLevel();
+    audio.setIntensity(0);
+    this.showTitle();
+  }
+
+  saveProgress() {
+    const run = this.run;
+    const d = this.dungeon;
+    if (!run || !d || this.mode === 'dead' || this.mode === 'end' || this.mode === 'title') return;
+    saveRun({
+      v: 1,
+      savedAt: Date.now(),
+      ...snapshotRun(run),
+      rooms: d.rooms.map((r) => ({ id: r.id, cleared: r.cleared, visited: r.visited, seen: r.seen })),
+      at: (this.safeRoom ?? d.start).id,
+    });
+  }
+
+  /** A finished run goes on the local leaderboard and its save is removed. */
+  recordRun(victory: boolean) {
+    clearRun();
+    const run = this.run;
+    const date = Date.now();
+    const base = { victory, floor: run.level + 1, kills: run.kills, lv: run.xpLevel, secs: Math.round(run.elapsed), diff: run.diff.id };
+    const score = scoreOf(base);
+    const rank = addScore({ ...base, score, date });
+    return { score, rank, date };
+  }
+
+  openPause() {
+    this.mode = 'pause';
+    const fights = this.dungeon.rooms.filter((r) => r.type === 'combat' || r.type === 'horde' || r.type === 'boss');
+    ui.pause(
+      { run: this.run, floorName: this.kit.name, roomsCleared: fights.filter((r) => r.cleared).length, roomsTotal: fights.length },
+      {
+        onResume: () => {
+          if (this.mode === 'pause') this.mode = 'play';
+        },
+        onQuit: () => this.quitToTitle(),
+        codex: () => buildCodex(this),
+      },
+    );
   }
 
   // ---------------------------------------------------------------- run and floors
 
-  startRun() {
+  startRun(saved?: SavedRun) {
     this.clearLevel();
     this.pets.forEach((p) => p.sprite.destroy());
     this.pets = [];
-    this.run = newRun(this.params);
+    this.run = saved ? restoreRun(saved) : newRun(this.params);
     this.combo = 0;
     this.pendingLevelUps = 0;
     this.autoFire = false;
-    this.enterLevel(true);
+    this.safeRoom = undefined;
+    if (this.player) {
+      this.player.sprite.setVisible(true);
+      this.player.gun.setVisible(true);
+      this.player.iframes = 1;
+    }
+    this.enterLevel(true, saved);
   }
 
   clearLevel() {
@@ -237,7 +319,7 @@ export class GameScene extends Phaser.Scene {
     this.light?.clearStatic();
   }
 
-  enterLevel(first = false) {
+  enterLevel(first = false, saved?: SavedRun) {
     this.clearLevel();
     const kit = this.run.styles[this.run.level];
     this.kit = kit;
@@ -255,8 +337,20 @@ export class GameScene extends Phaser.Scene {
     this.decals = this.add.renderTexture(0, 0, d.w * T, d.h * T).setOrigin(0).setDepth(DEPTH.decal);
     this.cameras.main.setBounds(0, 0, d.w * T, d.h * T).setRoundPixels(true);
     if (!this.player) this.createPlayer();
-    const startRoom = this.params.get('room') === 'boss' && first ? d.boss : d.start;
-    const [sx, sy] = roomCenter(startRoom);
+    let startRoom = this.params.get('room') === 'boss' && first && !saved ? d.boss : d.start;
+    // A continued run gets back this floor's cleared rooms and resumes in the last safe one.
+    if (saved && saved.level === this.run.level) {
+      for (const sr of saved.rooms) {
+        const r = d.byId.get(sr.id);
+        if (!r) continue;
+        r.cleared = sr.cleared;
+        r.visited = sr.visited;
+        r.seen = sr.seen;
+      }
+      startRoom = d.byId.get(saved.at) ?? d.start;
+    }
+    this.safeRoom = startRoom.cleared ? startRoom : d.start;
+    const [sx, sy] = openSpot(d, ...roomCenter(startRoom));
     const p = this.player;
     p.x = sx;
     p.y = sy + 10;
@@ -294,7 +388,9 @@ export class GameScene extends Phaser.Scene {
     ui.showHud(true);
     ui.banner(`第${['一', '二', '三', '四'][this.run.level]}层`, kit.name, kit.en, kit.subtitle, first ? 2400 : 2200);
     if (!first) cam.fadeIn(420, 255, 255, 255);
+    if (saved && d.boss.cleared) this.spawnTrapdoor(...roomCenter(d.boss));
     if (this.pendingLevelUps > 0) this.time.delayedCall(700, () => this.openLevelUp());
+    this.saveProgress();
   }
 
   createPlayer() {
@@ -428,6 +524,7 @@ export class GameScene extends Phaser.Scene {
     const here = roomAt(d, p.x, p.y, 1);
     if (here && here !== this.room) {
       this.room = here;
+      if (here.cleared || here.type === 'start' || here.type === 'treasure') this.safeRoom = here;
       if (!here.visited) {
         here.visited = true;
         this.markSeen(here);
@@ -714,6 +811,8 @@ export class GameScene extends Phaser.Scene {
     this.pickups.forEach((p) => p.kind === 'gem' && (p.magnet = true));
     if (this.run.pets.includes('dove')) this.heal(1, this.player.x, this.player.y);
     this.openGates();
+    this.safeRoom = r;
+    this.saveProgress();
     const [cx, cy] = roomCenter(r);
     if (bossDown) {
       this.time.delayedCall(1600, () => this.spawnTrapdoor(cx, cy));
@@ -791,7 +890,7 @@ export class GameScene extends Phaser.Scene {
     const ptr = this.input.activePointer;
     let nx = 0;
     let ny = 0;
-    if (this.pointerMoved && this.mode === 'play') {
+    if (this.pointerMoved && this.mode === 'play' && settings.get().lean) {
       nx = clamp((ptr.x - cam.width / 2) / (cam.width / 2), -1, 1);
       ny = clamp((ptr.y - cam.height / 2) / (cam.height / 2), -1, 1);
     }
@@ -806,6 +905,7 @@ export class GameScene extends Phaser.Scene {
 
   /** Push the view against the shot direction, like recoil. */
   kick(a: number, amount: number) {
+    if (!settings.get().shake) return;
     this.kickX -= Math.cos(a) * amount;
     this.kickY -= Math.sin(a) * amount;
   }
@@ -1656,17 +1756,21 @@ export class GameScene extends Phaser.Scene {
     this.player.gun.setVisible(false);
     this.player.gun2.setVisible(false);
     audio.setIntensity(0);
+    const rec = this.recordRun(false);
     this.time.delayedCall(1400, () => {
       this.mode = 'end';
       ui.showHud(false);
-      ui.end(false, this.run, () => this.restart());
+      ui.end({ victory: false, run: this.run, ...rec }, () => this.restart(), () => this.endToTitle());
     });
   }
 
   restart() {
-    this.player.sprite.setVisible(true);
-    this.player.gun.setVisible(true);
     this.startRun();
+  }
+
+  endToTitle() {
+    this.clearLevel();
+    this.showTitle();
   }
 
   // ---------------------------------------------------------------- enemies
@@ -2035,6 +2139,7 @@ export class GameScene extends Phaser.Scene {
 
   takeChoice(c: Choice) {
     applyChoice(this.run, c);
+    this.time.delayedCall(0, () => this.saveProgress());
     if (c.type === 'pet') {
       syncPets(this);
       ui.toast(`${PETS[c.kind].name}加入了队伍`);
@@ -2071,23 +2176,8 @@ export class GameScene extends Phaser.Scene {
     this.mode = 'end';
     ui.showHud(false);
     this.cameras.main.fadeIn(600, 255, 255, 255);
-    ui.end(true, this.run, () => this.restart());
-  }
-
-  togglePause() {
-    // The Esc that skipped a pick panel must not also pause the game.
-    if (performance.now() - ui.closedAt < 250) return;
-    if (this.mode === 'play') {
-      this.mode = 'pause';
-      this.closePause = ui.pause(this.run, () => {
-        this.mode = 'play';
-        this.closePause = undefined;
-      });
-    } else if (this.mode === 'pause') {
-      this.closePause?.();
-      this.closePause = undefined;
-      this.mode = 'play';
-    }
+    const rec = this.recordRun(true);
+    ui.end({ victory: true, run: this.run, ...rec }, () => this.restart(), () => this.endToTitle());
   }
 
   // ---------------------------------------------------------------- drawing

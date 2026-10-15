@@ -29,7 +29,8 @@ npm run build      # 类型检查 + 打包到 dist/
 - `src/styles/textures.ts`：按画风数据现场生成所有贴图，包括整层地牢的底图 `buildLevel`。
 - `src/data/`：内容表，包括武器、法术、加成、敌人、宠物。新内容尽量只改数据，不改系统。
 - `src/game/`：玩法系统。`dungeon.ts` 生成元气骑士式地牢（异形房间 + 走廊 + 格子碰撞），`floor.ts` 是以撒式房间图，`GameScene.ts` 是主场景（镜头、锁门、波次、武器发射、伤害结算），`lighting.ts` 是光照层，另有 `boss.ts`、`enemyAI.ts`、`spells.ts`、`pets.ts`、`fx.ts`、`run.ts`。
-- `src/ui/`：DOM 叠加层，与画布同为 480×270 并按同一倍率缩放；所有文字都栅格化成像素图片。
+- `src/ui/`：DOM 叠加层，与画布同为 480×270 并按同一倍率缩放；所有文字都栅格化成像素图片。`ui.ts` 是 HUD、主菜单、暂停页、结算页和三选一面板；`screens.ts` 是图鉴、游戏说明、设置、排行榜和确认框；`codex.ts` 从数据表和贴图生成图鉴内容；`pxhtml.ts` 是像素文字和图片的 HTML 工具。全屏界面走 `ui` 的图层栈，最上层独占键盘。
+- `src/settings.ts`：玩家设置（本机保存，改动即时通知）；`src/save.ts`：本局存档和本机排行榜。
 - `src/audio/`：Tone.js 合成的音效和音乐。
 - `tools/playtest.js`：自动试玩脚本，只在开发时用，不进打包产物。
 

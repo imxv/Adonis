@@ -5,6 +5,7 @@ import type { StyleKit } from '../styles/types';
 import { ELEMENT_COLOR } from './entities';
 import type { Element } from '../core/stats';
 import { E } from '../pixel/palette';
+import { settings } from '../settings';
 
 export const DEPTH = {
   bg: 0,
@@ -129,6 +130,7 @@ export class Fx {
   }
 
   shake(amount: number) {
+    if (!settings.get().shake) return;
     const cam = this.scene.cameras.main;
     const now = performance.now();
     if (now < this.shakeUntil && amount <= this.shakeAmt) return;
@@ -180,6 +182,8 @@ export class Fx {
   }
 
   number(x: number, y: number, value: number, opts: { crit?: boolean; color?: string; small?: boolean; text?: string } = {}) {
+    // Heal text still shows when damage numbers are switched off.
+    if (!settings.get().numbers && !opts.text) return;
     if (this.nums.length > 90) this.recycle(this.nums[0]);
     const text = opts.text ?? String(Math.max(1, Math.round(value)));
     const color = opts.color ?? (opts.crit ? E.yellow : E.white);

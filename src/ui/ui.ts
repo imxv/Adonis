@@ -5,10 +5,15 @@ import { PETS } from '../data/enemies';
 import type { StyleKit } from '../styles/types';
 import type { Choice, RunState } from '../game/run';
 import type { Dir } from '../game/dirs';
-import { ICONS, ICON_SIZE } from '../styles/textures';
+import { ICON_SIZE } from '../styles/textures';
 import { E } from '../pixel/palette';
-import { Grid, pxMeasure, pxText } from '../pixel/draw';
 import { audio } from '../audio/audio';
+import { DIFFICULTIES } from '../data/difficulty';
+import { RARITY_INFO as RARITY } from '../data/upgrades';
+import type { SavedRun } from '../save';
+import type { CodexTab } from './codex';
+import { $, diamond, el, icon, px, pxBlock } from './pxhtml';
+import { MenuNav, confirmBox, menuRow, openBoard, openCodex, openHelp, openSettings, type Layer, type LayerHost } from './screens';
 
 /** The UI is laid out on the same 480x270 pixel grid as the game and zoomed with it. */
 export const UI_W = 480;
@@ -17,86 +22,6 @@ export const UI_H = 270;
 const GREY = E.grey;
 const DIM = E.greyM;
 const ACCENT = E.hot;
-
-const $ = <T extends HTMLElement = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector(sel) as T;
-
-function el(tag: string, cls?: string, html?: string) {
-  const e = document.createElement(tag);
-  if (cls) e.className = cls;
-  if (html !== undefined) e.innerHTML = html;
-  return e;
-}
-
-// ---------------------------------------------------------------- pixel text and icons as <img>
-
-interface PxOpts {
-  small?: boolean;
-  scale?: number;
-  outline?: string | false;
-  shadow?: string;
-}
-
-const pxCache = new Map<string, { src: string; w: number; h: number }>();
-
-function pxImg(text: string, color: string, o: PxOpts) {
-  const key = `${text}|${color}|${o.small ? 1 : 0}|${o.scale ?? 1}|${o.outline ?? ''}|${o.shadow ?? ''}`;
-  let hit = pxCache.get(key);
-  if (!hit) {
-    const c = pxText(text, {
-      color,
-      small: o.small,
-      size: (o.small ? 8 : 12) * (o.scale ?? 1),
-      outline: o.outline === false ? undefined : (o.outline ?? E.ink),
-      shadow: o.shadow,
-    });
-    hit = { src: c.toDataURL(), w: c.width, h: c.height };
-    pxCache.set(key, hit);
-  }
-  return hit;
-}
-
-/** One line of pixel text as an image, sized in UI pixels. */
-function px(text: string, color: string = E.white, o: PxOpts = {}, cls = ''): string {
-  if (!text) return '';
-  const h = pxImg(text, color, o);
-  return `<img class="px ${cls}" src="${h.src}" style="width:${h.w}px;height:${h.h}px" alt="">`;
-}
-
-/** Break text into lines that fit `maxW`, keeping numbers and Latin words whole. */
-function wrap(text: string, maxW: number): string[] {
-  const tokens = text.match(/[A-Za-z0-9+\-%.:/→×~]+|\s+|./gu) ?? [];
-  const lines: string[] = [];
-  let cur = '';
-  for (const tk of tokens) {
-    const next = cur + tk;
-    if (cur.trim() && pxMeasure(next) > maxW && !/^[，。、；：！？）,.;:!?)]/.test(tk)) {
-      lines.push(cur.trimEnd());
-      cur = tk.trimStart();
-    } else cur = next;
-  }
-  if (cur.trim()) lines.push(cur.trimEnd());
-  return lines;
-}
-
-function pxBlock(text: string, color: string, maxW: number): string {
-  return `<div class="lines">${wrap(text, maxW - 2)
-    .map((l) => px(l, color))
-    .join('')}</div>`;
-}
-
-function icon(name: string, scale = 1, cls = ''): string {
-  const src = ICONS[name];
-  if (!src) return '';
-  const [w, h] = ICON_SIZE[name];
-  return `<img class="px ${cls}" src="${src}" style="width:${w * scale}px;height:${h * scale}px" alt="">`;
-}
-
-let diamondSrc = '';
-/** ACHROMA-style red diamond cursor. */
-function diamond(): string {
-  if (!diamondSrc) diamondSrc = Grid.ascii(['..r..', '.rrr.', 'rrwrr', '.rRr.', '..R..']).render({ outline: false, margin: 0 }).toDataURL();
-  return `<img class="px dia" src="${diamondSrc}" style="width:5px;height:5px" alt="">`;
-}
 
 // ---------------------------------------------------------------- HUD data
 
@@ -140,8 +65,40 @@ const CELL_W = 9;
 const CELL_H = 7;
 const FLOOR_NAMES = ['一', '二', '三', '四'];
 
-class UI {
+export interface TitleActions {
+  save: () => SavedRun | null;
+  onContinue: () => void;
+  onNew: () => void;
+  codex: () => CodexTab[];
+}
+
+export interface PauseInfo {
+  run: RunState;
+  floorName: string;
+  roomsCleared: number;
+  roomsTotal: number;
+}
+
+export interface PauseActions {
+  onResume: () => void;
+  onQuit: () => void;
+  codex: () => CodexTab[];
+}
+
+export interface EndInfo {
+  victory: boolean;
+  run: RunState;
+  score: number;
+  rank: number;
+  date: number;
+}
+
+const fmtTime = (secs: number) => `${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, '0')}`;
+
+class UI implements LayerHost {
   root!: HTMLElement;
+  /** Full-screen pages, top one owns the keyboard. */
+  private layers: Layer[] = [];
   private wrap!: HTMLElement;
   private hud!: HTMLElement;
   private canvas?: HTMLCanvasElement;
@@ -176,6 +133,13 @@ class UI {
       <div class="toast"></div>`;
     this.hud.style.opacity = '0';
     this.root.appendChild(this.hud);
+    window.addEventListener('keydown', (e) => {
+      if (this.choiceKeys) return;
+      const top = this.layers[this.layers.length - 1];
+      // Phaser handles keys before this listener: the Esc that just opened the pause page must not also close it.
+      if (!top || e.timeStamp < top.openedAt) return;
+      top.onKey?.(e);
+    });
     const sync = () => this.sync();
     window.addEventListener('resize', sync);
     new ResizeObserver(sync).observe(canvas);
@@ -448,82 +412,177 @@ class UI {
   /** When a pick panel last closed, so the same Esc press doesn't also open the pause menu. */
   closedAt = 0;
 
-  title(onStart: () => void) {
+  push(node: HTMLElement, onKey?: (e: KeyboardEvent) => void): Layer {
+    this.root.appendChild(node);
+    const layer = { el: node, onKey, openedAt: performance.now() };
+    this.layers.push(layer);
+    return layer;
+  }
+
+  close(layer: Layer, fadeMs = 0) {
+    this.layers = this.layers.filter((l) => l !== layer);
+    if (!fadeMs) return layer.el.remove();
+    layer.el.classList.add('out');
+    setTimeout(() => layer.el.remove(), fadeMs);
+  }
+
+  escUsed() {
+    this.closedAt = performance.now();
+  }
+
+  /** Main menu: the logo and menu on the left, the knight facing the boar on the right. */
+  title(a: TitleActions) {
+    const save = a.save();
     const ov = el('div', 'overlay title');
-    const logo = (col: string, cls: string) => px('ADONIS', col, { small: true, scale: 5, outline: false }, cls);
+    const logo = (col: string, cls: string) => px('ADONIS', col, { small: true, scale: 4, outline: false }, cls);
     ov.innerHTML = `
-      <div class="logo">${logo(ACCENT, 'r')}${logo(E.cyan, 'c')}${logo(E.white, 'w')}</div>
-      <div class="sub">${px('画 中 轮 回', ACCENT)}</div>
-      <div class="scene">${icon('knight', 3)}<div class="vs">${px('VS', DIM, { small: true })}</div>${icon('boar', 2)}</div>
-      ${px('他一次次死去，又一次次重生。', GREY)}
-      ${px('这一次，穿过三层地牢，去见那头野猪。', GREY)}
-      <div class="menu"><div class="item sel">${diamond()}${px('开始轮回', E.white)}</div></div>
-      <div class="keys">${px('WASD 移动  鼠标 瞄准射击  空格 冲刺', DIM)}${px('Q 换枪  E/右键 双持  F 自动射击  Esc 暂停', DIM)}</div>
-      <div class="ver">${px('v0.4', E.slate, { small: true, outline: false })}</div>`;
-    let started = false;
-    const go = () => {
-      if (started) return;
-      started = true;
-      window.removeEventListener('keydown', onKey);
+      <div class="tl-left">
+        <div class="logo">${logo(ACCENT, 'r')}${logo(E.cyan, 'c')}${logo(E.white, 'w')}</div>
+        <div class="sub">${px('画 中 轮 回', ACCENT)}</div>
+        <div class="menu"></div>
+        <div class="hint">${px('↑↓ 选择　Enter 确认', DIM)}</div>
+      </div>
+      <div class="tl-right">
+        <div class="scene">${icon('knight', 3)}<div class="vs">${px('VS', DIM, { small: true })}</div>${icon('boar', 2)}</div>
+        ${px('他一次次死去，又一次次重生。', GREY)}
+        ${px('这一次，穿过三层地牢，去见那头野猪。', GREY)}
+      </div>
+      <div class="ver">${px('v0.5', E.slate, { small: true, outline: false })}</div>`;
+    const note = save ? `第${['一', '二', '三'][save.level] ?? save.level + 1}层 Lv${save.xpLevel}` : '没有存档';
+    const rows = [menuRow('继续游戏', { note }), menuRow('开始冒险'), menuRow('排行榜'), menuRow('游戏说明'), menuRow('图鉴'), menuRow('设置')];
+    ['continue', 'new', 'board', 'guide', 'codex', 'settings'].forEach((k, i) => (rows[i].dataset.k = k));
+    ov.querySelector('.menu')!.append(...rows);
+    let tabs: CodexTab[] | undefined;
+    const leave = (go: () => void) => {
+      this.close(layer, 250);
+      go();
+    };
+    const nav = new MenuNav(
+      rows,
+      (i) => {
+        audio.select();
+        if (i === 0) leave(a.onContinue);
+        else if (i === 1) {
+          if (a.save()) confirmBox(this, '已有一局存档。开始新的冒险会覆盖它，确定吗？', () => leave(a.onNew));
+          else leave(a.onNew);
+        } else if (i === 2) openBoard(this);
+        else if (i === 3) openHelp(this);
+        else if (i === 4) openCodex(this, (tabs ??= a.codex()));
+        else openSettings(this);
+      },
+      [!save],
+    );
+    nav.select(save ? 0 : 1);
+    const layer = this.push(ov, (e) => nav.key(e));
+  }
+
+  /** Pause: the menu on the left, the run on the right (hero, progress, guns, spells, pets, upgrades). */
+  pause(info: PauseInfo, a: PauseActions) {
+    const { run } = info;
+    const m = run.mods;
+    const ov = el('div', 'overlay pausescr');
+    const sec = (title: string, body: string, cls = '') => `<div class="ps-sec ${cls}">${px(title, E.yellow)}${body}</div>`;
+    const bar = (cls: string, v: number, max: number, label: string) =>
+      `<div class="ps-bar"><div class="bar ${cls}"><i style="width:${Math.round(Math.max(0, Math.min(1, v / max)) * 52)}px"></i></div>${px(label, E.white, { small: true })}</div>`;
+    const mult = (v: number) => `×${(Math.round(v * 100) / 100).toFixed(2).replace(/0$/, '')}`;
+    const stats: [string, string][] = [
+      ['伤害', mult(m.damage)],
+      ['攻速', mult(m.fireRate)],
+      ['暴击', `${Math.round(m.critChance * 100)}%`],
+      ['暴伤', mult(m.critMult)],
+      ['范围', mult(m.area)],
+      ['数量', `+${m.count}`],
+      ['穿透', `+${m.pierce}`],
+      ['移速', mult(m.moveSpeed)],
+    ];
+    const elems = (['fire', 'ice', 'shock'] as const).filter((k) => m.elements[k] > 0).map((k) => `${{ fire: '火', ice: '冰', shock: '电' }[k]} ${Math.round(m.elements[k] * 100)}%`);
+    const hero = `<div class="ps-hero">${icon('knight', 2)}<div class="ps-bars">${bar('hp', run.hp, m.maxHp, `${Math.max(0, run.hp)}/${m.maxHp}`)}${bar('ar', run.armor, m.maxArmor, `${run.armor}/${m.maxArmor}`)}${bar('xp', run.xp, run.xpNext, `LV${run.xpLevel}`)}</div></div>`;
+    const statGrid = `<div class="ps-stats">${stats.map(([k, v]) => `<div class="st">${px(k, DIM)}${px(v, E.white, { small: true })}</div>`).join('')}</div>${elems.length ? `<div class="ps-line">${px('元素', DIM)}${px(elems.join('  '), E.white)}</div>` : ''}`;
+    const guns = run.weapons.map((w, i) => `<div class="ps-item">${icon(`gun-${w.def.id}`)}${px(w.def.name, E.white)}${px(`Lv${w.level}`, E.yellow, { small: true })}${i === run.held ? px('手持', E.cyan) : ''}</div>`).join('');
+    const spells = run.spells.length
+      ? run.spells.map((s) => `<div class="ps-item">${icon(`spell-${s.id}`)}${px(s.evolved ? SPELLS[s.id].evolved.name : SPELLS[s.id].name, s.evolved ? E.yellow : E.white)}${px(s.evolved ? '★' : `Lv${s.level}`, E.yellow, { small: !s.evolved })}</div>`).join('')
+      : px('还没有法术', DIM);
+    const pets = run.pets.length ? run.pets.map((p) => `<div class="ps-item">${icon(`pet-${p}`)}${px(PETS[p].name, E.white)}</div>`).join('') : px('还没有宠物', DIM);
+    const ups = Object.entries(run.stacks);
+    const upgrades = ups.length
+      ? ups.map(([id, n]) => {
+          const u = UPGRADE_BY_ID[id];
+          return `<div class="chip">${px(u?.glyph ?? '?', RARITY[u?.rarity ?? 'common'].color)}${px(u?.name ?? id, E.white)}${n > 1 ? px(`×${n}`, E.yellow, { small: true }) : ''}</div>`;
+        }).join('')
+      : px('还没有加成', DIM);
+    const floorNo = ['一', '二', '三'][run.level] ?? run.level + 1;
+    ov.innerHTML = `
+      <div class="ps-left">
+        <div class="head"><span class="tagred">${px('PAUSE', E.white, { small: true, outline: false })}</span>${px('暂停', E.yellow, { scale: 2 })}</div>
+        <div class="menu"></div>
+        <div class="ps-diff">${px('难度', DIM)}${px(run.diff.name, run.diff.id === 'hard' ? ACCENT : E.white)}${px('种子', DIM)}${px(String(run.seed), DIM, { small: true })}</div>
+      </div>
+      <div class="ps-right panel">
+        <div class="ps-top">${px(`第${floorNo}层 · ${info.floorName}`, E.yellow)}${px(`房间 ${info.roomsCleared}/${info.roomsTotal}`, GREY)}${px(`击杀 ${run.kills}`, GREY)}${px(`用时 ${fmtTime(run.elapsed)}`, GREY)}</div>
+        <div class="ps-cols">
+          <div class="ps-col">${sec('角色', hero)}${sec('属性', statGrid)}</div>
+          <div class="ps-col">${sec('武器', guns)}${sec('法术', `<div class="ps-two">${spells}</div>`)}${sec('宠物', `<div class="ps-row">${pets}</div>`)}</div>
+        </div>
+        ${sec('加成', `<div class="build">${upgrades}</div>`, 'wide')}
+      </div>`;
+    const rows = [menuRow('继续游戏', { key: 'Esc' }), menuRow('游戏说明'), menuRow('图鉴'), menuRow('设置'), menuRow('返回主页', { note: '自动存档' })];
+    ov.querySelector('.menu')!.append(...rows);
+    let tabs: CodexTab[] | undefined;
+    const resume = () => {
+      this.close(layer);
+      a.onResume();
+    };
+    const nav = new MenuNav(rows, (i) => {
       audio.select();
-      ov.classList.add('out');
-      setTimeout(() => ov.remove(), 250);
-      onStart();
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Enter' || e.key === ' ') go();
-    };
-    window.addEventListener('keydown', onKey);
-    ov.addEventListener('click', go);
-    this.root.appendChild(ov);
-  }
-
-  pause(run: RunState, onResume: () => void) {
-    const ov = el('div', 'overlay');
-    const chips: string[] = [];
-    run.weapons.forEach((w) => chips.push(`<div class="chip">${icon(`gun-${w.def.id}`)}${px(`${w.def.name} Lv${w.level}`, E.white)}</div>`));
-    run.spells.forEach((s) => chips.push(`<div class="chip">${icon(`spell-${s.id}`)}${px(`${s.evolved ? SPELLS[s.id].evolved.name : SPELLS[s.id].name} Lv${s.level}`, E.white)}</div>`));
-    run.pets.forEach((p) => chips.push(`<div class="chip">${icon(`pet-${p}`)}${px(PETS[p].name, E.white)}</div>`));
-    for (const [id, n] of Object.entries(run.stacks)) chips.push(`<div class="chip">${px(`${UPGRADE_BY_ID[id]?.name ?? id} ×${n}`, GREY)}</div>`);
-    ov.innerHTML = `<div class="box panel"><div class="head"><span class="tagred">${px('PAUSE', E.white, { small: true, outline: false })}</span>${px('暂停', E.yellow, { scale: 2 })}</div>
-      <div class="build">${chips.join('')}</div>
-      <div class="menu"><div class="item sel btn">${diamond()}${px('继续', E.white)}${px('Esc', DIM, { small: true })}</div></div></div>`;
-    $('.btn', ov).addEventListener('click', () => {
-      ov.remove();
-      onResume();
+      if (i === 0) resume();
+      else if (i === 1) openHelp(this);
+      else if (i === 2) openCodex(this, (tabs ??= a.codex()));
+      else if (i === 3) openSettings(this);
+      else confirmBox(this, '返回主页？进度会自动存档，之后可以在主页继续游戏。', () => {
+        this.close(layer);
+        a.onQuit();
+      });
     });
-    this.root.appendChild(ov);
-    return () => ov.remove();
+    const layer = this.push(ov, (e) => {
+      if (e.key === 'Escape') {
+        this.escUsed();
+        resume();
+      } else nav.key(e);
+    });
   }
 
-  end(victory: boolean, run: RunState, onRestart: () => void) {
+  end(info: EndInfo, onRestart: () => void, onTitle: () => void) {
+    const { run, victory } = info;
     const ov = el('div', 'overlay');
-    const secs = Math.round(run.elapsed);
-    const total = Object.values(run.damage).reduce((a, b) => a + b, 0) || 1;
+    const total = Object.values(run.damage).reduce((x, y) => x + y, 0) || 1;
     const rows = Object.entries(run.damage)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 6)
+      .sort((x, y) => y[1] - x[1])
+      .slice(0, 5)
       .map(([k, v]) => `<div class="row"><div class="nm">${px(k, GREY)}</div><div class="b" style="width:${Math.max(2, Math.round((v / total) * 150))}px"></div>${px(`${Math.round((v / total) * 100)}%`, DIM, { small: true })}</div>`)
       .join('');
     const stat = (v: string, label: string) => `<div>${px(v, E.yellow, { small: true, scale: 2 })}${px(label, DIM)}</div>`;
+    const rank = info.rank === 1 ? px('新纪录！排行榜第 1 名', E.yellow) : info.rank > 0 && info.rank <= 10 ? px(`排行榜第 ${info.rank} 名`, E.white) : '';
     ov.innerHTML = `<div class="box panel endbox">
       <div class="head"><span class="tagred">${px(victory ? 'CLEAR' : 'DEAD', E.white, { small: true, outline: false })}</span>${px(victory ? '这一次，他活了下来' : '阿多尼斯倒下了', victory ? E.yellow : ACCENT, { scale: 2 })}</div>
       ${px(victory ? '野猪倒下了，银莲花开满了地牢。' : '血落处开出银莲花，他会再次重生。', GREY)}
-      <div class="statgrid">${stat(`${run.level + 1}/3`, '层数')}${stat(String(run.kills), '击杀')}${stat(String(run.xpLevel), '等级')}${stat(`${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`, '用时')}</div>
+      <div class="statgrid">${stat(`${run.level + 1}/3`, '层数')}${stat(String(run.kills), '击杀')}${stat(String(run.xpLevel), '等级')}${stat(fmtTime(run.elapsed), '用时')}</div>
+      <div class="score">${px(`得分 ${info.score}`, E.yellow)}${px(DIFFICULTIES[run.diff.id].name, GREY)}${rank}</div>
       <div class="dmg">${rows}</div>
-      <div class="menu"><div class="item sel btn">${diamond()}${px('再次重生', E.white)}${px('R', DIM, { small: true })}</div></div></div>`;
-    const go = () => {
-      window.removeEventListener('keydown', onKey);
-      ov.remove();
+      <div class="menu row2"></div></div>`;
+    const items = [menuRow('再次重生', { key: 'R' }), menuRow('返回主页')];
+    ov.querySelector('.menu')!.append(...items);
+    const nav = new MenuNav(items, (i) => {
       audio.select();
-      onRestart();
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'r' || e.key === 'R' || e.key === 'Enter') go();
-    };
-    window.addEventListener('keydown', onKey);
-    $('.btn', ov).addEventListener('click', go);
-    this.root.appendChild(ov);
+      this.close(layer);
+      (i === 0 ? onRestart : onTitle)();
+    });
+    const layer = this.push(ov, (e) => {
+      if (e.key === 'r' || e.key === 'R') {
+        audio.select();
+        this.close(layer);
+        onRestart();
+      } else nav.key(e);
+    });
   }
 }
 

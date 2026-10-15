@@ -5,6 +5,7 @@ import type { StyleKit } from '../styles/types';
 import type { Dungeon } from './dungeon';
 import { DEPTH } from './fx';
 import type { GameScene } from './GameScene';
+import { settings } from '../settings';
 
 interface Light {
   x: number;
@@ -66,10 +67,14 @@ export class Lighting {
   private flashes: Flash[] = [];
   private t = 0;
   private enabled: boolean;
+  private allowed: boolean;
+  private hasLevel = false;
 
   constructor(scene: Phaser.Scene) {
     lightTexture(scene);
-    this.enabled = new URLSearchParams(location.search).get('light') !== '0';
+    // ?light=0 forces it off for debugging; otherwise the setting decides, live.
+    this.allowed = new URLSearchParams(location.search).get('light') !== '0';
+    this.enabled = this.allowed && settings.get().light;
     const { width, height } = scene.scale;
     this.rt = scene.add
       .renderTexture(-M, -M, width + M * 2, height + M * 2)
@@ -87,7 +92,13 @@ export class Lighting {
     const [r, g, b] = hexRgb(E.white);
     this.ambient = (Math.round(r * k * 0.9) << 16) | (Math.round(g * k * 0.9) << 8) | Math.min(255, Math.round(b * k * 1.08));
     this.torches = d.torches.map(([x, y], i) => ({ x, y, r: 56, color: hexToNum(E.orange), flicker: (seed + i * 37) % 100 }));
+    this.hasLevel = true;
     this.rt.setVisible(this.enabled);
+  }
+
+  setEnabled(on: boolean) {
+    this.enabled = this.allowed && on;
+    this.rt.setVisible(this.enabled && this.hasLevel);
   }
 
   addStatic(x: number, y: number, r: number, color: string) {

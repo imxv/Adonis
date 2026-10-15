@@ -30,11 +30,23 @@ class AudioEngine {
   private growl!: Tone.FMSynth;
 
   private kit?: StyleKit;
+  /** Bus gains; the settings' 0-10 sliders map onto these (defaults 7 and 8 give the original mix). */
+  private vol = { music: 0.42, sfx: 0.9 };
   private musicNodes: AnyInst[] = [];
   private loops: Tone.Loop[] = [];
   private intensity = 0;
   private scaleMidi: number[] = [];
   private bar = 0;
+
+  /** Music and effect volume, each 0-10. Safe to call before the audio context exists. */
+  setVolumes(music: number, sfx: number) {
+    this.vol = { music: (music / 10) * 0.6, sfx: (sfx / 10) * 1.125 };
+    if (!this.music || !this.sfx) return;
+    this.safe(() => {
+      this.music.gain.rampTo(this.vol.music, 0.08);
+      this.sfx.gain.rampTo(this.vol.sfx, 0.08);
+    });
+  }
 
   async init() {
     if (this.ready) return;
@@ -46,9 +58,9 @@ class AudioEngine {
     await this.verb.generate();
     const verbSend = new Tone.Gain(0.22).connect(this.verb);
     this.verb.connect(master);
-    this.sfx = new Tone.Gain(0.9).connect(master);
+    this.sfx = new Tone.Gain(this.vol.sfx).connect(master);
     this.sfx.connect(verbSend);
-    this.music = new Tone.Gain(0.42).connect(master);
+    this.music = new Tone.Gain(this.vol.music).connect(master);
     this.music.connect(verbSend);
 
     this.pop = new Tone.MembraneSynth({ pitchDecay: 0.018, octaves: 2.5, envelope: { attack: 0.001, decay: 0.07, sustain: 0, release: 0.03 } }).connect(this.sfx);

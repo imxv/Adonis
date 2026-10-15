@@ -345,8 +345,7 @@ function door(kit: Biome): HTMLCanvasElement {
 // ---------------------------------------------------------------- rooms
 
 /** Paint the whole floor: biome tiles, 3/4 walls (face + top), corridors and the void around them. */
-export function buildLevel(scene: Phaser.Scene, kit: Biome, d: Dungeon, seed: number): string {
-  const key = `level@${kit.id}`;
+export function buildLevel(scene: Phaser.Scene, kit: Biome, d: Dungeon, seed: number, key = `level@${kit.id}`): string {
   const W = d.w * T;
   const H = d.h * T;
   const c = document.createElement('canvas');

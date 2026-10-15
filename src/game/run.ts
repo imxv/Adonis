@@ -7,6 +7,8 @@ import { PETS, type Pets } from '../data/enemies';
 import { KITS, KIT_BY_ID } from '../styles/kits';
 import { DIFFICULTIES, type Difficulty, type DifficultyId } from '../data/difficulty';
 import type { StyleKit } from '../styles/types';
+import { settings } from '../settings';
+import type { SavedRun } from '../save';
 
 export const LEVELS = 3;
 export const COMBAT_ROOMS = 4;
@@ -61,7 +63,7 @@ export function newRun(params: URLSearchParams): RunState {
   if (startSpell && SPELLS[startSpell]) spells.push(newSpell(startSpell));
   return {
     seed,
-    diff: DIFFICULTIES[params.get('diff') as DifficultyId] ?? DIFFICULTIES.normal,
+    diff: DIFFICULTIES[params.get('diff') as DifficultyId] ?? DIFFICULTIES[settings.get().diff] ?? DIFFICULTIES.normal,
     rng,
     styles,
     level: Number(params.get('level')) || 0,
@@ -83,6 +85,64 @@ export function newRun(params: URLSearchParams): RunState {
     damage: {},
     start: performance.now(),
     elapsed: 0,
+    frenzyStacks: 0,
+    eliteNext: false,
+  };
+}
+
+/** The run as plain data for a save; the floor progress is added by the scene. */
+export function snapshotRun(run: RunState): Omit<SavedRun, 'v' | 'savedAt' | 'rooms' | 'at'> {
+  return {
+    seed: run.seed,
+    diff: run.diff.id,
+    styles: run.styles.map((k) => k.id),
+    level: run.level,
+    mods: JSON.parse(JSON.stringify(run.mods)),
+    stacks: { ...run.stacks },
+    tags: { ...run.tags },
+    weapons: run.weapons.map((w) => ({ id: w.def.id, level: w.level })),
+    held: run.held,
+    spells: run.spells.map((s) => ({ id: s.id, level: s.level, evolved: s.evolved, kills: s.kills })),
+    pets: [...run.pets],
+    hp: run.hp,
+    armor: run.armor,
+    xp: run.xp,
+    xpLevel: run.xpLevel,
+    xpNext: run.xpNext,
+    kills: run.kills,
+    maxCombo: run.maxCombo,
+    damage: { ...run.damage },
+    elapsed: run.elapsed,
+  };
+}
+
+/** Rebuild a run from a save. Random draws continue from a fresh stream; the floors themselves are seeded. */
+export function restoreRun(s: SavedRun): RunState {
+  const styles = s.styles.map((id) => KIT_BY_ID[id]).filter(Boolean);
+  return {
+    seed: s.seed,
+    diff: DIFFICULTIES[s.diff] ?? DIFFICULTIES.normal,
+    rng: new Rng((s.seed ^ (s.kills * 7919 + s.level * 104729)) >>> 0 || 1),
+    styles: styles.length === LEVELS ? styles : KITS.slice(0, LEVELS),
+    level: s.level,
+    room: 0,
+    mods: { ...baseMods(), ...s.mods, elements: { ...baseMods().elements, ...s.mods.elements } },
+    stacks: { ...s.stacks },
+    tags: { ...s.tags },
+    weapons: s.weapons.filter((w) => WEAPONS[w.id]).map((w) => ({ def: WEAPONS[w.id], level: w.level, cd: 0 })),
+    held: Math.min(s.held, Math.max(0, s.weapons.length - 1)),
+    spells: s.spells.filter((x) => SPELLS[x.id]).map((x) => ({ ...newSpell(x.id), level: x.level, evolved: x.evolved, kills: x.kills })),
+    pets: s.pets.filter((p) => PETS[p]),
+    hp: s.hp,
+    armor: s.armor,
+    xp: s.xp,
+    xpLevel: s.xpLevel,
+    xpNext: s.xpNext,
+    kills: s.kills,
+    maxCombo: s.maxCombo,
+    damage: { ...s.damage },
+    start: performance.now(),
+    elapsed: s.elapsed,
     frenzyStacks: 0,
     eliteNext: false,
   };

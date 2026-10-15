@@ -212,7 +212,12 @@ export function fireWith(id, frames = 12) {
 
 export async function start({ click = true } = {}) {
   await wait(800);
-  if (click) document.querySelector('.overlay.title')?.click();
+  if (click) {
+    // Main menu: "开始冒险", then confirm if it asks to overwrite a saved run.
+    document.querySelector('.overlay.title [data-k="new"]')?.click();
+    await wait(100);
+    document.querySelector('.overlay.confirm [data-k="yes"]')?.click();
+  }
   await wait(300);
   s = scene();
   takeClock();
