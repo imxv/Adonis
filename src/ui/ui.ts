@@ -373,17 +373,33 @@ class UI {
   }
 
   /** Level-up picker: arrow keys or mouse move the red diamond, 1-4 / Enter / click choose. */
-  choices(title: string, sub: string, items: Choice[], run: RunState, onPick: (i: number) => void, tag = 'LEVEL UP') {
+  /**
+   * A pick-one panel. Arrow keys or the mouse move the red diamond; 1-4, Enter or a click choose.
+   * With `skip`, a last row lets you take nothing (also Esc); onPick then gets -1.
+   */
+  choices(title: string, sub: string, items: Choice[], run: RunState, onPick: (i: number) => void, o: { tag?: string; skip?: string } = {}) {
     if (this.choiceKeys) window.removeEventListener('keydown', this.choiceKeys);
-    this.root.querySelectorAll('.overlay.picker').forEach((o) => o.remove());
+    this.root.querySelectorAll('.overlay.picker').forEach((x) => x.remove());
     const ov = el('div', 'overlay picker');
     const box = el('div', 'lvlup panel');
-    box.innerHTML = `<div class="head"><span class="tagred">${px(tag, E.white, { small: true, outline: false })}</span>${px(title, E.yellow, { scale: 2 })}${px(sub, GREY)}</div>`;
-    const opts: HTMLElement[] = [];
+    box.innerHTML = `<div class="head"><span class="tagred">${px(o.tag ?? 'LEVEL UP', E.white, { small: true, outline: false })}</span>${px(title, E.yellow, { scale: 2 })}${px(sub, GREY)}</div>`;
+    const rows: HTMLElement[] = [];
+    const values: number[] = [];
     let sel = 0;
     const select = (i: number) => {
       sel = i;
-      opts.forEach((o, k) => o.classList.toggle('sel', k === i));
+      rows.forEach((r, k) => r.classList.toggle('sel', k === i));
+    };
+    const addRow = (row: HTMLElement, value: number) => {
+      const k = rows.length;
+      row.addEventListener('mouseenter', () => {
+        if (sel !== k) audio.hover();
+        select(k);
+      });
+      row.addEventListener('click', () => pick(value));
+      box.appendChild(row);
+      rows.push(row);
+      values.push(value);
     };
     items.forEach((c, i) => {
       const d = this.describe(c, run);
@@ -392,31 +408,32 @@ class UI {
         <div class="ic ${d.rarity}">${this.iconFor(d, (ICON_SIZE[d.icon]?.[0] ?? 99) * 2 <= 28 ? 2 : 1)}</div>
         <div class="txt"><div class="l1">${px(d.name, E.white)}${d.tag ? px(d.tag, d.tagColor, {}, 'tag') : ''}</div>${pxBlock(d.desc, DIM, 286)}</div>
         <div class="k">${px(String(i + 1), DIM, { small: true })}</div>`;
-      opt.addEventListener('mouseenter', () => {
-        if (sel !== i) audio.hover();
-        select(i);
-      });
-      opt.addEventListener('click', () => pick(i));
-      box.appendChild(opt);
-      opts.push(opt);
+      addRow(opt, i);
     });
+    if (o.skip) {
+      const row = el('div', 'opt skip');
+      row.innerHTML = `<div class="cur">${diamond()}</div><div class="txt">${px(o.skip, GREY)}</div><div class="k">${px('Esc', DIM, { small: true })}</div>`;
+      addRow(row, -1);
+    }
     select(0);
     ov.appendChild(box);
     let done = false;
     const onKey = (e: KeyboardEvent) => {
       const n = Number(e.key) - 1;
       if (n >= 0 && n < items.length) pick(n);
+      else if (e.key === 'Escape' && o.skip) pick(-1);
       else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
-        select((sel + 1) % items.length);
+        select((sel + 1) % rows.length);
         audio.hover();
       } else if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
-        select((sel + items.length - 1) % items.length);
+        select((sel + rows.length - 1) % rows.length);
         audio.hover();
-      } else if (e.key === 'Enter' || e.key === ' ') pick(sel);
+      } else if (e.key === 'Enter' || e.key === ' ') pick(values[sel]);
     };
     const pick = (i: number) => {
       if (done) return;
       done = true;
+      this.closedAt = performance.now();
       window.removeEventListener('keydown', onKey);
       if (this.choiceKeys === onKey) this.choiceKeys = undefined;
       ov.remove();
@@ -427,6 +444,9 @@ class UI {
     window.addEventListener('keydown', onKey);
     this.root.appendChild(ov);
   }
+
+  /** When a pick panel last closed, so the same Esc press doesn't also open the pause menu. */
+  closedAt = 0;
 
   title(onStart: () => void) {
     const ov = el('div', 'overlay title');

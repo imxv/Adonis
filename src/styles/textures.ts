@@ -111,6 +111,28 @@ export function buildCommonTextures(scene: Phaser.Scene) {
   gateV.rect(2, 0, 2, 46, '2').rect(6, 0, 2, 46, '2');
   add(scene, 'gate-v', gateV.render({ roles: { 1: ramp(E.greyM, E.grey, E.slateD), 2: ramp(E.red, E.pink, E.redD) } }));
 
+  // Traps: spikes that pop out of floor plates, and a saw blade that runs along a slot.
+  const spikeAt = [
+    [4, 7],
+    [11, 7],
+    [4, 15],
+    [11, 15],
+  ];
+  const spikesUp = new Grid(16, 16);
+  for (const [x, y] of spikeAt) spikesUp.tri(x - 2, y, x + 2, y, x, y - 6, 'g').line(x + 1, y, x, y - 5, 'G').set(x, y - 6, 'w').set(x, y - 5, 'w');
+  add(scene, 'spikes-up', spikesUp.render({ outline: E.ink, margin: 0 }));
+  const spikesWarn = new Grid(16, 16);
+  for (const [x, y] of spikeAt) spikesWarn.rect(x - 1, y - 2, 3, 2, 'G').set(x, y - 3, 'w');
+  add(scene, 'spikes-warn', spikesWarn.render({ outline: false, margin: 0 }));
+  const saw = new Grid(15, 15);
+  saw.ellipse(7, 7, 7, 7, 'g').ellipse(7, 7, 5, 5, 'G');
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2;
+    saw.set(7 + Math.cos(a) * 7.4, 7 + Math.sin(a) * 7.4, '.').set(7 + Math.cos(a + 0.2) * 6.6, 7 + Math.sin(a + 0.2) * 6.6, 'w');
+  }
+  saw.ellipse(7, 7, 2, 2, 'r').set(7, 7, 'R').set(4, 4, 'w');
+  add(scene, 'saw', saw.render());
+
   // Pickups.
   const gemCols: Record<string, Ramp> = { 1: ramp(E.blue, E.cyan, E.blueD), 2: ramp(E.green, '#a8f07a', E.greenD), 3: ramp(E.red, E.pink, E.redD) };
   for (const [tier, r] of Object.entries(gemCols)) {
@@ -430,6 +452,36 @@ export function buildLevel(scene: Phaser.Scene, kit: Biome, d: Dungeon, seed: nu
       }
     }
   }
+  // Trap fixtures are part of the floor: spike plates and saw slots, visible before the traps arm.
+  for (const r of d.rooms) {
+    for (const t of r.traps) {
+      if (t.kind === 'spikes') {
+        for (const [tx, ty] of t.tiles) {
+          const x = tx * T;
+          const y = ty * T;
+          P(x + 1, y + 1, E.slateD, 14, 14);
+          P(x + 1, y + 1, E.slate, 14, 1);
+          P(x + 1, y + 14, E.navy, 14, 1);
+          for (const [hx, hy] of [[3, 5], [10, 5], [3, 13], [10, 13]]) P(x + hx, y + hy, E.ink, 3, 2);
+        }
+      } else {
+        const [[ax, ay], [bx, by]] = t.tiles;
+        const x0 = Math.min(ax, bx) * T + 8;
+        const y0 = Math.min(ay, by) * T + 8;
+        const len = (Math.abs(bx - ax) + Math.abs(by - ay)) * T;
+        const lip = mix(px.floorCols[0], '#ffffff', 0.25);
+        if (ay === by) {
+          P(x0 - 3, y0 - 1, E.ink, len + 6, 3);
+          P(x0 - 3, y0 + 2, lip, len + 6, 1);
+        } else {
+          P(x0 - 1, y0 - 3, E.ink, 3, len + 6);
+          P(x0 + 2, y0 - 3, lip, 1, len + 6);
+        }
+        for (const [ex, ey] of [[ax, ay], [bx, by]]) P(ex * T + 5, ey * T + 5, E.navy, 6, 6);
+      }
+    }
+  }
+
   // Wall torches (their light comes from the lighting layer).
   for (const [tx, ty] of d.torches) {
     const x = Math.round(tx) - 8;

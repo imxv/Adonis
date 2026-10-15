@@ -4,6 +4,7 @@ import { audio } from '../audio/audio';
 import { K } from '../styles/textures';
 import { E } from '../pixel/palette';
 import { ui } from '../ui/ui';
+import { raycast } from './dungeon';
 import type { BossState, Enemy } from './entities';
 import { DEPTH } from './fx';
 import type { GameScene } from './GameScene';
@@ -15,7 +16,7 @@ export function spawnBoss(s: GameScene, kind: 'guardian' | 'boar'): Enemy {
   const kit = s.kit;
   const name = kit.bossNames[kind];
   const level = s.run.level;
-  const hp = kind === 'boar' ? 3000 : 760 * (1 + level * 0.8);
+  const hp = (kind === 'boar' ? 3000 : 760 * (1 + level * 0.8)) * s.run.diff.hp;
   const R = s.roomRect();
   const x = R.cx;
   const y = R.y0 + 92;
@@ -169,9 +170,11 @@ function guardian(s: GameScene, e: Enemy, b: BossState, dt: number) {
   } else if (b.armLive > 0) {
     b.armLive -= dt;
     b.armA += dt * (b.phase === 1 ? 0.8 : 1.15) * (b.step % 2 ? -1 : 1);
+    // The arms stop at walls and pillars, so cover is a real answer to them.
     for (let i = 0; i < b.arms; i++) {
       const a = b.armA + (i / b.arms) * TAU;
-      if (segCircle(e.x, e.y - 10, e.x + Math.cos(a) * 700, e.y - 10 + Math.sin(a) * 700, p.x, p.y - 4, p.r + 2)) s.hurtPlayer(1, e.x, e.y);
+      const len = raycast(s.dungeon, e.x, e.y - 10, Math.cos(a), Math.sin(a), 600, true).len;
+      if (segCircle(e.x, e.y - 10, e.x + Math.cos(a) * len, e.y - 10 + Math.sin(a) * len, p.x, p.y - 4, p.r + 2)) s.hurtPlayer(1, e.x, e.y);
     }
   }
 
@@ -277,7 +280,8 @@ function boar(s: GameScene, e: Enemy, b: BossState, dt: number) {
         if (e.state === 'windup') {
           b.dirX = Math.cos(toP);
           b.dirY = Math.sin(toP);
-          s.telegraphs.push({ kind: 'line', x: e.x, y: e.y - 8, x2: e.x + b.dirX * 700, y2: e.y - 8 + b.dirY * 700, t: 0, dur: b.enraged ? 0.55 : 0.75 });
+          const len = raycast(s.dungeon, e.x, e.y - 8, b.dirX, b.dirY, 700).len;
+          s.telegraphs.push({ kind: 'line', x: e.x, y: e.y - 8, x2: e.x + b.dirX * len, y2: e.y - 8 + b.dirY * len, t: 0, dur: b.enraged ? 0.55 : 0.75 });
         }
         if (e.state === 'stomp-up') {
           b.tx = p.x;

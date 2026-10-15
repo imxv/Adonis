@@ -1,4 +1,5 @@
 import { angleDiff, clamp } from '../core/math';
+import { raycast } from './dungeon';
 import type { Enemy } from './entities';
 import type { GameScene } from './GameScene';
 
@@ -46,7 +47,8 @@ export function updateEnemyAI(s: GameScene, e: Enemy, dt: number, slow: number) 
           e.state = 'windup';
           e.t = 0;
           e.facing = toP;
-          s.telegraphs.push({ kind: 'line', x: e.x, y: e.y - 3, x2: e.x + Math.cos(toP) * 210, y2: e.y - 3 + Math.sin(toP) * 210, t: 0, dur: 0.65 });
+          const len = raycast(s.dungeon, e.x, e.y - 3, Math.cos(toP), Math.sin(toP), 210).len;
+          s.telegraphs.push({ kind: 'line', x: e.x, y: e.y - 3, x2: e.x + Math.cos(toP) * len, y2: e.y - 3 + Math.sin(toP) * len, t: 0, dur: 0.65 });
         }
       } else if (e.state === 'windup') {
         e.vx = e.vy = 0;

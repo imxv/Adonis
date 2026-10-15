@@ -5,6 +5,7 @@ import { MAX_WEAPONS, MAX_WEAPON_LEVEL, WEAPONS, WEAPON_ORDER, type WeaponInstan
 import { MAX_SPELLS, MAX_SPELL_LEVEL, SPELLS, SPELL_ORDER, type SpellId, type SpellInstance } from '../data/spells';
 import { PETS, type Pets } from '../data/enemies';
 import { KITS, KIT_BY_ID } from '../styles/kits';
+import { DIFFICULTIES, type Difficulty, type DifficultyId } from '../data/difficulty';
 import type { StyleKit } from '../styles/types';
 
 export const LEVELS = 3;
@@ -12,6 +13,7 @@ export const COMBAT_ROOMS = 4;
 
 export interface RunState {
   seed: number;
+  diff: Difficulty;
   rng: Rng;
   styles: StyleKit[];
   level: number;
@@ -59,6 +61,7 @@ export function newRun(params: URLSearchParams): RunState {
   if (startSpell && SPELLS[startSpell]) spells.push(newSpell(startSpell));
   return {
     seed,
+    diff: DIFFICULTIES[params.get('diff') as DifficultyId] ?? DIFFICULTIES.normal,
     rng,
     styles,
     level: Number(params.get('level')) || 0,

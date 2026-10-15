@@ -12,6 +12,22 @@ export const WALL = 2;
 
 export type Shape = 'rect' | 'cut' | 'cross' | 'L' | 'pillars' | 'ring';
 
+export type TrapKind = 'spikes' | 'saw';
+
+/** Spikes cover `tiles`; a saw runs back and forth between the two tiles of its track. */
+export interface TrapPlan {
+  kind: TrapKind;
+  tiles: [number, number][];
+  period: number;
+  phase: number;
+}
+
+export interface PropPlan {
+  kind: 'barrel' | 'crate' | 'pillar';
+  x: number;
+  y: number;
+}
+
 /** A room carved into the tile map. Bounds are in tiles, [x0, x1) × [y0, y1). */
 export interface DRoom extends Room {
   x0: number;
@@ -21,6 +37,8 @@ export interface DRoom extends Room {
   shape: Shape;
   /** Tiles just outside the room edge where a corridor joins: closed gates go here. */
   gates: { dir: Dir; tiles: [number, number][] }[];
+  props: PropPlan[];
+  traps: TrapPlan[];
 }
 
 export interface Dungeon {
@@ -48,7 +66,7 @@ const SIZES: Record<Room['type'], [number, number, number, number]> = {
  * Soul Knight style dungeon: rooms of varied shapes laid out on the Isaac room graph,
  * joined by three-tile corridors and surrounded by walls and void.
  */
-export function generateDungeon(rng: Rng, level: number): Dungeon {
+export function generateDungeon(rng: Rng, level: number, trapMul = 1): Dungeon {
   const floor = generateFloor(rng, level);
   const cells = [...floor.rooms.values()];
   const minX = Math.min(...cells.map((r) => r.gx));
@@ -76,7 +94,7 @@ export function generateDungeon(rng: Rng, level: number): Dungeon {
     const x0 = cx - Math.floor(rw / 2);
     const y0 = cy - Math.floor(rh / 2);
     const shape: Shape = r.type === 'combat' ? rng.pick(['rect', 'cut', 'cross', 'L', 'pillars', 'ring'] as Shape[]) : r.type === 'horde' ? rng.pick(['rect', 'cut', 'pillars'] as Shape[]) : r.type === 'boss' ? 'cut' : 'rect';
-    const room: DRoom = { ...r, x0, y0, x1: x0 + rw, y1: y0 + rh, shape, gates: [] };
+    const room: DRoom = { ...r, x0, y0, x1: x0 + rw, y1: y0 + rh, shape, gates: [], props: [], traps: [] };
     carve(room, set, rng);
     rooms.push(room);
     byId.set(r.id, room);
@@ -101,6 +119,9 @@ export function generateDungeon(rng: Rng, level: number): Dungeon {
       }
     }
   }
+
+  // Room interiors: cover to fight around, props, and traps (more of them on deeper floors).
+  for (const r of rooms) decorate(r, rng, level, trapMul, get, set);
 
   // North faces are two tiles tall; everything else gets a one-tile wall rim.
   for (let y = 0; y < h; y++) {
@@ -195,6 +216,211 @@ function carve(r: DRoom, set: (x: number, y: number, v: number) => void, rng: Rn
   void rng;
 }
 
+// ---------------------------------------------------------------- room interiors
+
+type Cell = [number, number];
+
+const block = (bw: number, bh: number): Cell[] => {
+  const out: Cell[] = [];
+  for (let j = 0; j < bh; j++) for (let i = 0; i < bw; i++) out.push([i, j]);
+  return out;
+};
+
+/** Cover pieces, drawn for the lower-right quadrant (i grows outward to the right, j outward downward). */
+const PIECES: Record<string, Cell[]> = {
+  pillar: block(2, 2),
+  bar: block(3, 2),
+  column: block(2, 3),
+  // An L whose arms wrap the centre: cover facing inward on two sides.
+  corner: [...block(4, 2), [0, 2], [1, 2], [0, 3], [1, 3]],
+};
+
+function decorate(r: DRoom, rng: Rng, level: number, trapMul: number, get: (x: number, y: number) => number, set: (x: number, y: number, v: number) => void) {
+  if (r.type === 'start' || r.type === 'treasure') return;
+  const midX = Math.floor((r.x0 + r.x1) / 2);
+  const midY = Math.floor((r.y0 + r.y1) / 2);
+  const halfW = Math.floor((r.x1 - r.x0) / 2);
+  const halfH = Math.floor((r.y1 - r.y0) / 2);
+  const key = (x: number, y: number) => `${x},${y}`;
+  // The centre cross is where every corridor enters: it always stays open.
+  const inCross = (x: number, y: number) => Math.abs(x - midX) <= 1 || Math.abs(y - midY) <= 1;
+  const mouths = r.gates.map((g) => g.tiles[1]);
+  const nearMouth = (x: number, y: number, d: number) => mouths.some(([mx, my]) => Math.abs(mx - x) <= d && Math.abs(my - y) <= d);
+  const taken = new Set<string>();
+
+  const mirror = (dx: number, dy: number, piece: Cell[], ways: 2 | 4 = 4, sy0 = 1): Cell[] => {
+    const out: Cell[] = [];
+    for (const sx of [-1, 1]) for (const sy of ways === 4 ? [-1, 1] : [sy0]) for (const [i, j] of piece) out.push([midX + sx * (dx + i), midY + sy * (dy + j)]);
+    return out;
+  };
+
+  // A wall piece needs two tiles of open floor all around, so nothing gets sealed off or pinched.
+  const fits = (cells: Cell[]) => {
+    const own = new Set(cells.map(([x, y]) => key(x, y)));
+    for (const [x, y] of cells) {
+      if (inCross(x, y)) return false;
+      for (let oy = -2; oy <= 2; oy++) for (let ox = -2; ox <= 2; ox++) if (!own.has(key(x + ox, y + oy)) && get(x + ox, y + oy) !== FLOOR) return false;
+    }
+    return true;
+  };
+
+  // Every floor tile and every gate must stay reachable.
+  const connected = () => {
+    const inBox = (x: number, y: number) => x >= r.x0 - 1 && x <= r.x1 && y >= r.y0 - 1 && y <= r.y1;
+    const startCell = r.gates[0]?.tiles[1];
+    if (!startCell) return true;
+    const seen = new Set([key(...startCell)]);
+    const q: Cell[] = [startCell];
+    while (q.length) {
+      const [x, y] = q.pop()!;
+      for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]] as Cell[]) {
+        if (!inBox(nx, ny) || seen.has(key(nx, ny)) || get(nx, ny) !== FLOOR) continue;
+        seen.add(key(nx, ny));
+        q.push([nx, ny]);
+      }
+    }
+    for (let y = r.y0; y < r.y1; y++) for (let x = r.x0; x < r.x1; x++) if (get(x, y) === FLOOR && !seen.has(key(x, y))) return false;
+    return r.gates.every((g) => seen.has(key(...g.tiles[1])));
+  };
+
+  const place = (cells: Cell[]) => {
+    for (const [x, y] of cells) set(x, y, WALL);
+    if (connected()) return true;
+    for (const [x, y] of cells) set(x, y, FLOOR);
+    return false;
+  };
+
+  /** Try a piece at a few spacings, four-way symmetric first, then as a mirrored pair. */
+  const tryPiece = (name: string) => {
+    const piece = PIECES[name];
+    const pw = Math.max(...piece.map(([i]) => i)) + 1;
+    const ph = Math.max(...piece.map(([, j]) => j)) + 1;
+    const dxs = rng.shuffle([2, 3, 4, 5, 6].filter((d) => d + pw <= halfW - 1));
+    const dys = rng.shuffle([2, 3, 4].filter((d) => d + ph <= halfH - 1));
+    for (const dx of dxs) {
+      for (const dy of dys) {
+        for (const cells of [mirror(dx, dy, piece), mirror(dx, dy, piece, 2, 1), mirror(dx, dy, piece, 2, -1)]) {
+          if (fits(cells) && place(cells)) return true;
+        }
+      }
+    }
+    return false;
+  };
+
+  // ---- structure
+  if (r.type === 'boss') {
+    // Four pillars: cover from bullet patterns, and the boar stuns itself charging into them.
+    const cells = mirror(6, 3, PIECES.pillar);
+    if (!(fits(cells) && place(cells))) tryPiece('pillar');
+  } else if (r.shape !== 'ring' && r.shape !== 'pillars') {
+    const big = halfW >= 9 && halfH >= 6;
+    const pool = r.type === 'horde' ? ['pillar', 'pillar', 'column'] : big ? ['corner', 'bar', 'column', 'pillar'] : ['pillar', 'bar', 'column'];
+    if (r.type !== 'horde' || rng.chance(0.6)) {
+      for (const name of rng.shuffle([...pool])) if (tryPiece(name)) break;
+    }
+    if (big && r.type === 'combat' && rng.chance(0.45)) tryPiece('pillar');
+  }
+  if (r.type === 'boss') return;
+
+  const free = (x: number, y: number, margin = 1) => {
+    if (taken.has(key(x, y)) || inCross(x, y) || nearMouth(x, y, 3)) return false;
+    for (let oy = -margin; oy <= margin; oy++) for (let ox = -margin; ox <= margin; ox++) if (get(x + ox, y + oy) !== FLOOR) return false;
+    return true;
+  };
+  const randomTile = (margin = 1): Cell | undefined => {
+    for (let i = 0; i < 40; i++) {
+      const x = rng.int(r.x0 + 1, r.x1 - 2);
+      const y = rng.int(r.y0 + 1, r.y1 - 2);
+      if (free(x, y, margin)) return [x, y];
+    }
+    return undefined;
+  };
+
+  // ---- traps
+  const trapChance = Math.min(0.95, (0.25 + level * 0.2) * trapMul);
+  const trapCount = r.type === 'horde' ? (rng.chance(0.5 * trapMul) ? 1 : 0) : rng.chance(trapChance) ? (halfW >= 9 && rng.chance(trapChance * 0.4) ? 2 : 1) : 0;
+  for (let n = 0; n < trapCount; n++) {
+    const kind: TrapKind = r.type === 'horde' || rng.chance(0.4) ? 'saw' : 'spikes';
+    if (kind === 'saw') {
+      // A pair of saws on mirrored tracks, running in opposite directions.
+      const horizontal = halfW >= halfH ? rng.chance(0.75) : rng.chance(0.25);
+      for (const k of rng.shuffle([2, 3, 4, 5].filter((k) => k <= (horizontal ? halfH : halfW) - 2))) {
+        const tracks: Cell[][] = [-1, 1].map((sg) => {
+          const cells: Cell[] = [];
+          if (horizontal) for (let x = r.x0 + 2; x <= r.x1 - 3; x++) cells.push([x, midY + sg * k]);
+          else for (let y = r.y0 + 2; y <= r.y1 - 3; y++) cells.push([midX + sg * k, y]);
+          return cells;
+        });
+        // Clip each track to its longest run of open floor.
+        const runs = tracks.map((cells) => {
+          let best: Cell[] = [];
+          let cur: Cell[] = [];
+          for (const c of cells) {
+            if (get(c[0], c[1]) === FLOOR && !taken.has(key(c[0], c[1])) && !nearMouth(c[0], c[1], 2)) cur.push(c);
+            else cur = [];
+            if (cur.length > best.length) best = [...cur];
+          }
+          return best;
+        });
+        if (runs.some((run) => run.length < 6)) continue;
+        runs.forEach((run, i) => {
+          run.forEach(([x, y]) => taken.add(key(x, y)));
+          r.traps.push({ kind: 'saw', tiles: [run[0], run[run.length - 1]], period: 0, phase: i === 0 ? 0 : 0.5 });
+        });
+        break;
+      }
+    } else {
+      // Spike patches in mirrored quadrants, or strips across the centre paths that pulse out of step.
+      const strips = rng.chance(0.4);
+      if (strips) {
+        for (const k of rng.shuffle([3, 4, 5].filter((k) => k <= Math.min(halfW, halfH) - 2))) {
+          const a: Cell[] = [-1, 0, 1].map((j) => [midX - k, midY + j]);
+          const b: Cell[] = [-1, 0, 1].map((j) => [midX + k, midY + j]);
+          const c: Cell[] = [-1, 0, 1].map((i) => [midX + i, midY - k]);
+          const d: Cell[] = [-1, 0, 1].map((i) => [midX + i, midY + k]);
+          const groups = [a, b, c, d].filter((g) => g.every(([x, y]) => get(x, y) === FLOOR && !taken.has(key(x, y)) && !nearMouth(x, y, 2)));
+          if (groups.length < 2) continue;
+          groups.forEach((g, i) => {
+            g.forEach(([x, y]) => taken.add(key(x, y)));
+            r.traps.push({ kind: 'spikes', tiles: g, period: 3, phase: i % 2 ? 0.5 : 0 });
+          });
+          break;
+        }
+      } else {
+        for (const dx of rng.shuffle([3, 4, 5, 6].filter((d) => d + 2 <= halfW - 1))) {
+          const dy = rng.int(2, Math.max(2, halfH - 3));
+          const cells = mirror(dx, dy, block(2, 2));
+          if (!cells.every(([x, y]) => get(x, y) === FLOOR && !taken.has(key(x, y)) && !nearMouth(x, y, 2))) continue;
+          for (let q = 0; q < 4; q++) {
+            const g = cells.slice(q * 4, q * 4 + 4);
+            g.forEach(([x, y]) => taken.add(key(x, y)));
+            r.traps.push({ kind: 'spikes', tiles: g, period: 3.2, phase: q === 0 || q === 3 ? 0 : 0.5 });
+          }
+          break;
+        }
+      }
+    }
+  }
+
+  // ---- props: crates in small clusters, a barrel or two, the odd biome prop
+  const props = r.type === 'horde' ? rng.int(1, 3) : rng.int(2, 4);
+  for (let n = 0; n < props; n++) {
+    const at = randomTile(1);
+    if (!at) break;
+    const kind = rng.weighted(['crate', 'barrel', 'pillar'] as PropPlan['kind'][], (k) => (k === 'crate' ? 3 : k === 'barrel' ? 1.5 : 1));
+    const cluster: Cell[] = [at];
+    if (kind === 'crate') {
+      for (const [ox, oy] of rng.shuffle([[1, 0], [-1, 0], [0, 1], [0, -1]] as Cell[]).slice(0, rng.int(0, 2))) {
+        if (free(at[0] + ox, at[1] + oy)) cluster.push([at[0] + ox, at[1] + oy]);
+      }
+    }
+    for (const [x, y] of cluster) {
+      taken.add(key(x, y));
+      r.props.push({ kind, x: x * T + T / 2, y: y * T + T / 2 });
+    }
+  }
+}
+
 // ---------------------------------------------------------------- queries
 
 export function tileAt(d: Dungeon, tx: number, ty: number): number {
@@ -248,14 +474,24 @@ export function collide(d: Dungeon, x: number, y: number, r: number): [number, n
   return [x, y];
 }
 
-/** March a ray until it hits a solid tile. Returns the travelled length and which axis it hit. */
-export function raycast(d: Dungeon, x: number, y: number, dx: number, dy: number, maxLen: number): { len: number; axis: 'x' | 'y' | null } {
+/**
+ * March a ray until it hits a solid tile. Returns the travelled length and which axis it hit.
+ * With `fromInside`, a ray that starts inside a wall (a boss hovering over a pillar) first walks out of it.
+ */
+export function raycast(d: Dungeon, x: number, y: number, dx: number, dy: number, maxLen: number, fromInside = false): { len: number; axis: 'x' | 'y' | null } {
   const step = 3;
   let px = x;
   let py = y;
+  let inside = fromInside && solidAt(d, x, y);
   for (let len = 0; len < maxLen; len += step) {
     const nx = px + dx * step;
     const ny = py + dy * step;
+    if (inside) {
+      inside = solidAt(d, nx, ny);
+      px = nx;
+      py = ny;
+      continue;
+    }
     if (solidAt(d, nx, ny)) {
       const hx = solidAt(d, nx, py);
       const hy = solidAt(d, px, ny);

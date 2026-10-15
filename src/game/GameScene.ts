@@ -13,7 +13,7 @@ import type { StyleKit } from '../styles/types';
 import { ui } from '../ui/ui';
 import { DIRS, DIR_VEC } from './dirs';
 import { bossDeath, spawnBoss, updateBoss } from './boss';
-import { T, collide, generateDungeon, openSpot, randomFloorIn, raycast, roomAt, roomCenter, solidAt, solidTile, type DRoom, type Dungeon } from './dungeon';
+import { T, collide, generateDungeon, openSpot, randomFloorIn, raycast, roomAt, roomCenter, solidAt, type DRoom, type Dungeon } from './dungeon';
 import { updateEnemyAI } from './enemyAI';
 import {
   ELEMENT_COLOR,
@@ -48,6 +48,38 @@ interface Pedestal {
   room: DRoom;
 }
 
+interface SpikeTrap {
+  kind: 'spikes';
+  room: DRoom;
+  tiles: [number, number][];
+  cx: number;
+  cy: number;
+  period: number;
+  phase: number;
+  t: number;
+  state: 'down' | 'warn' | 'up';
+  sprites: Img[];
+  hit: Map<Enemy, number>;
+}
+
+interface SawTrap {
+  kind: 'saw';
+  room: DRoom;
+  ax: number;
+  ay: number;
+  bx: number;
+  by: number;
+  u: number;
+  dir: number;
+  spin: number;
+  x: number;
+  y: number;
+  sprite: Img;
+  hit: Map<Enemy, number>;
+}
+
+export type Trap = SpikeTrap | SawTrap;
+
 /** How far the camera leans toward the cursor, in pixels. */
 const LEAN_X = 46;
 const LEAN_Y = 28;
@@ -76,6 +108,7 @@ export class GameScene extends Phaser.Scene {
   visuals: Visual[] = [];
   pedestals: Pedestal[] = [];
   gates: Img[] = [];
+  traps: Trap[] = [];
   worldLabels: Img[] = [];
   trapdoor?: { img: Img; label: Img; final: boolean };
   dungeon!: Dungeon;
@@ -187,6 +220,8 @@ export class GameScene extends Phaser.Scene {
     this.pedestals = [];
     this.gates.forEach((g) => g.destroy());
     this.gates = [];
+    for (const t of this.traps) (t.kind === 'spikes' ? t.sprites : [t.sprite]).forEach((o) => o.destroy());
+    this.traps = [];
     this.worldLabels.forEach((l) => l.destroy());
     this.worldLabels = [];
     if (this.trapdoor) {
@@ -212,7 +247,7 @@ export class GameScene extends Phaser.Scene {
     audio.setStyle(kit);
     audio.setIntensity(0);
     const seed = this.run.seed + this.run.level * 7919;
-    const d = generateDungeon(new Rng(seed), this.run.level);
+    const d = generateDungeon(new Rng(seed), this.run.level, this.run.diff.traps);
     this.dungeon = d;
     this.bg?.destroy();
     this.bg = this.add.image(0, 0, buildLevel(this, kit, d, seed)).setOrigin(0).setDepth(DEPTH.bg);
@@ -282,20 +317,85 @@ export class GameScene extends Phaser.Scene {
         }
         continue;
       }
-      if (r.type !== 'combat' && r.type !== 'horde') continue;
-      const mouths = r.gates.map((g) => [(g.tiles[1][0] + 0.5) * T, (g.tiles[1][1] + 0.5) * T]);
-      const n = rng.int(1, r.type === 'horde' ? 2 : 3);
-      for (let i = 0; i < n; i++) {
-        const [x, y] = randomFloorIn(d, r, rng, cx, cy, 40);
-        // Props need open floor all around, or they pinch a gap against a wall too narrow to walk through.
-        const tx = Math.floor(x / T);
-        const ty = Math.floor(y / T);
-        let boxed = false;
-        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (solidTile(d, tx + dx, ty + dy)) boxed = true;
-        if (boxed) continue;
-        if (mouths.some(([mx, my]) => dist2(mx, my, x, y) < 56 * 56)) continue;
-        if (this.obstacles.some((o) => dist2(o.x, o.y, x, y) < 36 * 36)) continue;
-        this.addObstacle(rng.pick(['barrel', 'crate', 'pillar', 'crate'] as Obstacle['kind'][]), x, y);
+      for (const p of r.props) this.addObstacle(p.kind, p.x, p.y);
+      for (const t of r.traps) {
+        if (t.kind === 'spikes') {
+          const sprites = t.tiles.map(([tx, ty]) => this.add.image(tx * T + T / 2, ty * T + T / 2, 'spikes-up').setDepth(DEPTH.shadow + 0.5).setVisible(false));
+          const cx2 = t.tiles.reduce((a, [tx]) => a + tx * T + T / 2, 0) / t.tiles.length;
+          const cy2 = t.tiles.reduce((a, [, ty]) => a + ty * T + T / 2, 0) / t.tiles.length;
+          this.traps.push({ kind: 'spikes', room: r, tiles: t.tiles, cx: cx2, cy: cy2, period: t.period, phase: t.phase, t: 0, state: 'down', sprites, hit: new Map() });
+        } else {
+          const [[ax, ay], [bx, by]] = t.tiles;
+          const u = t.phase;
+          const s = { kind: 'saw' as const, room: r, ax: ax * T + T / 2, ay: ay * T + T / 2, bx: bx * T + T / 2, by: by * T + T / 2, u, dir: 1, spin: 0, x: 0, y: 0, hit: new Map(), sprite: this.add.image(0, 0, 'saw').setDepth(DEPTH.obstacle) };
+          s.x = s.ax + (s.bx - s.ax) * u;
+          s.y = s.ay + (s.by - s.ay) * u;
+          s.sprite.setPosition(Math.round(s.x), Math.round(s.y)).setAlpha(0.55);
+          this.traps.push(s);
+        }
+      }
+    }
+    void rng;
+  }
+
+  /** Traps run only while their room's fight is on; once it is cleared they settle and are safe to walk past. */
+  updateTraps(dt: number) {
+    const p = this.player;
+    const scale = 1 + this.run.level * 0.5;
+    for (const tr of this.traps) {
+      const armed = this.active === tr.room;
+      if (tr.kind === 'spikes') {
+        let state: SpikeTrap['state'] = 'down';
+        if (armed) {
+          tr.t += dt;
+          const c = ((tr.t / tr.period + tr.phase) % 1) * tr.period;
+          const upFrom = tr.period - 0.9;
+          state = c >= upFrom ? 'up' : c >= upFrom - 0.6 ? 'warn' : 'down';
+        }
+        if (state !== tr.state) {
+          tr.state = state;
+          for (const sp of tr.sprites) sp.setVisible(state !== 'down').setTexture(state === 'up' ? 'spikes-up' : 'spikes-warn');
+          if (state === 'up' && dist2(p.x, p.y, tr.cx, tr.cy) < 150 * 150) audio.block();
+        }
+        if (state !== 'up') continue;
+        for (const [tx, ty] of tr.tiles) {
+          const x = tx * T + T / 2;
+          const y = ty * T + T / 2;
+          if (this.mode === 'play' && Math.abs(p.x - x) < 8 + p.r * 0.4 && Math.abs(p.y - y) < 8 + p.r * 0.4) this.hurtPlayer(1, x, y - 6);
+          for (const e of this.enemies) {
+            if (e.dead || e.kind === 'bat' || e.kind === 'guardian' || (e.boss?.air ?? 0) > 0) continue;
+            if (Math.abs(e.x - x) > 8 || Math.abs(e.y - y) > 8 || (tr.hit.get(e) ?? 0) > this.time0) continue;
+            tr.hit.set(e, this.time0 + 0.6);
+            this.damageEnemy(e, 8 * scale, { src: '地刺', kx: e.x - x, ky: e.y - y, knock: 40, noCrit: true });
+          }
+        }
+      } else {
+        if (armed) {
+          const len = Math.max(1, dist(tr.ax, tr.ay, tr.bx, tr.by));
+          tr.u += (tr.dir * 62 * dt) / len;
+          if (tr.u > 1) {
+            tr.u = 2 - tr.u;
+            tr.dir = -1;
+          } else if (tr.u < 0) {
+            tr.u = -tr.u;
+            tr.dir = 1;
+          }
+          tr.spin += dt;
+        }
+        tr.x = tr.ax + (tr.bx - tr.ax) * tr.u;
+        tr.y = tr.ay + (tr.by - tr.ay) * tr.u;
+        // Spinning by flips keeps the pixels crisp; free rotation would smear them.
+        const f = Math.floor(tr.spin * 24) % 4;
+        tr.sprite.setPosition(Math.round(tr.x), Math.round(tr.y)).setFlip(f === 1 || f === 2, f >= 2).setAlpha(armed ? 1 : 0.55);
+        if (!armed) continue;
+        if (Math.random() < dt * 8) this.fx.sparks(tr.x, tr.y + 5, 1, 'gold');
+        if (this.mode === 'play' && dist2(p.x, p.y - 3, tr.x, tr.y) < (7 + p.r * 0.7) ** 2) this.hurtPlayer(1, tr.x, tr.y);
+        for (const e of this.enemies) {
+          if (e.dead || e.kind === 'guardian' || (e.boss?.air ?? 0) > 0) continue;
+          if (dist2(e.x, e.y - 3, tr.x, tr.y) > (7 + e.r) ** 2 || (tr.hit.get(e) ?? 0) > this.time0) continue;
+          tr.hit.set(e, this.time0 + 0.5);
+          this.damageEnemy(e, 10 * scale, { src: '锯片', kx: e.x - tr.x, ky: e.y - tr.y, knock: 120, noCrit: true });
+        }
       }
     }
   }
@@ -367,6 +467,7 @@ export class GameScene extends Phaser.Scene {
       this.spawnWave(0);
       audio.setIntensity(1);
     }
+    if (this.traps.some((t) => t.room === r)) ui.toast('机关启动', 1000);
   }
 
   closeGates(r: DRoom) {
@@ -414,7 +515,7 @@ export class GameScene extends Phaser.Scene {
   planWaves(rng: Rng) {
     const level = this.run.level;
     const depth = Math.min(this.active!.depth, 5);
-    const budget = 6 + level * 4 + depth;
+    const budget = (6 + level * 4 + depth) * this.run.diff.enemies;
     const waveCount = depth >= 4 ? 3 : 2;
     const kinds = this.enemyKinds();
     let elites = rng.chance(0.12 + level * 0.1 + depth * 0.03) ? 1 : 0;
@@ -471,7 +572,7 @@ export class GameScene extends Phaser.Scene {
     const def = ENEMIES[kind];
     const { level, rng } = this.run;
     const depth = this.active?.depth ?? 0;
-    const scaleHp = (1 + level * 0.65 + depth * 0.08) * (mini ? 0.5 : 1);
+    const scaleHp = (1 + level * 0.65 + depth * 0.08) * (mini ? 0.5 : 1) * this.run.diff.hp;
     const affix: Affix | undefined = elite ? rng.pick(Object.keys(AFFIXES) as Affix[]) : undefined;
     const hp = def.hp * scaleHp * (elite ? 5 : 1) * (affix === 'tough' ? 1.4 : 1);
     const size = elite ? 1.6 : mini ? 0.8 : 1;
@@ -543,8 +644,8 @@ export class GameScene extends Phaser.Scene {
         const k = Math.min(1, this.hordeT / this.hordeDur);
         if (this.hordeT < this.hordeDur) {
           this.spawnT -= dt;
-          if (this.spawnT <= 0 && alive + this.pendingSpawns < 14 + this.run.level * 5) {
-            this.spawnT = lerp(1.5, 0.85, k) / (1 + this.run.level * 0.12);
+          if (this.spawnT <= 0 && alive + this.pendingSpawns < (14 + this.run.level * 5) * this.run.diff.enemies) {
+            this.spawnT = lerp(1.5, 0.85, k) / (1 + this.run.level * 0.12) / this.run.diff.enemies;
             const [x, y] = this.spawnPoint(110);
             const n = 1 + Math.floor(k * 1.5);
             for (let i = 0; i < n; i++) {
@@ -669,6 +770,7 @@ export class GameScene extends Phaser.Scene {
     updatePets(this, dt);
     this.updatePickups(dt);
     this.updateHazards(dt);
+    this.updateTraps(dt);
     this.updateTelegraphs(dt);
     if (this.mode === 'play') this.updateRoom(dt);
     this.comboT -= dt;
@@ -1632,7 +1734,8 @@ export class GameScene extends Phaser.Scene {
           }
         }
       }
-      if (!a.boss || a.boss.air < 20) [a.x, a.y] = collide(this.dungeon, a.x, a.y, Math.max(3, a.r * 0.8));
+      // The guardian hovers over pillars; everything else is held back by walls.
+      if (a.kind !== 'guardian' && (!a.boss || a.boss.air < 20)) [a.x, a.y] = collide(this.dungeon, a.x, a.y, Math.max(3, a.r * 0.8));
       if (this.mode === 'play' && dist2(a.x, a.y, pl.x, pl.y) < (a.r + pl.r * 0.8) ** 2 && (a.boss?.air ?? 0) < 20) {
         this.hurtPlayer(a.state === 'charge' ? 2 : a.contact, a.x, a.y);
       }
@@ -1882,11 +1985,18 @@ export class GameScene extends Phaser.Scene {
     if (this.mode !== 'play') return;
     const choices = rollChoices(this.run, 'weapon');
     this.mode = 'choose';
-    ui.choices('武器箱', '挑一把带走', choices, this.run, (i) => {
-      this.takeChoice(choices[i]);
-      this.mode = 'play';
-      if (this.pendingLevelUps > 0) this.time.delayedCall(120, () => this.openLevelUp());
-    }, 'WEAPON');
+    ui.choices(
+      '武器箱',
+      '挑一把带走',
+      choices,
+      this.run,
+      (i) => {
+        if (i >= 0) this.takeChoice(choices[i]);
+        this.mode = 'play';
+        if (this.pendingLevelUps > 0) this.time.delayedCall(120, () => this.openLevelUp());
+      },
+      { tag: 'WEAPON', skip: '都不要，跳过' },
+    );
   }
 
   gainXp(v: number) {
@@ -1908,12 +2018,19 @@ export class GameScene extends Phaser.Scene {
     this.fx.ring(this.player.x, this.player.y - 4, 70, E.yellow, 400);
     this.fx.flash(E.white, 0.2, 240);
     const choices = rollChoices(this.run, 'level');
-    ui.choices('升级', `等级 ${this.run.xpLevel - this.pendingLevelUps + 1}`, choices, this.run, (i) => {
-      this.takeChoice(choices[i]);
-      this.pendingLevelUps--;
-      this.mode = 'play';
-      if (this.pendingLevelUps > 0) this.time.delayedCall(120, () => this.openLevelUp());
-    });
+    ui.choices(
+      '升级',
+      `等级 ${this.run.xpLevel - this.pendingLevelUps + 1}`,
+      choices,
+      this.run,
+      (i) => {
+        if (i >= 0) this.takeChoice(choices[i]);
+        this.pendingLevelUps--;
+        this.mode = 'play';
+        if (this.pendingLevelUps > 0) this.time.delayedCall(120, () => this.openLevelUp());
+      },
+      { skip: '跳过这次升级' },
+    );
   }
 
   takeChoice(c: Choice) {
@@ -1958,6 +2075,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   togglePause() {
+    // The Esc that skipped a pick panel must not also pause the game.
+    if (performance.now() - ui.closedAt < 250) return;
     if (this.mode === 'play') {
       this.mode = 'pause';
       this.closePause = ui.pause(this.run, () => {
@@ -2033,7 +2152,7 @@ export class GameScene extends Phaser.Scene {
       if (bs.armWarn > 0 || bs.armLive > 0) {
         for (let i = 0; i < bs.arms; i++) {
           const a = bs.armA + (i / bs.arms) * TAU;
-          const len = raycast(this.dungeon, b.x, b.y - 10, Math.cos(a), Math.sin(a), 600).len;
+          const len = raycast(this.dungeon, b.x, b.y - 10, Math.cos(a), Math.sin(a), 600, true).len;
           const x2 = b.x + Math.cos(a) * len;
           const y2 = b.y - 10 + Math.sin(a) * len;
           if (bs.armLive > 0) {

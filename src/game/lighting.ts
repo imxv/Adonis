@@ -147,6 +147,7 @@ export class Lighting {
       else add(b.x, b.y, 14, hexToNum(E.yellow), 0.55);
     }
     for (const h of s.hazards) add(h.x, h.y, h.r * 1.6, hexToNum(E.orange), 0.5);
+    for (const t of s.traps) if (t.kind === 'saw' && s.active === t.room) add(t.x, t.y, 26, danger, 0.45);
     for (const e of s.enemies) {
       if (e.dead) continue;
       if (e.boss) add(e.x, e.y - 12, 90, danger, 0.45);
