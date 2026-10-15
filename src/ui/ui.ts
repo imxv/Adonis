@@ -83,7 +83,16 @@ class UI {
     s.setProperty('--frame', p.extra[0]);
     s.setProperty('--display-font', kit.fonts.display);
     s.setProperty('--body-font', kit.fonts.body);
-    s.setProperty('--hud-ink', dark ? p.light : p.ink);
+    // HUD text sits on the walls (top and bottom bands); toasts and banners sit on the floor.
+    const lum = (hex: string) => {
+      const n = parseInt(hex.slice(1), 16);
+      return (0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255;
+    };
+    const wallDark = lum(p.wall) < 0.45;
+    s.setProperty('--hud-ink', wallDark ? '#ffffff' : p.ink);
+    s.setProperty('--hud-shadow', wallDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.6)');
+    s.setProperty('--floor-ink', dark ? p.light : p.ink);
+    s.setProperty('--floor-shadow', dark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.7)');
     this.root.className = `frame-${kit.frame}`;
   }
 
@@ -168,7 +177,9 @@ class UI {
   }
 
   choices(title: string, sub: string, items: Choice[], run: RunState, onPick: (i: number) => void) {
-    const ov = el('div', 'overlay');
+    if (this.choiceKeys) window.removeEventListener('keydown', this.choiceKeys);
+    this.root.querySelectorAll('.overlay.picker').forEach((o) => o.remove());
+    const ov = el('div', 'overlay picker');
     ov.innerHTML = `<h2>${title}</h2><div class="sub">${sub}</div><div class="cards"></div>`;
     const cards = $('.cards', ov);
     const tops = topTags(run);
@@ -179,18 +190,22 @@ class UI {
       card.addEventListener('click', () => pick(i));
       cards.appendChild(card);
     });
+    let done = false;
+    const onKey = (e: KeyboardEvent) => {
+      const i = Number(e.key) - 1;
+      if (i >= 0 && i < items.length) pick(i);
+    };
     const pick = (i: number) => {
-      if (this.choiceKeys) window.removeEventListener('keydown', this.choiceKeys);
-      this.choiceKeys = undefined;
+      if (done) return;
+      done = true;
+      window.removeEventListener('keydown', onKey);
+      if (this.choiceKeys === onKey) this.choiceKeys = undefined;
       ov.remove();
       audio.select();
       onPick(i);
     };
-    this.choiceKeys = (e: KeyboardEvent) => {
-      const i = Number(e.key) - 1;
-      if (i >= 0 && i < items.length) pick(i);
-    };
-    window.addEventListener('keydown', this.choiceKeys);
+    this.choiceKeys = onKey;
+    window.addEventListener('keydown', onKey);
     this.root.appendChild(ov);
   }
 

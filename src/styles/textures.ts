@@ -201,6 +201,27 @@ export function buildKitTextures(scene: Phaser.Scene, kit: StyleKit) {
     ctx.stroke();
   });
 
+  // Floor decal left by every kill: "where his blood fell, anemones bloomed".
+  tex(scene, K('bloom', kit), 44, 44, (ctx) => {
+    const c = 22;
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * TAU + 0.2;
+      const p = new Path2D();
+      p.ellipse(c + Math.cos(a) * 9, c + Math.sin(a) * 9, 9.5, 6.5, a, 0, TAU);
+      ctx.fillStyle = withAlpha(i % 2 ? pal.accent : mixHex(pal.accent, pal.accentDark, 0.3), 0.9);
+      ctx.fill(p);
+      if (kit.outline.mode === 'thick' || kit.outline.mode === 'ink') {
+        ctx.strokeStyle = withAlpha(pal.ink, 0.6);
+        ctx.lineWidth = 1.2;
+        ctx.stroke(p);
+      }
+    }
+    ctx.fillStyle = '#17121A';
+    ctx.beginPath();
+    ctx.arc(c, c, 5, 0, TAU);
+    ctx.fill();
+  });
+
   // XP: an anemone petal.
   tex(scene, K('petal', kit), 16, 12, (ctx) => {
     const p = new Path2D();

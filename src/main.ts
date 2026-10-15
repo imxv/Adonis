@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { DISPLAY_FONTS } from './fonts';
 import './ui/ui.css';
 import { GameScene } from './game/GameScene';
+import { KIT_BY_ID } from './styles/kits';
 
 async function boot() {
   // Canvas-painted textures and Phaser text need the display fonts loaded first.
@@ -22,6 +23,7 @@ async function boot() {
     banner: false,
   });
   (window as any).__game = game;
+  (window as any).__kits = KIT_BY_ID;
 }
 
 boot();

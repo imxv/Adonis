@@ -142,7 +142,7 @@ body {
   top: 12px;
   text-align: right;
   color: var(--hud-ink, #fff);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  text-shadow: 0 1px 2px var(--hud-shadow, rgba(0, 0, 0, 0.35));
 }
 
 .hud-tr .style-name {
@@ -206,7 +206,7 @@ body {
   font-family: var(--display-font);
   font-size: 18px;
   color: var(--hud-ink, #fff);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  text-shadow: 0 1px 2px var(--hud-shadow, rgba(0, 0, 0, 0.4));
 }
 
 .combo {
@@ -229,7 +229,8 @@ body {
 .combo .t {
   font-size: 16px;
   -webkit-text-stroke: 0;
-  color: var(--hud-ink, #fff);
+  color: var(--floor-ink, #fff);
+  text-shadow: 0 1px 2px var(--floor-shadow, rgba(0, 0, 0, 0.4));
 }
 
 .bossbar {
@@ -289,8 +290,8 @@ body {
   text-align: center;
   font-family: var(--display-font);
   font-size: 26px;
-  color: var(--hud-ink, #fff);
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.45);
+  color: var(--floor-ink, #fff);
+  text-shadow: 0 2px 4px var(--floor-shadow, rgba(0, 0, 0, 0.45));
   opacity: 0;
   transform: translateY(-8px);
   transition: opacity 0.25s, transform 0.25s;
@@ -492,15 +493,15 @@ body {
 .banner .kicker {
   font-size: 16px;
   letter-spacing: 6px;
-  color: var(--hud-ink, #fff);
+  color: var(--floor-ink, #fff);
   opacity: 0.85;
 }
 
 .banner .big {
   font-family: var(--display-font);
   font-size: 76px;
-  color: var(--hud-ink, #fff);
-  text-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+  color: var(--floor-ink, #fff);
+  text-shadow: 0 4px 18px var(--floor-shadow, rgba(0, 0, 0, 0.35));
   line-height: 1.1;
   margin-top: 6px;
 }
@@ -527,7 +528,7 @@ body {
 
 .banner .subtitle {
   font-size: 18px;
-  color: var(--hud-ink, #fff);
+  color: var(--floor-ink, #fff);
   opacity: 0.85;
 }
 

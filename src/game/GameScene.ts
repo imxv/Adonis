@@ -62,6 +62,8 @@ export class GameScene extends Phaser.Scene {
   bg?: Img;
   vignette?: Img;
   grain?: Phaser.GameObjects.TileSprite;
+  decals?: Phaser.GameObjects.RenderTexture;
+  ambient?: Phaser.GameObjects.Particles.ParticleEmitter;
   player!: Player;
   enemies: Enemy[] = [];
   pproj: Proj[] = [];
@@ -152,6 +154,24 @@ export class GameScene extends Phaser.Scene {
     this.bg = this.add.image(0, 0, K('bg', kit)).setOrigin(0).setDepth(DEPTH.bg);
     this.vignette = this.add.image(0, 0, K('vignette', kit)).setOrigin(0).setDepth(DEPTH.vignette);
     this.grain = this.add.tileSprite(0, 0, ARENA.w, ARENA.h, 'grain').setOrigin(0).setDepth(DEPTH.grain).setAlpha(kit.overlay.grain);
+    this.decals?.destroy();
+    this.decals = this.add.renderTexture(0, 0, ARENA.w, ARENA.h).setOrigin(0).setDepth(DEPTH.bg + 0.5);
+    this.ambient?.destroy();
+    this.ambient = this.add
+      .particles(0, 0, K('pt', kit), {
+        x: { min: ARENA.left, max: ARENA.right },
+        y: { min: ARENA.top, max: ARENA.bottom },
+        lifespan: { min: 5000, max: 8000 },
+        speedX: { min: -14, max: 14 },
+        speedY: kit.particle === 'gears' || kit.particle === 'foam' ? { min: -26, max: -8 } : { min: -6, max: 18 },
+        rotate: { min: 0, max: 360 },
+        scale: { min: 0.4, max: 0.9 },
+        alpha: { onUpdate: (_p: unknown, _k: string, t: number) => Math.sin(t * Math.PI) * 0.4 },
+        frequency: 220,
+        quantity: 1,
+        blendMode: this.dark ? Phaser.BlendModes.ADD : Phaser.BlendModes.NORMAL,
+      } as any)
+      .setDepth(DEPTH.particles + 0.5);
 
     this.fx.setKit(kit, this.dark);
     ui.applyTheme(kit, this.dark);
@@ -197,6 +217,24 @@ export class GameScene extends Phaser.Scene {
     this.visuals = [];
     this.boss = undefined;
     this.pendingSpawns = 0;
+    this.decals?.clear();
+  }
+
+  /** Every kill leaves an anemone on the floor; by the end of a room the painting is in bloom. */
+  bloom(x: number, y: number, scale: number) {
+    const key = K('bloom', this.kit);
+    const angle = rand(0, 360);
+    const img = this.add.image(x, y, key).setDepth(DEPTH.bg + 0.6).setScale(0).setAngle(angle).setAlpha(0.95);
+    this.tweens.add({
+      targets: img,
+      scale,
+      duration: 260,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        this.decals?.stamp(key, undefined, x, y, { angle, scale, alpha: 0.82 });
+        img.destroy();
+      },
+    });
   }
 
   enterRoom() {
@@ -1067,6 +1105,7 @@ export class GameScene extends Phaser.Scene {
     audio.kill(this.combo);
     this.fx.burst(e.x, e.y, e.elite ? 26 : 12);
     this.fx.petals(e.x, e.y, e.elite ? 10 : 4);
+    this.bloom(e.x, e.y, e.boss ? 3 : e.elite ? 1.5 : rand(0.6, 1.05) * (e.mini ? 0.7 : 1));
     this.fx.ring(e.x, e.y, e.r * 2.2, this.kit.palette.accent, 260);
     this.stop(e.elite ? 0.09 : 0.018);
     if (e.elite) this.fx.shake(0.25);
@@ -1319,7 +1358,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   openLevelUp() {
-    if (this.pendingLevelUps <= 0) return;
+    // Several paths can ask for a level-up in the same moment; only one picker may be open.
+    if (this.pendingLevelUps <= 0 || this.mode !== 'play') return;
     this.mode = 'choose';
     audio.levelUp();
     this.fx.ring(this.player.x, this.player.y, 220, this.kit.palette.accent, 420);
@@ -1334,6 +1374,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   offer(kind: 'rare' | 'weapon' | 'pet', then?: () => void) {
+    if (this.mode === 'choose') {
+      // A level-up picker is open; show the reward right after it.
+      this.time.delayedCall(300, () => this.offer(kind, then));
+      return;
+    }
     this.mode = 'choose';
     const choices = rollChoices(this.run, kind);
     const title = { rare: '稀有加成', weapon: '武器', pet: '宠物' }[kind];
