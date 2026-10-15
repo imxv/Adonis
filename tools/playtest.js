@@ -36,7 +36,9 @@ export const wait = (ms = 1300) => new Promise((r) => setTimeout(r, ms));
 function solid(tx, ty) {
   const d = s.dungeon;
   if (tx < 0 || ty < 0 || tx >= d.w || ty >= d.h) return true;
-  return d.tiles[ty * d.w + tx] !== 1 || d.blocked.has(ty * d.w + tx);
+  if (d.tiles[ty * d.w + tx] !== 1 || d.blocked.has(ty * d.w + tx)) return true;
+  // Props are not in the tile map; treat the tiles they cover as walls.
+  return s.obstacles.some((o) => !o.dead && Math.abs(o.x - (tx * T + 8)) < o.r + 8 && Math.abs(o.y - (ty * T + 8)) < o.r + 8);
 }
 
 function path(fx, fy, gx, gy) {
@@ -70,7 +72,7 @@ function path(fx, fy, gx, gy) {
 function goal() {
   const p = s.player;
   if (s.trapdoor) return [s.trapdoor.img.x, s.trapdoor.img.y];
-  const chest = s.pickups.find((q) => q.kind === 'chest' && !q.dead);
+  const chest = s.pickups.find((q) => (q.kind === 'chest' || q.kind === 'wchest') && !q.dead);
   if (chest) return [chest.x, chest.y];
   if (s.pedestals.length) return [s.pedestals[0].x, s.pedestals[0].y];
   const todo = s.dungeon.rooms.filter((r) => (r.type === 'treasure' ? !r.visited : !r.cleared));

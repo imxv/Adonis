@@ -145,7 +145,7 @@ export class Lighting {
       if (e.boss) add(e.x, e.y - 12, 90, danger, 0.45);
       else if (e.elite) add(e.x, e.y - 4, 34, danger, 0.5);
     }
-    for (const pk of s.pickups) if (pk.kind === 'chest' && !pk.dead) add(pk.x, pk.y - 4, 40, hexToNum(E.yellow), 0.6);
+    for (const pk of s.pickups) if ((pk.kind === 'chest' || pk.kind === 'wchest') && !pk.dead) add(pk.x, pk.y - 4, 40, hexToNum(pk.kind === 'chest' ? E.yellow : E.cyan), 0.6);
     for (let i = this.flashes.length - 1; i >= 0; i--) {
       const f = this.flashes[i];
       f.t += dt;

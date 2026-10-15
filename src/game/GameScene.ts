@@ -13,7 +13,7 @@ import type { StyleKit } from '../styles/types';
 import { ui } from '../ui/ui';
 import { DIRS, DIR_VEC } from './dirs';
 import { bossDeath, spawnBoss, updateBoss } from './boss';
-import { T, collide, generateDungeon, randomFloorIn, raycast, roomAt, roomCenter, solidAt, type DRoom, type Dungeon } from './dungeon';
+import { T, collide, generateDungeon, openSpot, randomFloorIn, raycast, roomAt, roomCenter, solidAt, solidTile, type DRoom, type Dungeon } from './dungeon';
 import { updateEnemyAI } from './enemyAI';
 import {
   ELEMENT_COLOR,
@@ -287,6 +287,12 @@ export class GameScene extends Phaser.Scene {
       const n = rng.int(1, r.type === 'horde' ? 2 : 3);
       for (let i = 0; i < n; i++) {
         const [x, y] = randomFloorIn(d, r, rng, cx, cy, 40);
+        // Props need open floor all around, or they pinch a gap against a wall too narrow to walk through.
+        const tx = Math.floor(x / T);
+        const ty = Math.floor(y / T);
+        let boxed = false;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (solidTile(d, tx + dx, ty + dy)) boxed = true;
+        if (boxed) continue;
         if (mouths.some(([mx, my]) => dist2(mx, my, x, y) < 56 * 56)) continue;
         if (this.obstacles.some((o) => dist2(o.x, o.y, x, y) < 36 * 36)) continue;
         this.addObstacle(rng.pick(['barrel', 'crate', 'pillar', 'crate'] as Obstacle['kind'][]), x, y);
@@ -444,7 +450,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   queueSpawn(kind: EnemyKind, x: number, y: number, elite = false, mini = false, delay = 0.7) {
-    if (solidAt(this.dungeon, x, y)) [x, y] = collide(this.dungeon, x, y, 8);
+    if (solidAt(this.dungeon, x, y)) [x, y] = openSpot(this.dungeon, x, y);
     this.pendingSpawns++;
     this.telegraphs.push({
       kind: 'spawn',
@@ -613,11 +619,15 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     ui.toast('房间清空', 900);
-    if (r.type === 'horde') this.dropChest(cx, cy);
-    else {
+    if (r.type === 'horde') {
+      this.dropChest(cx - 14, cy);
+      this.dropChest(cx + 14, cy, true);
+    } else {
+      // Weapon chests are common, so a run gets to try many of the twelve guns.
       const x = this.run.rng.next();
-      if (x < 0.2) this.dropChest(cx, cy);
-      else if (x < 0.42) this.dropHeart(cx, cy);
+      if (x < 0.3) this.dropChest(cx, cy, true);
+      else if (x < 0.45) this.dropChest(cx, cy);
+      else if (x < 0.65) this.dropHeart(cx, cy);
     }
   }
 
@@ -1662,17 +1672,19 @@ export class GameScene extends Phaser.Scene {
   }
 
   dropHeart(x: number, y: number) {
+    [x, y] = openSpot(this.dungeon, x, y, 3);
     const sprite = this.add.image(Math.round(x), Math.round(y), 'heart').setDepth(DEPTH.pickup);
     this.pickups.push({ kind: 'heart', tier: 0, x, y, vx: 0, vy: -20, value: 1, t: 0, magnet: false, sprite, dead: false });
   }
 
-  dropChest(x: number, y: number) {
-    [x, y] = collide(this.dungeon, x, y, 10);
-    const sprite = this.add.image(Math.round(x), Math.round(y), 'chest').setDepth(DEPTH.pickup + 0.5).setOrigin(0.5, 0.8);
-    const glow = this.add.image(x, y - 4, 'glow').setDepth(DEPTH.pickup).setTint(hexToNum(E.yellow)).setScale(1.6).setAlpha(0.6).setBlendMode(Phaser.BlendModes.ADD);
+  /** A gold chest gives one reward on the spot; a steel weapon chest opens a pick of three guns. */
+  dropChest(x: number, y: number, weapon = false) {
+    [x, y] = openSpot(this.dungeon, x, y);
+    const sprite = this.add.image(Math.round(x), Math.round(y), weapon ? 'chest-w' : 'chest').setDepth(DEPTH.pickup + 0.5).setOrigin(0.5, 0.8);
+    const glow = this.add.image(x, y - 4, 'glow').setDepth(DEPTH.pickup).setTint(hexToNum(weapon ? E.cyan : E.yellow)).setScale(1.6).setAlpha(0.6).setBlendMode(Phaser.BlendModes.ADD);
     this.tweens.add({ targets: glow, alpha: 0.2, yoyo: true, repeat: -1, duration: 500 });
     sprite.setData('glow', glow);
-    this.pickups.push({ kind: 'chest', tier: 0, x, y, vx: 0, vy: 0, value: 0, t: 0, magnet: false, sprite, dead: false });
+    this.pickups.push({ kind: weapon ? 'wchest' : 'chest', tier: 0, x, y, vx: 0, vy: 0, value: 0, t: 0, magnet: false, sprite, dead: false });
   }
 
   updatePickups(dt: number) {
@@ -1681,7 +1693,7 @@ export class GameScene extends Phaser.Scene {
     for (const p of this.pickups) {
       if (p.dead) continue;
       p.t += dt;
-      if (p.kind === 'chest') {
+      if (p.kind === 'chest' || p.kind === 'wchest') {
         if (this.mode === 'play' && dist2(p.x, p.y, pl.x, pl.y) < 14 * 14) this.openChest(p);
         continue;
       }
@@ -1728,6 +1740,16 @@ export class GameScene extends Phaser.Scene {
   openChest(p: Pickup) {
     p.dead = true;
     (p.sprite.getData('glow') as Img | undefined)?.destroy();
+    if (p.kind === 'wchest') {
+      p.sprite.setTexture('chest-w-open');
+      this.tweens.add({ targets: p.sprite, alpha: 0, delay: 900, duration: 300, onComplete: () => p.sprite.destroy() });
+      this.fx.ring(p.x, p.y - 6, 50, E.cyan, 400);
+      this.fx.sparks(p.x, p.y - 8, 14, 'ice');
+      this.light.flash(p.x, p.y - 8, 90, E.cyan);
+      audio.levelUp();
+      this.offerWeapons();
+      return;
+    }
     p.sprite.setTexture('chest-open');
     this.tweens.add({ targets: p.sprite, alpha: 0, delay: 900, duration: 300, onComplete: () => p.sprite.destroy() });
     this.fx.ring(p.x, p.y - 6, 50, E.yellow, 400);
@@ -1821,6 +1843,7 @@ export class GameScene extends Phaser.Scene {
 
   spawnTrapdoor(x: number, y: number) {
     if (this.mode === 'dead' || this.mode === 'end') return;
+    [x, y] = openSpot(this.dungeon, x, y);
     const final = this.run.level === LEVELS - 1;
     const img = this.add.image(x, y, final ? 'bloom' : 'trapdoor').setDepth(DEPTH.decal + 0.6).setScale(final ? 3 : 1);
     const label = this.add.image(x, y + 20, textTexture(this, final ? '走上银莲花 结束轮回' : '下一层', { color: E.yellow, outline: E.ink })).setDepth(DEPTH.decal + 0.7);
@@ -1852,6 +1875,17 @@ export class GameScene extends Phaser.Scene {
       this.run.level++;
       this.enterLevel();
     });
+  }
+
+  offerWeapons() {
+    if (this.mode !== 'play') return;
+    const choices = rollChoices(this.run, 'weapon');
+    this.mode = 'choose';
+    ui.choices('武器箱', '挑一把带走', choices, this.run, (i) => {
+      this.takeChoice(choices[i]);
+      this.mode = 'play';
+      if (this.pendingLevelUps > 0) this.time.delayedCall(120, () => this.openLevelUp());
+    }, 'WEAPON');
   }
 
   gainXp(v: number) {

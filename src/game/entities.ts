@@ -136,7 +136,7 @@ export interface BossState {
 }
 
 export interface Pickup {
-  kind: 'gem' | 'heart' | 'chest';
+  kind: 'gem' | 'heart' | 'chest' | 'wchest';
   tier: number;
   x: number;
   y: number;

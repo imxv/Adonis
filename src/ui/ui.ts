@@ -373,12 +373,12 @@ class UI {
   }
 
   /** Level-up picker: arrow keys or mouse move the red diamond, 1-4 / Enter / click choose. */
-  choices(title: string, sub: string, items: Choice[], run: RunState, onPick: (i: number) => void) {
+  choices(title: string, sub: string, items: Choice[], run: RunState, onPick: (i: number) => void, tag = 'LEVEL UP') {
     if (this.choiceKeys) window.removeEventListener('keydown', this.choiceKeys);
     this.root.querySelectorAll('.overlay.picker').forEach((o) => o.remove());
     const ov = el('div', 'overlay picker');
     const box = el('div', 'lvlup panel');
-    box.innerHTML = `<div class="head"><span class="tagred">${px('LEVEL UP', E.white, { small: true, outline: false })}</span>${px(title, E.yellow, { scale: 2 })}${px(sub, GREY)}</div>`;
+    box.innerHTML = `<div class="head"><span class="tagred">${px(tag, E.white, { small: true, outline: false })}</span>${px(title, E.yellow, { scale: 2 })}${px(sub, GREY)}</div>`;
     const opts: HTMLElement[] = [];
     let sel = 0;
     const select = (i: number) => {

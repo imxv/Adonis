@@ -101,7 +101,8 @@ export function bossDeath(s: GameScene, e: Enemy) {
     });
   }
   for (let i = 0; i < 24; i++) s.dropGem(e.x + rand(-30, 30), e.y + rand(-20, 20), 5);
-  s.dropChest(e.x, e.y + 10);
+  s.dropChest(e.x - 14, e.y + 10);
+  if (e.kind !== 'boar') s.dropChest(e.x + 14, e.y + 10, true);
   s.tweens.add({ targets: e.sprite, scale: 2.6, alpha: 0, angle: rand(-12, 12), duration: 1200, ease: 'Quad.easeIn', onComplete: () => e.sprite.destroy() });
   s.tweens.add({ targets: e.shadow, alpha: 0, duration: 800, onComplete: () => e.shadow.destroy() });
   s.fx.callout(e.x, e.y - 60, e.kind === 'boar' ? '这一次……' : '守卫倒下了', E.yellow, true);

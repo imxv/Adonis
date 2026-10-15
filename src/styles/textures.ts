@@ -128,6 +128,10 @@ export function buildCommonTextures(scene: Phaser.Scene) {
   const open = new Grid(16, 14);
   open.rect(1, 0, 14, 3, '1').rect(1, 3, 14, 2, 'Y').rect(2, 4, 12, 2, 'w').rect(1, 6, 14, 8, '1').rect(3, 6, 1, 8, 'y').rect(12, 6, 1, 8, 'y');
   add(scene, 'chest-open', open.render({ roles: { 1: ramp(E.brownL, E.tan, E.brown) } }));
+  // Steel weapon chest with cyan trim.
+  const steel = { 1: ramp(E.slate, E.greyM, E.slateD) };
+  add(scene, 'chest-w', chest.render({ roles: steel, colors: { y: E.cyan, Y: E.white } }));
+  add(scene, 'chest-w-open', open.render({ roles: steel, colors: { y: E.cyan, Y: E.cyan } }));
 
   // Pets.
   add(scene, 'pet-hound', sprite(S.HOUND).render());

@@ -273,6 +273,32 @@ export function roomAt(d: Dungeon, x: number, y: number, inset = 1): DRoom | und
   return d.rooms.find((r) => tx >= r.x0 + inset && tx < r.x1 - inset && ty >= r.y0 + inset && ty < r.y1 - inset);
 }
 
+/** The nearest tile centre around (x, y) with floor on all four sides, so drops never sit in or against a wall. */
+export function openSpot(d: Dungeon, x: number, y: number, maxR = 8): [number, number] {
+  const tx0 = Math.floor(x / T);
+  const ty0 = Math.floor(y / T);
+  const open = (tx: number, ty: number) => !solidTile(d, tx, ty) && !solidTile(d, tx - 1, ty) && !solidTile(d, tx + 1, ty) && !solidTile(d, tx, ty - 1) && !solidTile(d, tx, ty + 1);
+  if (open(tx0, ty0)) return [x, y];
+  for (let r = 1; r <= maxR; r++) {
+    let best: [number, number] | undefined;
+    let bd = Infinity;
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r || !open(tx0 + dx, ty0 + dy)) continue;
+        const cx = (tx0 + dx) * T + T / 2;
+        const cy = (ty0 + dy) * T + T / 2;
+        const dd = (cx - x) ** 2 + (cy - y) ** 2;
+        if (dd < bd) {
+          bd = dd;
+          best = [cx, cy];
+        }
+      }
+    }
+    if (best) return best;
+  }
+  return [x, y];
+}
+
 export function roomCenter(r: DRoom): [number, number] {
   return [((r.x0 + r.x1) / 2) * T, ((r.y0 + r.y1) / 2) * T];
 }
