@@ -657,6 +657,7 @@ export class GameScene extends Phaser.Scene {
     }
     const dt = realDt * this.slowScale;
     this.time0 += dt;
+    if (this.mode === 'play') this.run.elapsed += realDt;
     if (this.mode === 'play') {
       this.updatePlayer(dt);
       this.updateWeapons(dt);

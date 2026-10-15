@@ -389,7 +389,7 @@ class UI {
       const d = this.describe(c, run);
       const opt = el('div', 'opt');
       opt.innerHTML = `<div class="cur">${diamond()}</div>
-        <div class="ic ${d.rarity}">${this.iconFor(d, d.icon.startsWith('spell') || d.icon.startsWith('pet') ? 2 : 1)}</div>
+        <div class="ic ${d.rarity}">${this.iconFor(d, (ICON_SIZE[d.icon]?.[0] ?? 99) * 2 <= 28 ? 2 : 1)}</div>
         <div class="txt"><div class="l1">${px(d.name, E.white)}${d.tag ? px(d.tag, d.tagColor, {}, 'tag') : ''}</div>${pxBlock(d.desc, DIM, 286)}</div>
         <div class="k">${px(String(i + 1), DIM, { small: true })}</div>`;
       opt.addEventListener('mouseenter', () => {
@@ -478,7 +478,7 @@ class UI {
 
   end(victory: boolean, run: RunState, onRestart: () => void) {
     const ov = el('div', 'overlay');
-    const secs = Math.round((performance.now() - run.start) / 1000);
+    const secs = Math.round(run.elapsed);
     const total = Object.values(run.damage).reduce((a, b) => a + b, 0) || 1;
     const rows = Object.entries(run.damage)
       .sort((a, b) => b[1] - a[1])

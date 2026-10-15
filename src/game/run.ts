@@ -32,6 +32,8 @@ export interface RunState {
   maxCombo: number;
   damage: Record<string, number>;
   start: number;
+  /** Seconds of actual play, not counting pauses and menus. */
+  elapsed: number;
   frenzyStacks: number;
   eliteNext: boolean;
 }
@@ -77,6 +79,7 @@ export function newRun(params: URLSearchParams): RunState {
     maxCombo: 0,
     damage: {},
     start: performance.now(),
+    elapsed: 0,
     frenzyStacks: 0,
     eliteNext: false,
   };
