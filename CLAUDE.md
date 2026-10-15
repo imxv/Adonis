@@ -1,6 +1,6 @@
 # Adonis · 画中轮回
 
-天目·黑马大赛（OPC 个人赛，创意项目赛道）的参赛作品：2D 射击肉鸽，每关一种随机画风。完整设计见 `docs/spec.md`，参赛者的关键决策见 `docs/decisions.md`。
+天目·黑马大赛（OPC 个人赛，创意项目赛道）的参赛作品：2D 像素射击肉鸽，每层一种随机画风。完整设计见 `docs/spec.md`，参赛者的关键决策见 `docs/decisions.md`。
 
 ## 比赛规则带来的硬约束
 
@@ -17,22 +17,26 @@ npm run dev        # http://127.0.0.1:5173
 npm run build      # 类型检查 + 打包到 dist/
 ```
 
-调试参数：
-- `?styles=renaissance,ukiyoe&seed=42`：指定画风顺序和随机种子
-- `?god=1`：无敌
-- `?room=boss`：直接进 Boss 房
+调试参数（完整列表见 `docs/spec.md`）：
+- `?styles=castle,forest,volcano&seed=42`：指定画风顺序和随机种子
+- `?god=1`：无敌；`?room=boss`：直接进 Boss 房；`?weapon=rocket`：初始武器；`?light=0`：关光照
+
+自动试玩：在开发服务器页面的控制台里执行 `const pt = await import('/tools/playtest.js'); await pt.start();`，之后 `pt.play(600)` 让机器人打 600 帧，`pt.inspect(x, y, 4)` 放大查看画面。它会暂停真实的游戏循环、手动步进帧，所以在后台标签页里也能用。
 
 ## 代码结构
 
-- `src/styles/`：画风系统。`types.ts` 定义画风包，`kits/*.ts` 每种画风一份数据，`render.ts` 根据画风包生成贴图。新增画风只需加一份数据，再到 `kits/index.ts` 注册。
-- `src/data/`：内容表，包括武器、加成、敌人、宠物。新内容尽量只改数据，不改系统。
-- `src/game/`：玩法系统，包括场景、玩家、武器发射、敌人 AI、Boss、宠物、房间与门、战斗结算、特效。
-- `src/ui/`：DOM 叠加层，包括 HUD、升级三选一、开场与结算界面。
+- `src/pixel/`：像素美术。`palette.ts` 是 Endesga 32 调色板，`draw.ts` 是字符网格精灵渲染（自动明暗 + 描边）和像素字体栅格化，`sprites.ts` 是手绘精灵，`biomes.ts` 是 8 种画风的数据。
+- `src/styles/textures.ts`：按画风数据现场生成所有贴图，包括整层地牢的底图 `buildLevel`。
+- `src/data/`：内容表，包括武器、法术、加成、敌人、宠物。新内容尽量只改数据，不改系统。
+- `src/game/`：玩法系统。`dungeon.ts` 生成元气骑士式地牢（异形房间 + 走廊 + 格子碰撞），`floor.ts` 是以撒式房间图，`GameScene.ts` 是主场景（镜头、锁门、波次、武器发射、伤害结算），`lighting.ts` 是光照层，另有 `boss.ts`、`enemyAI.ts`、`spells.ts`、`pets.ts`、`fx.ts`、`run.ts`。
+- `src/ui/`：DOM 叠加层，与画布同为 480×270 并按同一倍率缩放；所有文字都栅格化成像素图片。
 - `src/audio/`：Tone.js 合成的音效和音乐。
+- `tools/playtest.js`：自动试玩脚本，只在开发时用，不进打包产物。
 
 ## 约定
 
 - 所有武器共用 `src/core/stats.ts` 里的属性块。加成只改属性，由各发射方式自己解释，不为单个武器写特判加成。
 - 不用方波，不用 8-bit 琶音。音色用正弦、三角、FM 和滤波噪声，总线上要有压缩器和限幅器。
 - 每种画风只用 3–4 种底色。主角色和危险色必须在该画风的底色上足够醒目。
+- 所有界面元素都要像素化：文字走 `pxText`（Fusion Pixel 12px / Press Start 2P 8px）再整数倍放大，不用浏览器的平滑字体。
 - 代码里的标识符用英文，玩家能看到的文案用中文。

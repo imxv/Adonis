@@ -965,7 +965,10 @@ export class GameScene extends Phaser.Scene {
         this.slash(p.x, p.y - 4, a, def.range * area, ((def.spreadDeg * Math.PI) / 180) * 0.5, dmg, knock, count, pierce, def.name);
         break;
     }
-    if (def.kind !== 'slash' && def.kind !== 'flame') this.fx.muzzle(ox, oy, a);
+    if (def.kind !== 'slash' && def.kind !== 'flame') {
+      this.fx.muzzle(ox, oy, a);
+      this.light.flash(ox, oy, 26 + (def.shake ?? 0) * 200, E.yellow, 0.07);
+    } else if (def.kind === 'slash') this.light.flash(p.x + Math.cos(a) * 14, p.y - 4 + Math.sin(a) * 14, 40, E.cyan, 0.1);
     const shake = def.shake ?? 0.01;
     this.kick(a, 0.6 + shake * 30);
     if (shake >= 0.05) this.fx.shake(shake);
