@@ -5,7 +5,6 @@ import type { StyleKit } from '../styles/types';
 import { ELEMENT_COLOR } from './entities';
 import type { Element } from '../core/stats';
 import { E } from '../pixel/palette';
-import { ui } from '../ui/ui';
 
 export const DEPTH = {
   bg: 0,
@@ -20,10 +19,12 @@ export const DEPTH = {
   gun: 8.5,
   proj: 9,
   ebullet: 10,
+  doors: 10.5,
+  // Everything above the light layer glows: effects, numbers and the cursor are never darkened.
+  light: 10.8,
   gfx: 11,
   particles: 12,
   numbers: 13,
-  doors: 14,
   vignette: 20,
   flash: 22,
   cursor: 30,
@@ -71,7 +72,8 @@ export class Fx {
   private shakeAmt = 0;
 
   constructor(private scene: Phaser.Scene) {
-    this.flashRect = scene.add.rectangle(0, 0, 640, 360, 0xffffff, 1).setOrigin(0).setAlpha(0).setDepth(DEPTH.flash).setScrollFactor(0);
+    const { width, height } = scene.scale;
+    this.flashRect = scene.add.rectangle(-16, -16, width + 32, height + 32, 0xffffff, 1).setOrigin(0).setAlpha(0).setDepth(DEPTH.flash).setScrollFactor(0);
     this.ringGfx = scene.add.graphics().setDepth(DEPTH.particles);
   }
 
@@ -181,17 +183,20 @@ export class Fx {
     if (this.nums.length > 90) this.recycle(this.nums[0]);
     const text = opts.text ?? String(Math.max(1, Math.round(value)));
     const color = opts.color ?? (opts.crit ? E.yellow : E.white);
-    const key = textTexture(this.scene, text, { size: 8, color, outline: E.ink });
-    const img = (this.free.pop() ?? this.scene.add.image(0, 0, key)).setTexture(key).setDepth(DEPTH.numbers).setVisible(true).setAlpha(1);
-    img.setScale(opts.crit ? 1.5 : opts.small ? 0.75 : 1);
+    // Plain hits use the 8px numeral font; crits use the 12px font, so they read bigger at a whole-pixel scale.
+    const key = textTexture(this.scene, text, { color, outline: E.ink, small: !opts.crit });
+    const img = (this.free.pop() ?? this.scene.add.image(0, 0, key)).setTexture(key).setDepth(DEPTH.numbers).setVisible(true).setAlpha(1).setScale(1);
     img.setPosition(Math.round(x + Phaser.Math.Between(-4, 4)), Math.round(y));
-    this.nums.push({ img, y, vy: opts.crit ? -46 : -32, life: opts.crit ? 0.7 : 0.5, max: opts.crit ? 0.7 : 0.5 });
+    const life = opts.crit ? 0.7 : opts.small ? 0.4 : 0.5;
+    this.nums.push({ img, y, vy: opts.crit ? -46 : -32, life, max: life });
   }
 
-  /** Words go to the sharp DOM layer; the room fills the screen, so world and UI coordinates match. */
-  callout(x: number, y: number, text: string, color?: string, size = 12) {
-    const cam = this.scene.cameras.main;
-    ui.float(x - cam.scrollX, y - cam.scrollY, text, color ?? E.white, Math.max(8, Math.round(size * 0.8)));
+  /** A word that pops up in the world, in the pixel font. */
+  callout(x: number, y: number, text: string, color: string = E.white, big = false) {
+    const img = this.scene.add.image(Math.round(x), Math.round(y), textTexture(this.scene, text, { color, outline: E.ink, size: big ? 24 : 12 })).setDepth(DEPTH.numbers + 0.5);
+    img.setScale(0.5);
+    this.scene.tweens.add({ targets: img, scale: 1, duration: 90, ease: 'Back.easeOut' });
+    this.scene.tweens.add({ targets: img, y: y - 14, alpha: 0, delay: 520, duration: 360, ease: 'Quad.easeIn', onComplete: () => img.destroy() });
   }
 
   private recycle(n: Num) {

@@ -142,72 +142,85 @@ export function flipCanvas(src: HTMLCanvasElement): HTMLCanvasElement {
   return c;
 }
 
-export const CJK_FONT = "'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans SC',sans-serif";
+export const CJK_FONT = "'FusionPixel','PingFang SC','Microsoft YaHei',sans-serif";
 export const PIXEL_FONT = "'Press Start 2P'";
 
 const textCache = new Map<string, HTMLCanvasElement>();
+const measureCtx = document.createElement('canvas').getContext('2d')!;
+
+/** Width of a string in the 12px pixel font, for wrapping. */
+export function pxMeasure(text: string): number {
+  measureCtx.font = `12px ${CJK_FONT}`;
+  return Math.ceil(measureCtx.measureText(text).width);
+}
 
 /**
- * Crisp pixel text from any font: rasterise at 1x, drop anti-aliasing with an alpha threshold, then outline.
- * This is how Chinese text gets a true pixel look without a Chinese pixel font.
+ * Crisp pixel text. Chinese and Latin use Fusion Pixel at its native 12px (bitmap-designed glyphs),
+ * tiny numerals can use Press Start 2P at 8px. Anti-aliasing is thresholded away, then the result is
+ * outlined and scaled up by whole pixels, so it stays a true pixel image at any size.
+ * The canvas is cropped to the font's line box plus one pixel for the outline, so text lines stack tightly.
  */
-export function pxText(
-  text: string,
-  o: { size: number; color: string; outline?: string; shadow?: string; font?: string; bold?: boolean; threshold?: number },
-): HTMLCanvasElement {
+export function pxText(text: string, o: { size?: number; color: string; outline?: string; shadow?: string; small?: boolean; font?: string }): HTMLCanvasElement {
   const key = JSON.stringify([text, o]);
   const hit = textCache.get(key);
   if (hit) return hit;
-  const ascii = /^[\x20-\x7e×♥]*$/.test(text);
-  const fam = o.font ?? (ascii ? PIXEL_FONT : CJK_FONT);
-  const size = ascii && !o.font ? Math.max(8, Math.round(o.size / 8) * 8) : o.size;
-  const font = `${o.bold === false ? '' : ascii ? '' : '600 '}${size}px ${fam}`;
-  const probe = document.createElement('canvas').getContext('2d')!;
-  probe.font = font;
-  const tw = Math.ceil(probe.measureText(text).width);
-  const pad = 2;
-  const c = document.createElement('canvas');
-  c.width = Math.max(1, tw + pad * 2);
-  c.height = size + pad * 2 + 2;
-  const ctx = c.getContext('2d')!;
+  const base = o.small ? 8 : 12;
+  const fam = o.font ?? (o.small ? PIXEL_FONT : CJK_FONT);
+  const scale = Math.max(1, Math.round((o.size ?? base) / base));
+  const font = `${base}px ${fam}`;
+  measureCtx.font = font;
+  const m = measureCtx.measureText(text);
+  const asc = Math.round(m.fontBoundingBoxAscent ?? base * 0.85);
+  const desc = Math.round(m.fontBoundingBoxDescent ?? base * 0.15);
+  const edge = o.outline ? 1 : 0;
+  const sh = o.shadow ? 1 : 0;
+  const w = Math.max(1, Math.ceil(m.width) + edge * 2 + sh);
+  const h = asc + desc + edge * 2 + sh;
+  const glyph = document.createElement('canvas');
+  glyph.width = w;
+  glyph.height = h;
+  const ctx = glyph.getContext('2d')!;
   ctx.font = font;
-  ctx.textBaseline = 'top';
+  ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = '#fff';
-  ctx.fillText(text, pad, pad + (ascii ? 0 : 1));
-  const img = ctx.getImageData(0, 0, c.width, c.height);
-  const th = o.threshold ?? (ascii ? 90 : 120);
+  ctx.fillText(text, edge, edge + asc);
+  const img = ctx.getImageData(0, 0, w, h);
   const [r, g, b] = [1, 3, 5].map((i) => parseInt(o.color.slice(i, i + 2), 16));
   for (let i = 0; i < img.data.length; i += 4) {
-    const on = img.data[i + 3] > th;
+    const on = img.data[i + 3] > 100;
     img.data[i] = r;
     img.data[i + 1] = g;
     img.data[i + 2] = b;
     img.data[i + 3] = on ? 255 : 0;
   }
   ctx.putImageData(img, 0, 0);
-  let out = c;
+  let out = glyph;
   if (o.shadow || o.outline) {
-    const big = document.createElement('canvas');
-    big.width = c.width + 2;
-    big.height = c.height + 2;
-    const bctx = big.getContext('2d')!;
-    if (o.shadow) {
-      const sh = tint(c, o.shadow);
-      bctx.drawImage(sh, 1, 2);
-    }
-    bctx.drawImage(c, 1, 1);
+    out = document.createElement('canvas');
+    out.width = w;
+    out.height = h;
+    const octx = out.getContext('2d')!;
+    if (o.shadow) octx.drawImage(tint(glyph, o.shadow), 1, 1);
     if (o.outline) {
-      const tmp = document.createElement('canvas');
-      tmp.width = big.width;
-      tmp.height = big.height;
-      tmp.getContext('2d')!.drawImage(c, 1, 1);
-      outlineCanvas(tmp, o.outline);
-      // Keep only the outline ring, then paint the text back on top.
-      const tctx = tmp.getContext('2d')!;
-      tctx.globalCompositeOperation = 'destination-out';
-      tctx.drawImage(c, 1, 1);
-      bctx.drawImage(tmp, 0, 0);
+      const ring = document.createElement('canvas');
+      ring.width = w;
+      ring.height = h;
+      const rctx = ring.getContext('2d')!;
+      rctx.drawImage(glyph, 0, 0);
+      outlineCanvas(ring, o.outline);
+      rctx.globalCompositeOperation = 'destination-out';
+      rctx.drawImage(glyph, 0, 0);
+      octx.drawImage(ring, 0, 0);
     }
+    octx.drawImage(glyph, 0, 0);
+  }
+  if (scale > 1) {
+    const big = document.createElement('canvas');
+    big.width = out.width * scale;
+    big.height = out.height * scale;
+    const bctx = big.getContext('2d')!;
+    bctx.imageSmoothingEnabled = false;
+    bctx.drawImage(out, 0, 0, big.width, big.height);
     out = big;
   }
   textCache.set(key, out);

@@ -29,7 +29,7 @@ export interface Player {
   shadow: Img;
 }
 
-export type ProjKind = 'bolt' | 'pellet' | 'blade' | 'shell' | 'shard' | 'orb' | 'axe' | 'ebullet' | 'ebig';
+export type ProjKind = 'bolt' | 'pellet' | 'blade' | 'shell' | 'shard' | 'orb' | 'axe' | 'rocket' | 'flame' | 'ebullet' | 'ebig';
 
 export interface Proj {
   kind: ProjKind;
@@ -43,6 +43,7 @@ export interface Proj {
   dmg: number;
   pierce: number;
   life: number;
+  life0?: number;
   knock: number;
   src: string;
   sprite: Img;
@@ -183,19 +184,6 @@ export interface Pet {
   hitCd: Map<Enemy, number>;
 }
 
-export type DoorReward = 'rare' | 'weapon' | 'pet' | 'heal' | 'elite' | 'boss' | 'next' | 'victory';
-
-export interface Door {
-  x: number;
-  y: number;
-  reward: DoorReward;
-  sprite: Img;
-  badge: Img;
-  label: Img;
-  glow: Img;
-  open: number;
-}
-
 export interface Telegraph {
   kind: 'spawn' | 'line' | 'circle';
   x: number;
@@ -209,7 +197,7 @@ export interface Telegraph {
 }
 
 export interface Visual {
-  kind: 'beam' | 'chain' | 'bolt';
+  kind: 'beam' | 'chain' | 'bolt' | 'slash';
   pts: number[];
   width: number;
   t: number;

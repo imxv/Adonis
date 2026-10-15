@@ -1,10 +1,9 @@
-import { TAU, dist, segCircle } from '../core/math';
+import { TAU, clamp, dist, segCircle } from '../core/math';
 import { rand } from '../core/rng';
 import { audio } from '../audio/audio';
 import { K } from '../styles/textures';
 import { E } from '../pixel/palette';
 import { ui } from '../ui/ui';
-import { ARENA } from './arena';
 import type { BossState, Enemy } from './entities';
 import { DEPTH } from './fx';
 import type { GameScene } from './GameScene';
@@ -17,8 +16,9 @@ export function spawnBoss(s: GameScene, kind: 'guardian' | 'boar'): Enemy {
   const name = kit.bossNames[kind];
   const level = s.run.level;
   const hp = kind === 'boar' ? 3400 : 900 * (1 + level * 0.8);
-  const x = ARENA.w / 2;
-  const y = ARENA.top + 120;
+  const R = s.roomRect();
+  const x = R.cx;
+  const y = R.y0 + 92;
   const key = kind === 'boar' ? 'boss-boar' : K('boss-guardian', kit);
   const sprite = s.add.image(x, y, key).setDepth(DEPTH.enemy + 0.5).setOrigin(0.5, 0.85).setScale(0.2);
   const shadow = s.add.image(x, y, 'shadow').setDepth(DEPTH.shadow).setScale(4, 3);
@@ -104,7 +104,7 @@ export function bossDeath(s: GameScene, e: Enemy) {
   s.dropChest(e.x, e.y + 10);
   s.tweens.add({ targets: e.sprite, scale: 2.6, alpha: 0, angle: rand(-12, 12), duration: 1200, ease: 'Quad.easeIn', onComplete: () => e.sprite.destroy() });
   s.tweens.add({ targets: e.shadow, alpha: 0, duration: 800, onComplete: () => e.shadow.destroy() });
-  s.fx.callout(e.x, e.y - 60, e.kind === 'boar' ? '这一次……' : '守卫倒下了', E.yellow, 14);
+  s.fx.callout(e.x, e.y - 60, e.kind === 'boar' ? '这一次……' : '守卫倒下了', E.yellow, true);
   e.boss!.armLive = e.boss!.armWarn = 0;
   s.onRoomCleared(true);
 }
@@ -132,7 +132,7 @@ function phaseShift(s: GameScene, e: Enemy, b: BossState, text: string) {
   s.fx.flash(s.kit.palette.danger, 0.4, 500);
   s.fx.shake(0.8);
   s.fx.ring(e.x, e.y, 200, s.kit.palette.danger, 600, 3);
-  s.fx.callout(e.x, e.y - 60, text, E.red, 16);
+  s.fx.callout(e.x, e.y - 60, text, E.red, true);
   audio.roar();
   s.stop(0.15);
   const p = s.player;
@@ -145,15 +145,16 @@ function guardian(s: GameScene, e: Enemy, b: BossState, dt: number) {
   const p = s.player;
   if (b.phase === 1 && e.hp < e.maxHp * 0.55) phaseShift(s, e, b, '第二幕');
 
+  const R = s.roomRect();
   let tx: number;
   let ty: number;
   if (b.phase === 1) {
-    tx = ARENA.w / 2 + Math.sin(s.time0 * 0.45) * 220;
-    ty = ARENA.top + 110 + Math.sin(s.time0 * 0.9) * 30;
+    tx = R.cx + Math.sin(s.time0 * 0.45) * (R.x1 - R.x0) * 0.32;
+    ty = R.y0 + 84 + Math.sin(s.time0 * 0.9) * 20;
   } else {
     const a = Math.atan2(e.y - p.y, e.x - p.x);
-    tx = p.x + Math.cos(a) * 130;
-    ty = Math.min(ARENA.bottom - 60, p.y + Math.sin(a) * 110);
+    tx = clamp(p.x + Math.cos(a) * 110, R.x0 + 48, R.x1 - 48);
+    ty = clamp(p.y + Math.sin(a) * 90, R.y0 + 56, R.y1 - 48);
   }
   const k = b.phase === 1 ? 1.4 : 0.8;
   e.vx = Math.max(-80, Math.min(80, (tx - e.x) * k));
@@ -214,7 +215,7 @@ function guardian(s: GameScene, e: Enemy, b: BossState, dt: number) {
       const kinds = b.phase === 1 ? (['wanderer', 'wanderer', 'shooter'] as const) : (['wanderer', 'charger', 'charger', 'shooter'] as const);
       kinds.forEach((kind, i) => {
         const a = (i / kinds.length) * TAU;
-        s.queueSpawn(kind, e.x + Math.cos(a) * 46, Math.min(ARENA.bottom - 20, e.y + Math.sin(a) * 40));
+        s.queueSpawn(kind, e.x + Math.cos(a) * 46, Math.min(R.y1 - 24, e.y + Math.sin(a) * 40));
       });
       done();
       break;
@@ -313,8 +314,15 @@ function boar(s: GameScene, e: Enemy, b: BossState, dt: number) {
           o.sprite.destroy();
         }
       }
-      const hitX = e.x < ARENA.left + e.r + 4 || e.x > ARENA.right - e.r - 4;
-      const hitY = e.y < ARENA.top + e.r + 4 || e.y > ARENA.bottom - e.r - 4;
+      // Feel ahead for a wall; corners of the room are cut, so a diagonal hit flips both axes.
+      const ahead = e.r * 0.8 + 3;
+      let hitX = false;
+      let hitY = false;
+      if (s.blocked(e.x + b.dirX * ahead, e.y + b.dirY * ahead)) {
+        hitX = s.blocked(e.x + b.dirX * ahead, e.y);
+        hitY = s.blocked(e.x, e.y + b.dirY * ahead);
+        if (!hitX && !hitY) hitX = hitY = true;
+      }
       if (hitX || hitY || e.t2 > 2.2) {
         s.fx.shake(0.55);
         s.fx.dust(e.x, e.y, 18);
@@ -336,7 +344,7 @@ function boar(s: GameScene, e: Enemy, b: BossState, dt: number) {
         } else {
           e.state = 'stunned';
           e.t2 = 0;
-          s.fx.callout(e.x, e.y - 50, '破绽', E.yellow, 14);
+          s.fx.callout(e.x, e.y - 50, '破绽', E.yellow, true);
         }
       }
       break;
@@ -402,7 +410,7 @@ function boar(s: GameScene, e: Enemy, b: BossState, dt: number) {
         const a = (i / 4) * TAU;
         s.queueSpawn('charger', e.x + Math.cos(a) * 50, e.y + Math.sin(a) * 40, false, true);
       }
-      s.fx.callout(e.x, e.y - 56, '小猪们！', E.yellow, 12);
+      s.fx.callout(e.x, e.y - 56, '小猪们！', E.yellow);
       e.state = 'idle';
       b.cooldown = 1.2;
       break;

@@ -1,7 +1,7 @@
 import { Rng } from '../core/rng';
 import { baseMods, type Mods, type Tag } from '../core/stats';
 import { RARITY_INFO, UPGRADES, UPGRADE_BY_ID, type Rarity, type UpgradeDef } from '../data/upgrades';
-import { MAX_WEAPONS, MAX_WEAPON_LEVEL, WEAPONS, WEAPON_ORDER, type Delivery, type WeaponInstance } from '../data/weapons';
+import { MAX_WEAPONS, MAX_WEAPON_LEVEL, WEAPONS, WEAPON_ORDER, type WeaponInstance } from '../data/weapons';
 import { MAX_SPELLS, MAX_SPELL_LEVEL, SPELLS, SPELL_ORDER, type SpellId, type SpellInstance } from '../data/spells';
 import { PETS, type Pets } from '../data/enemies';
 import { KITS, KIT_BY_ID } from '../styles/kits';
@@ -49,7 +49,7 @@ export function newRun(params: URLSearchParams): RunState {
     .filter(Boolean);
   const pool = rng.shuffle([...KITS]).filter((k) => !forced.includes(k));
   const styles = [...forced, ...pool].slice(0, LEVELS);
-  const start = (params.get('weapon') as Delivery) || 'bolt';
+  const start = params.get('weapon') || 'pistol';
   const mods = baseMods();
   const spells: SpellInstance[] = [];
   const startSpell = params.get('spell') as SpellId | null;
@@ -63,7 +63,7 @@ export function newRun(params: URLSearchParams): RunState {
     mods,
     stacks: {},
     tags: {},
-    weapons: [{ def: WEAPONS[WEAPONS[start] ? start : 'bolt'], level: 1, cd: 0 }],
+    weapons: [{ def: WEAPONS[WEAPONS[start] ? start : 'pistol'], level: 1, cd: 0 }],
     held: 0,
     spells,
     pets: [],
@@ -85,7 +85,7 @@ export const newSpell = (id: SpellId): SpellInstance => ({ id, level: 1, evolved
 
 export type Choice =
   | { type: 'upgrade'; def: UpgradeDef }
-  | { type: 'weapon-new'; id: Delivery }
+  | { type: 'weapon-new'; id: string }
   | { type: 'weapon-up'; index: number }
   | { type: 'spell-new'; id: SpellId }
   | { type: 'spell-up'; id: SpellId }

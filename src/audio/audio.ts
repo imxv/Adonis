@@ -175,6 +175,28 @@ class AudioEngine {
           if (!this.gate('chain', 80)) return;
           this.zap.triggerAttackRelease(this.note(2, 2), 0.08, this.at(this.zap), 0.8);
           break;
+        case 'rocket': {
+          if (!this.gate('rocket', 150)) return;
+          this.thump.triggerAttackRelease('F1', 0.16, this.at(this.thump), 0.9);
+          const t = this.at(this.whoosh);
+          this.sweep(this.whooshFilter, 300, 1800, t, 0.3);
+          this.whoosh.triggerAttackRelease(0.3, t, 0.8);
+          break;
+        }
+        case 'flame': {
+          if (!this.gate('flame', 110)) return;
+          const t = this.at(this.whoosh);
+          this.sweep(this.whooshFilter, 900, 500, t, 0.12);
+          this.whoosh.triggerAttackRelease(0.12, t, 0.35);
+          break;
+        }
+        case 'slash': {
+          if (!this.gate('slash', 90)) return;
+          const t = this.at(this.whoosh);
+          this.sweep(this.whooshFilter, 2600, 700, t, 0.12);
+          this.whoosh.triggerAttackRelease(0.1, t, 0.9);
+          break;
+        }
       }
     });
   }

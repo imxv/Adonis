@@ -1,5 +1,4 @@
 import { angleDiff, clamp } from '../core/math';
-import { ARENA } from './arena';
 import type { Enemy } from './entities';
 import type { GameScene } from './GameScene';
 
@@ -62,7 +61,7 @@ export function updateEnemyAI(s: GameScene, e: Enemy, dt: number, slow: number) 
         e.vx = Math.cos(e.facing) * sp;
         e.vy = Math.sin(e.facing) * sp;
         if (Math.random() < 0.4) s.fx.dust(e.x, e.y, 1);
-        const atWall = e.x < ARENA.left + e.r + 2 || e.x > ARENA.right - e.r - 2 || e.y < ARENA.top + e.r + 2 || e.y > ARENA.bottom - e.r - 2;
+        const atWall = s.blocked(e.x + Math.cos(e.facing) * (e.r + 3), e.y + Math.sin(e.facing) * (e.r + 3));
         if (e.t > 0.5 || atWall) {
           e.state = 'recover';
           e.t = 0;

@@ -1,10 +1,10 @@
 import Phaser from 'phaser';
 import { Rng } from '../core/rng';
-import { ARENA } from '../game/arena';
 import { Grid, flipCanvas, outlineCanvas, pxText, ramp, type Ramp } from '../pixel/draw';
 import { E, mix } from '../pixel/palette';
 import * as S from '../pixel/sprites';
 import type { Biome } from '../pixel/biomes';
+import { FLOOR, T, VOID, WALL, tileAt, type Dungeon } from '../game/dungeon';
 
 export const K = (name: string, kit: Biome) => `${name}@${kit.id}`;
 
@@ -15,11 +15,13 @@ function add(scene: Phaser.Scene, key: string, c: HTMLCanvasElement) {
 
 const sprite = (d: S.SpriteDef) => Grid.ascii(d.rows, d.mirror);
 
-/** Data-URL icons for the DOM HUD and cards. */
+/** Data-URL icons for the DOM HUD and cards, with their pixel sizes. */
 export const ICONS: Record<string, string> = {};
+export const ICON_SIZE: Record<string, [number, number]> = {};
 
 function icon(name: string, c: HTMLCanvasElement) {
   ICONS[name] = c.toDataURL();
+  ICON_SIZE[name] = [c.width, c.height];
 }
 
 // ---------------------------------------------------------------- shared art
@@ -33,14 +35,20 @@ export function buildCommonTextures(scene: Phaser.Scene) {
   icon('armor', Grid.ascii(['GgggggG', 'GgwgggG', 'GgggggG', 'GgggggG', '.GgggG.', '..GgG..', '...G...']).render());
   icon('xp', sprite(S.GEM).render({ roles: { 1: ramp(E.cyan, E.white, E.blue) } }));
 
-  // Guns, drawn facing right with the grip on the left.
+  // Weapons, drawn facing right with the grip on the left.
   const guns: Record<string, string[]> = {
-    bolt: ['ggggggggg.', 'GGGGGGGGGw', 'DDBBD.....', '.BBB......', '.BB.......'],
-    spread: ['bb....gggggggggg', 'bbbbGGGGGGGGGGGw', 'bbbbbDDDDDDDDDD.', '.bb...B.........'],
-    beam: ['....kkkkkkkkk..', 'DDDDccccccccccw', 'DDDDkkkkkkkkk..', '..DD...........', '..DD...........'],
-    mortar: ['...LLLLLLLLL.', '..LlllllllLLy', '..LLLLLLLLLLy', '.DDDDLLLLLLL.', '..BB.........', '..BB.........'],
-    boomerang: ['..ggg..', '.gwwwg.', 'gw...wg', 'gw...wg', 'gw...wg', '.gwwwg.', '..ggg..'],
-    chain: ['..yyyy........', '.DDDDDDDDDDy..', 'DDcDcDcDcDDDyw', '.DDDDDDDDDDy..', '..BB..........', '..BB..........'],
+    pistol: ['ggggggggg.', 'GGGGGGGGGw', 'DDBBD.....', '.BBB......', '.BB.......'],
+    smg: ['gggggggggg..', 'GGGGGGGGGGGw', 'DDBB..DD....', '.BB...DD....', '......DD....'],
+    crossbow: ['.........bb.', '..........b.', 'bbbbbbbbbbgw', '..........b.', '.........bb.'],
+    sniper: ['....kk..........', '...kkkk.........', 'GGGGGGGGGGGGGGGw', 'DDDBBD..........', '..BB............'],
+    shotgun: ['bb....gggggggggg', 'bbbbGGGGGGGGGGGw', 'bbbbbDDDDDDDDDD.', '.bb...B.........'],
+    laser: ['....kkkkkkkkk..', 'DDDDccccccccccw', 'DDDDkkkkkkkkk..', '..DD...........', '..DD...........'],
+    grenade: ['...LLLLLLLLL.', '..LlllllllLLy', '..LLLLLLLLLLy', '.DDDDLLLLLLL.', '..BB.........', '..BB.........'],
+    rocket: ['..LLLLLLLLLL..', 'LLllllllllllRR', 'LLllllllllllRR', '..LLDDLLLLLL..', '....BB........'],
+    chakram: ['..ggg..', '.gwwwg.', 'gw...wg', 'gw...wg', 'gw...wg', '.gwwwg.', '..ggg..'],
+    tesla: ['..yyyy........', '.DDDDDDDDDDy..', 'DDcDcDcDcDDDyw', '.DDDDDDDDDDy..', '..BB..........', '..BB..........'],
+    flamer: ['..OO..........', '.DDDDDDDDDDy..', 'OODDDDDDDDDDYO', '.DDDDDDDDDDy..', '..BB..........'],
+    sword: ['....y............', 'bbbbyggggggggggw.', 'bbbbyGGGGGGGGGGGw', '....y............'],
   };
   for (const [id, rows] of Object.entries(guns)) {
     const c = Grid.ascii(rows).render();
@@ -52,7 +60,12 @@ export function buildCommonTextures(scene: Phaser.Scene) {
   add(scene, 'b-bolt', Grid.ascii(['.YYYY.', 'YwwwwY', '.YYYY.']).render({ outline: E.orange }));
   add(scene, 'b-pellet', Grid.ascii(['.OO.', 'OYYO', 'OYYO', '.OO.']).render({ outline: E.redD }));
   add(scene, 'b-shell', Grid.ascii(['.LL.', 'LllL', 'LllL', '.LL.']).render());
-  add(scene, 'b-blade', Grid.ascii(guns.boomerang).render());
+  add(scene, 'b-blade', Grid.ascii(guns.chakram).render());
+  add(scene, 'b-arrow', Grid.ascii(['bbbbbgw', 'G....g.']).render({ outline: E.ink }));
+  add(scene, 'b-snipe', Grid.ascii(['wwwwwwwY']).render({ outline: E.orange }));
+  add(scene, 'b-rocket', Grid.ascii(['r.....', 'rLLLlw', 'rLLLlw', 'r.....']).render());
+  add(scene, 'b-flame', Grid.ascii(['.OO.', 'OYYO', 'OYYO', '.OO.']).render({ outline: false }));
+  add(scene, 'b-wave', Grid.ascii(['ww...', 'ccw..', '..cw.', '..cw.', '..cw.', '..cw.', 'ccw..', 'ww...']).render({ outline: E.blueD }));
   add(scene, 'b-shard', Grid.ascii(['wcc', 'ccc']).render({ outline: false }));
   add(scene, 'b-orb', Grid.ascii(['.cc.', 'cwwc', 'cwwc', '.cc.']).render({ outline: E.blueD }));
   add(scene, 'b-axe', Grid.ascii(['.ggg..', 'gwwgb.', 'gwggbb', '.gg.bb', '....bb', '.....b']).render());
@@ -89,6 +102,14 @@ export function buildCommonTextures(scene: Phaser.Scene) {
   for (let y = 1; y < 30; y += 5) barsV.rect(0, y, 8, 2, '1');
   barsV.rect(1, 0, 2, 30, '1').rect(5, 0, 2, 30, '1');
   add(scene, 'bars-v', barsV.render({ roles: { 1: ramp(E.greyM, E.grey, E.slateD) } }));
+  const gateH = new Grid(46, 12);
+  for (let x = 1; x < 46; x += 5) gateH.rect(x, 0, 2, 12, '1');
+  gateH.rect(0, 2, 46, 2, '2').rect(0, 8, 46, 2, '2');
+  add(scene, 'gate-h', gateH.render({ roles: { 1: ramp(E.greyM, E.grey, E.slateD), 2: ramp(E.red, E.pink, E.redD) } }));
+  const gateV = new Grid(10, 46);
+  for (let y = 1; y < 46; y += 5) gateV.rect(0, y, 10, 2, '1');
+  gateV.rect(2, 0, 2, 46, '2').rect(6, 0, 2, 46, '2');
+  add(scene, 'gate-v', gateV.render({ roles: { 1: ramp(E.greyM, E.grey, E.slateD), 2: ramp(E.red, E.pink, E.redD) } }));
 
   // Pickups.
   const gemCols: Record<string, Ramp> = { 1: ramp(E.blue, E.cyan, E.blueD), 2: ramp(E.green, '#a8f07a', E.greenD), 3: ramp(E.red, E.pink, E.redD) };
@@ -297,11 +318,11 @@ function door(kit: Biome): HTMLCanvasElement {
 
 // ---------------------------------------------------------------- rooms
 
-/** Paint one screen-sized room: floor, 3/4 walls, and door openings on the sides that connect. */
-export function buildRoom(scene: Phaser.Scene, kit: Biome, seed: number, doors: Record<'up' | 'down' | 'left' | 'right', boolean>): string {
-  const key = `room@${kit.id}`;
-  const W = ARENA.w;
-  const H = ARENA.h;
+/** Paint the whole floor: biome tiles, 3/4 walls (face + top), corridors and the void around them. */
+export function buildLevel(scene: Phaser.Scene, kit: Biome, d: Dungeon, seed: number): string {
+  const key = `level@${kit.id}`;
+  const W = d.w * T;
+  const H = d.h * T;
   const c = document.createElement('canvas');
   c.width = W;
   c.height = H;
@@ -313,172 +334,127 @@ export function buildRoom(scene: Phaser.Scene, kit: Biome, seed: number, doors: 
     ctx.fillStyle = col;
     ctx.fillRect(x, y, w, h);
   };
+  const at = (tx: number, ty: number) => tileAt(d, tx, ty);
 
-  // Floor tiles.
-  for (let ty = 0; ty < Math.ceil(H / 16); ty++) {
-    for (let tx = 0; tx < W / 16; tx++) {
-      const x = tx * 16;
-      const y = ty * 16;
-      const odd = (tx + ty) % 2 === 1;
-      switch (px.floor) {
-        case 'checker':
-        case 'marble':
-          P(x, y, odd ? alt : base, 16, 16);
-          if (px.floor === 'marble' && rng.chance(0.35)) {
-            let vx = x + rng.int(0, 15);
-            for (let k = 0; k < 10; k++) {
-              P(vx, y + k + rng.int(0, 5), odd ? d2 : d1);
-              vx += rng.int(-1, 1);
+  P(0, 0, '#0b0a12', W, H);
+  for (let i = 0; i < (W * H) / 900; i++) P(rng.int(0, W), rng.int(0, H), rng.chance(0.5) ? '#14121e' : '#100e18');
+
+  for (let ty = 0; ty < d.h; ty++) {
+    for (let tx = 0; tx < d.w; tx++) {
+      const t = at(tx, ty);
+      const x = tx * T;
+      const y = ty * T;
+      if (t === FLOOR) {
+        const odd = (tx + ty) % 2 === 1;
+        switch (px.floor) {
+          case 'checker':
+          case 'marble':
+            P(x, y, odd ? alt : base, T, T);
+            if (px.floor === 'marble' && rng.chance(0.3)) {
+              let vx = x + rng.int(0, 15);
+              for (let k = 0; k < 9; k++) {
+                P(vx, y + k + rng.int(0, 5), odd ? d2 : d1);
+                vx += rng.int(-1, 1);
+              }
+            }
+            break;
+          case 'metal':
+            P(x, y, rng.chance(0.12) ? alt : base, T, T);
+            P(x, y, d2, T, 1);
+            P(x, y, d2, 1, T);
+            P(x + 1, y + 1, mix(base, '#ffffff', 0.15), 14, 1);
+            for (const [rx, ry] of [[2, 2], [13, 2], [2, 13], [13, 13]]) P(x + rx, y + ry, d1);
+            break;
+          default:
+            P(x, y, base, T, T);
+            for (let k = 0; k < 4; k++) P(x + rng.int(0, 15), y + rng.int(0, 15), alt);
+            const r = rng.next();
+            if (px.floor === 'grass' && r < 0.3) {
+              const gx = x + rng.int(2, 12);
+              const gy = y + rng.int(4, 12);
+              P(gx, gy, d1);
+              P(gx + 2, gy, d1);
+              P(gx + 1, gy - 1, d1);
+            } else if (px.floor === 'grass' && r < 0.34) P(x + rng.int(2, 13), y + rng.int(2, 13), rng.pick([E.yellow, E.white, E.pink]));
+            else if (px.floor === 'sand' && r < 0.3) for (let k = 0; k < 9; k++) P(x + 3 + k, y + 7 + (k % 4 < 2 ? 0 : 1), d2);
+            else if (px.floor === 'ice' && r < 0.15) P(x + rng.int(2, 11), y + rng.int(2, 13), d1, 3, 1);
+            else if (px.floor === 'lava' && r < 0.2) {
+              let lx = x + rng.int(2, 13);
+              let ly = y + rng.int(2, 8);
+              for (let k = 0; k < 7; k++) {
+                P(lx, ly, k % 3 === 0 ? E.amber : d1);
+                lx += rng.int(-1, 1);
+                ly += 1;
+              }
+            } else if (px.floor === 'paper' && r < 0.12) P(x + 2, y + 2, d2, 12, 12);
+        }
+      } else if (t === WALL) {
+        const below = at(tx, ty + 1);
+        if (below === FLOOR) {
+          // Wall face, seen from the front.
+          P(x, y, px.wallFace, T, T);
+          for (let row = 0; row < 2; row++) {
+            const by = y + row * 8;
+            P(x, by, px.wallDark, T, 1);
+            const off = (ty + row) % 2 ? 8 : 0;
+            for (let bx = x - off; bx < x + T; bx += 16) {
+              if (px.wall === 'wood') {
+                P(Math.max(x, bx), y, px.wallDark, 1, T);
+                continue;
+              }
+              if (bx >= x) P(bx, by, px.wallDark, 1, 8);
+              P(Math.max(x, bx + 1), by + 1, mix(px.wallFace, '#ffffff', 0.16), Math.min(14, x + T - Math.max(x, bx + 1)), 1);
             }
           }
-          if (px.floor === 'checker' && rng.chance(0.12)) P(x + rng.int(2, 12), y + rng.int(2, 12), d2, 3, 1);
-          break;
-        case 'metal':
-          P(x, y, rng.chance(0.12) ? alt : base, 16, 16);
-          P(x, y, d2, 16, 1);
-          P(x, y, d2, 1, 16);
-          P(x + 1, y + 1, mix(base, '#ffffff', 0.15), 14, 1);
-          P(x + 2, y + 2, d1);
-          P(x + 13, y + 2, d1);
-          P(x + 2, y + 13, d1);
-          P(x + 13, y + 13, d1);
-          break;
-        default:
-          P(x, y, base, 16, 16);
-          for (let k = 0; k < 4; k++) P(x + rng.int(0, 15), y + rng.int(0, 15), alt);
-          if (px.floor === 'paper' && ty % 5 === 3 && tx % 2 === 0) P(x + 2, y + 2, d2, 12, 12);
-      }
-    }
-  }
-  if (px.floor !== 'metal' && px.floor !== 'checker' && px.floor !== 'marble') {
-    const patchCol = px.floor === 'ice' || px.floor === 'paper' ? mix(base, '#ffffff', 0.18) : alt;
-    const shadeCol = mix(base, E.ink, 0.12);
-    for (let i = 0; i < 12; i++) {
-      const cx = rng.range(0, W);
-      const cy = rng.range(ARENA.top, H);
-      const r = rng.range(16, 46);
-      const col = i % 3 === 0 ? patchCol : shadeCol;
-      for (let y = Math.max(0, Math.floor(cy - r)); y < Math.min(H, cy + r); y++) {
-        for (let x = Math.max(0, Math.floor(cx - r)); x < Math.min(W, cx + r); x++) {
-          const d = Math.hypot((x - cx) / r, (y - cy) / (r * 0.7));
-          if (d < 0.78 || (d < 1 && (x + y) % 2 === 0 && d < 0.78 + rng.next() * 0.3)) P(x, y, col);
+          if (px.wall === 'brass') {
+            P(x + 3, y + 4, E.amber);
+            P(x + 12, y + 12, E.amber);
+          }
+          if (px.wall === 'ice') P(x + 3, y + 3, '#ffffff', 3, 1);
+          P(x, y + T - 1, mix(px.wallFace, E.ink, 0.35), T, 1);
+
+        } else {
+          P(x, y, px.wallTop, T, T);
+          // Inner rim where the top meets floor or a face.
+          const rim = mix(px.wallTop, '#ffffff', 0.18);
+          if (at(tx, ty - 1) === FLOOR) P(x, y, rim, T, 2);
+          if (at(tx - 1, ty) === FLOOR) P(x, y, rim, 2, T);
+          if (at(tx + 1, ty) === FLOOR) P(x + T - 2, y, rim, 2, T);
+          if (at(tx, ty + 1) === WALL && at(tx, ty + 2) === FLOOR) P(x, y + T - 1, rim, T, 1);
+          if (at(tx, ty - 1) === VOID) P(x, y, mix(px.wallTop, E.ink, 0.3), T, 1);
         }
       }
     }
-    for (let i = 0; i < 420; i++) {
-      const x = rng.int(0, W - 4);
-      const y = rng.int(ARENA.top, H - 4);
-      switch (px.floor) {
-        case 'grass':
-          if (i % 3 === 0) {
-            P(x, y, d1);
-            P(x + 2, y, d1);
-            P(x + 1, y - 1, d1);
-          } else if (i % 31 === 0) P(x, y, rng.pick([E.yellow, E.white, E.pink]));
-          else P(x, y, d2);
-          break;
-        case 'sand':
-          if (i % 3 === 0) P(x, y, d2, 3, 1);
-          else if (i % 23 === 0) P(x, y, d1, 2, 2);
-          break;
-        case 'ice':
-          if (i % 7 === 0) P(x, y, d1, 2, 1);
-          break;
-        case 'lava':
-          if (i % 19 === 0) {
-            let lx = x;
-            let ly = y;
-            for (let k = 0; k < 8; k++) {
-              P(lx, ly, k % 3 === 0 ? E.amber : d1);
-              lx += rng.int(-1, 1);
-              ly += rng.int(0, 1);
-            }
-          } else if (i % 3 === 0) P(x, y, d2);
-          break;
-        case 'paper':
-          if (i % 9 === 0) P(x, y, d1);
-          break;
+  }
+  // Wall torches (their light comes from the lighting layer).
+  for (const [tx, ty] of d.torches) {
+    const x = Math.round(tx) - 8;
+    const y = Math.round(ty) - 4;
+    P(x + 6, y + 7, E.brownD, 4, 1);
+    P(x + 7, y + 6, E.brown, 2, 7);
+    P(x + 6, y + 2, E.orange, 4, 4);
+    P(x + 7, y + 1, E.amber, 2, 4);
+    P(x + 7, y + 3, E.yellow, 2, 2);
+    P(x + 7, y, E.yellow, 1, 1);
+  }
+  // Soft shadow on the floor under each wall face.
+  for (let ty = 1; ty < d.h; ty++) {
+    for (let tx = 0; tx < d.w; tx++) {
+      if (at(tx, ty) === FLOOR && at(tx, ty - 1) === WALL) {
+        ctx.fillStyle = 'rgba(24,20,37,0.32)';
+        ctx.fillRect(tx * T, ty * T, T, 4);
+        ctx.fillStyle = 'rgba(24,20,37,0.15)';
+        ctx.fillRect(tx * T, ty * T + 4, T, 3);
       }
     }
   }
-
-  // Walls: a tall 3/4 face on top, thin walls elsewhere.
-  const faceTop = 16;
-  const faceBottom = ARENA.top;
-  P(0, 0, px.wallTop, W, faceTop);
-  P(0, faceTop, px.wallFace, W, faceBottom - faceTop);
-  for (let y = faceTop; y < faceBottom; y += 9) {
-    const off = Math.floor((y - faceTop) / 9) % 2 ? 8 : 0;
-    P(0, y, px.wallDark, W, 1);
-    for (let x = -off; x < W; x += 16) {
-      switch (px.wall) {
-        case 'wood':
-          P(x, faceTop, px.wallDark, 2, faceBottom - faceTop);
-          break;
-        case 'brass':
-          P(x + 1, y + 1, mix(px.wallFace, '#ffffff', 0.2), 14, 1);
-          P(x + 3, y + 4, E.amber);
-          P(x + 12, y + 4, E.amber);
-          break;
-        case 'ice':
-          P(x + 2, y + 2, '#ffffff', 3, 1);
-          P(x, y, px.wallDark, 1, 9);
-          break;
-        default:
-          P(x, y, px.wallDark, 1, 9);
-          P(x + 1, y + 1, mix(px.wallFace, '#ffffff', 0.18), 14, 1);
-      }
-    }
-  }
-  if (px.wall === 'gothic' || px.wall === 'marble') {
-    for (const x of [80, 192, 432, 544]) {
-      P(x, faceTop + 5, px.wallDark, 12, 28);
-      P(x + 2, faceTop + 7, px.wall === 'gothic' ? E.purple : E.amber, 8, 24);
-      P(x + 4, faceTop + 9, px.wall === 'gothic' ? E.cyan : E.yellow, 4, 4);
-    }
-  }
-  P(0, faceBottom - 2, px.wallDark, W, 2);
-  P(0, faceTop - 1, mix(px.wallTop, '#ffffff', 0.15), W, 1);
-  ctx.fillStyle = 'rgba(24,20,37,0.35)';
-  ctx.fillRect(0, faceBottom, W, 5);
-  ctx.fillStyle = 'rgba(24,20,37,0.18)';
-  ctx.fillRect(0, faceBottom + 5, W, 4);
-  const edge = mix(px.wallTop, '#ffffff', 0.15);
-  P(0, faceTop, px.wallTop, ARENA.left, H - faceTop);
-  P(ARENA.right, faceTop, px.wallTop, W - ARENA.right, H - faceTop);
-  P(0, ARENA.bottom, px.wallTop, W, H - ARENA.bottom);
-  P(ARENA.left - 1, faceBottom, edge, 1, ARENA.bottom - faceBottom);
-  P(ARENA.right, faceBottom, edge, 1, ARENA.bottom - faceBottom);
-  P(ARENA.left, ARENA.bottom, edge, ARENA.right - ARENA.left, 1);
-
-  // Door openings: dark passages with a frame in the wall colours.
-  const frame = mix(px.wallFace, '#ffffff', 0.25);
-  const hole = E.ink;
-  if (doors.up) {
-    P(ARENA.cx - 19, faceTop - 2, frame, 38, faceBottom - faceTop + 2);
-    P(ARENA.cx - 15, faceTop + 2, hole, 30, faceBottom - faceTop - 2);
-    P(ARENA.cx - 15, 0, hole, 30, faceTop + 2);
-  }
-  if (doors.down) {
-    P(ARENA.cx - 19, ARENA.bottom, frame, 38, H - ARENA.bottom);
-    P(ARENA.cx - 15, ARENA.bottom + 1, hole, 30, H - ARENA.bottom);
-  }
-  if (doors.left) {
-    P(0, ARENA.cy - 19, frame, ARENA.left + 1, 38);
-    P(0, ARENA.cy - 15, hole, ARENA.left, 30);
-  }
-  if (doors.right) {
-    P(ARENA.right - 1, ARENA.cy - 19, frame, W - ARENA.right + 1, 38);
-    P(ARENA.right, ARENA.cy - 15, hole, W - ARENA.right, 30);
-  }
-
   add(scene, key, c);
   return key;
 }
 
 /** Pixel text as a Phaser texture, cached by content. */
 export function textTexture(scene: Phaser.Scene, text: string, o: Parameters<typeof pxText>[1]): string {
-  const key = `txt:${text}:${o.size}:${o.color}:${o.outline ?? ''}`;
+  const key = `txt:${text}:${o.size ?? ''}:${o.color}:${o.outline ?? ''}:${o.small ? 's' : ''}`;
   if (!scene.textures.exists(key)) scene.textures.addCanvas(key, pxText(text, o));
   return key;
 }

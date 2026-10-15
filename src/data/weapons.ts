@@ -1,8 +1,11 @@
-export type Delivery = 'bolt' | 'spread' | 'beam' | 'mortar' | 'boomerang' | 'chain';
+import type { Element } from '../core/stats';
 
-/** Guns the knight holds and aims with the mouse (Soul Knight style). World units are pixels at 640x360. */
+/** How a weapon delivers damage. Several weapons share a delivery with different numbers. */
+export type Delivery = 'bolt' | 'spread' | 'beam' | 'mortar' | 'boomerang' | 'chain' | 'rocket' | 'flame' | 'slash';
+
 export interface WeaponDef {
-  id: Delivery;
+  id: string;
+  kind: Delivery;
   name: string;
   glyph: string;
   desc: string;
@@ -15,19 +18,30 @@ export interface WeaponDef {
   pierce: number;
   knockback: number;
   spreadDeg: number;
-  grip: [number, number]; // texture origin of the hand
+  grip: [number, number];
+  jitter?: number; // random aim error, radians
+  element?: Element;
+  proj?: string; // projectile texture for bolt-type weapons
+  tracer?: boolean;
+  shake?: number; // camera kick per shot
 }
 
-export const WEAPONS: Record<Delivery, WeaponDef> = {
-  bolt: { id: 'bolt', name: '骑士手枪', glyph: '枪', desc: '稳定的单发，射速快', damage: 4, cooldown: 0.2, count: 1, speed: 330, range: 270, size: 3, pierce: 0, knockback: 50, spreadDeg: 6, grip: [0.25, 0.6] },
-  spread: { id: 'spread', name: '双管霰弹', glyph: '霰', desc: '近距离锥形弹幕，击退强', damage: 2.6, cooldown: 0.62, count: 5, speed: 290, range: 150, size: 2.5, pierce: 0, knockback: 110, spreadDeg: 34, grip: [0.3, 0.55] },
-  beam: { id: 'beam', name: '激光步枪', glyph: '光', desc: '瞬发直线，穿透所有敌人', damage: 8, cooldown: 0.72, count: 1, speed: 0, range: 330, size: 4, pierce: 0, knockback: 30, spreadDeg: 10, grip: [0.25, 0.55] },
-  mortar: { id: 'mortar', name: '榴弹炮', glyph: '炮', desc: '抛向准星，落地范围爆炸', damage: 13, cooldown: 1.0, count: 1, speed: 1, range: 240, size: 34, pierce: 0, knockback: 120, spreadDeg: 0, grip: [0.3, 0.6] },
-  boomerang: { id: 'boomerang', name: '回旋飞轮', glyph: '轮', desc: '飞出再折返，来回都能命中', damage: 5.5, cooldown: 0.8, count: 1, speed: 270, range: 170, size: 5, pierce: 0, knockback: 60, spreadDeg: 22, grip: [0.5, 0.5] },
-  chain: { id: 'chain', name: '电磁枪', glyph: '雷', desc: '命中后在敌人之间跳跃', damage: 5, cooldown: 0.55, count: 3, speed: 0, range: 200, size: 72, pierce: 0, knockback: 14, spreadDeg: 0, grip: [0.25, 0.6] },
+export const WEAPONS: Record<string, WeaponDef> = {
+  pistol: { id: 'pistol', kind: 'bolt', name: '骑士手枪', glyph: '枪', desc: '稳定的单发，射速快', damage: 4, cooldown: 0.2, count: 1, speed: 300, range: 230, size: 3, pierce: 0, knockback: 50, spreadDeg: 6, grip: [0.25, 0.6], shake: 0.012 },
+  smg: { id: 'smg', kind: 'bolt', name: '冲锋枪', glyph: '冲', desc: '射速极快，散布较大', damage: 2.2, cooldown: 0.075, count: 1, speed: 290, range: 190, size: 2.5, pierce: 0, knockback: 25, spreadDeg: 5, grip: [0.3, 0.55], jitter: 0.13, shake: 0.008 },
+  crossbow: { id: 'crossbow', kind: 'bolt', name: '连弩', glyph: '弩', desc: '弩箭穿透两个敌人', damage: 7, cooldown: 0.42, count: 1, speed: 360, range: 260, size: 3, pierce: 2, knockback: 60, spreadDeg: 6, grip: [0.35, 0.5], proj: 'b-arrow', shake: 0.015 },
+  sniper: { id: 'sniper', kind: 'bolt', name: '狙击枪', glyph: '狙', desc: '高伤害，贯穿一整排', damage: 24, cooldown: 0.95, count: 1, speed: 640, range: 400, size: 3, pierce: 4, knockback: 140, spreadDeg: 4, grip: [0.22, 0.55], proj: 'b-snipe', tracer: true, shake: 0.12 },
+  shotgun: { id: 'shotgun', kind: 'spread', name: '双管霰弹', glyph: '霰', desc: '近距离锥形弹幕，击退强', damage: 2.6, cooldown: 0.62, count: 5, speed: 280, range: 140, size: 2.5, pierce: 0, knockback: 110, spreadDeg: 34, grip: [0.3, 0.55], shake: 0.07 },
+  laser: { id: 'laser', kind: 'beam', name: '激光步枪', glyph: '光', desc: '瞬发直线，穿透所有敌人', damage: 8, cooldown: 0.72, count: 1, speed: 0, range: 300, size: 4, pierce: 0, knockback: 30, spreadDeg: 10, grip: [0.25, 0.55], shake: 0.05 },
+  grenade: { id: 'grenade', kind: 'mortar', name: '榴弹炮', glyph: '炮', desc: '抛向准星，落地范围爆炸', damage: 13, cooldown: 1.0, count: 1, speed: 1, range: 220, size: 32, pierce: 0, knockback: 120, spreadDeg: 0, grip: [0.3, 0.6], shake: 0.04 },
+  rocket: { id: 'rocket', kind: 'rocket', name: '火箭筒', glyph: '火', desc: '直线飞行，命中后爆炸', damage: 16, cooldown: 1.1, count: 1, speed: 220, range: 280, size: 30, pierce: 0, knockback: 140, spreadDeg: 8, grip: [0.4, 0.55], proj: 'b-rocket', shake: 0.14 },
+  chakram: { id: 'chakram', kind: 'boomerang', name: '回旋飞轮', glyph: '轮', desc: '飞出再折返，来回都能命中', damage: 5.5, cooldown: 0.8, count: 1, speed: 260, range: 160, size: 5, pierce: 0, knockback: 60, spreadDeg: 22, grip: [0.5, 0.5], shake: 0.02 },
+  tesla: { id: 'tesla', kind: 'chain', name: '电磁枪', glyph: '雷', desc: '命中后在敌人之间跳跃', damage: 5, cooldown: 0.55, count: 3, speed: 0, range: 190, size: 70, pierce: 0, knockback: 14, spreadDeg: 0, grip: [0.25, 0.6], shake: 0.02 },
+  flamer: { id: 'flamer', kind: 'flame', name: '喷火器', glyph: '焰', desc: '近距离持续喷火，点燃敌人', damage: 1.0, cooldown: 0.05, count: 2, speed: 150, range: 85, size: 4, pierce: 99, knockback: 8, spreadDeg: 26, grip: [0.3, 0.55], element: 'fire', shake: 0.004 },
+  sword: { id: 'sword', kind: 'slash', name: '骑士剑', glyph: '剑', desc: '近身横斩，能砍掉敌方子弹', damage: 9, cooldown: 0.36, count: 1, speed: 0, range: 28, size: 1, pierce: 0, knockback: 150, spreadDeg: 110, grip: [0.15, 0.5], shake: 0.05 },
 };
 
-export const WEAPON_ORDER: Delivery[] = ['bolt', 'spread', 'beam', 'mortar', 'boomerang', 'chain'];
+export const WEAPON_ORDER = Object.keys(WEAPONS);
 export const MAX_WEAPONS = 2;
 export const MAX_WEAPON_LEVEL = 5;
 
@@ -45,6 +59,9 @@ export const STAT_MEANING: Record<Delivery, { count: string; area: string; pierc
   spread: { count: '弹丸 +2', area: '弹丸变大', pierce: '穿透敌人' },
   beam: { count: '多一道光束', area: '光束变宽', pierce: '撞墙反射' },
   mortar: { count: '多一枚炮弹', area: '爆炸半径', pierce: '落点留下余烬' },
+  rocket: { count: '多一枚火箭', area: '爆炸半径', pierce: '穿透后再爆' },
   boomerang: { count: '多一枚飞轮', area: '飞轮变大', pierce: '更大更快' },
   chain: { count: '多跳一次', area: '跳跃距离', pierce: '分叉' },
+  flame: { count: '火焰更密', area: '火焰更大', pierce: '已全穿透' },
+  slash: { count: '多斩一刀', area: '斩击范围', pierce: '剑气飞出' },
 };
