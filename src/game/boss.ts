@@ -15,7 +15,7 @@ export function spawnBoss(s: GameScene, kind: 'guardian' | 'boar'): Enemy {
   const kit = s.kit;
   const name = kit.bossNames[kind];
   const level = s.run.level;
-  const hp = kind === 'boar' ? 3400 : 900 * (1 + level * 0.8);
+  const hp = kind === 'boar' ? 3000 : 760 * (1 + level * 0.8);
   const R = s.roomRect();
   const x = R.cx;
   const y = R.y0 + 92;

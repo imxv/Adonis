@@ -36,8 +36,9 @@ export interface RunState {
   eliteNext: boolean;
 }
 
+/** Tuned for ~350 kills a run: a level-up roughly every 20-30 seconds. */
 export function xpForLevel(level: number) {
-  return Math.floor(7 + level * 6 + Math.pow(level, 1.5) * 1.6);
+  return Math.floor(4 + level * 2.2 + Math.pow(level, 1.5) * 0.55);
 }
 
 export function newRun(params: URLSearchParams): RunState {

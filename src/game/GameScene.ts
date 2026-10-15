@@ -537,10 +537,10 @@ export class GameScene extends Phaser.Scene {
         const k = Math.min(1, this.hordeT / this.hordeDur);
         if (this.hordeT < this.hordeDur) {
           this.spawnT -= dt;
-          if (this.spawnT <= 0 && alive + this.pendingSpawns < 24 + this.run.level * 8) {
-            this.spawnT = lerp(1.3, 0.75, k) / (1 + this.run.level * 0.15);
+          if (this.spawnT <= 0 && alive + this.pendingSpawns < 14 + this.run.level * 5) {
+            this.spawnT = lerp(1.5, 0.85, k) / (1 + this.run.level * 0.12);
             const [x, y] = this.spawnPoint(110);
-            const n = 1 + Math.floor(k * 2) + this.run.level;
+            const n = 1 + Math.floor(k * 1.5);
             for (let i = 0; i < n; i++) {
               const kind = this.run.rng.weighted(this.enemyKinds(), (q) => ENEMIES[q].weight);
               this.queueSpawn(kind, x + rand(-12, 12), y + rand(-12, 12), false, false, 0.5);
@@ -548,7 +548,7 @@ export class GameScene extends Phaser.Scene {
           }
           this.swarmT -= dt;
           if (this.swarmT <= 0) {
-            this.swarmT = 9;
+            this.swarmT = 10;
             this.swarm();
           }
         } else if (alive === 0 && this.pendingSpawns === 0) this.onRoomCleared();
@@ -574,7 +574,7 @@ export class GameScene extends Phaser.Scene {
     if (run.rng.chance(0.5)) {
       const fromLeft = p.x > roomCenter(r)[0];
       const x = (fromLeft ? r.x0 + 1.5 : r.x1 - 1.5) * T;
-      const n = 5 + run.level * 2;
+      const n = 4 + run.level * 2;
       for (let i = 0; i < n; i++) {
         const y = clamp(p.y + rand(-50, 50), (r.y0 + 1.5) * T, (r.y1 - 1.5) * T);
         if (solidAt(this.dungeon, x, y)) continue;
@@ -584,7 +584,7 @@ export class GameScene extends Phaser.Scene {
       }
       ui.toast('蝙蝠群', 800);
     } else {
-      const n = 7 + run.level * 2;
+      const n = 6 + run.level * 2;
       for (let i = 0; i < n; i++) {
         const a = (i / n) * TAU;
         const x = p.x + Math.cos(a) * 84;
@@ -1014,7 +1014,7 @@ export class GameScene extends Phaser.Scene {
     const sprite = this.add.image(x, y, tex ?? tkey[kind]).setDepth(enemy ? DEPTH.ebullet : DEPTH.proj).setRotation(kind === 'bolt' || kind === 'rocket' ? a : 0);
     const base: Record<ProjKind, number> = { bolt: 3, pellet: 2.5, blade: 5, shell: 3, shard: 2, orb: 3, axe: 4, rocket: 4, flame: 4, ebullet: 3, ebig: 5 };
     sprite.setScale(Math.max(0.6, r / base[kind]));
-    if (kind === 'flame') sprite.setBlendMode(Phaser.BlendModes.ADD).setScale(0.5);
+    if (kind === 'flame') sprite.setScale(0.6).setRotation(rand(0, TAU));
     // Player shots sweep from the body centre, so point-blank enemies still get hit.
     const [px, py] = enemy ? [x, y] : [this.player.x, this.player.y - 4];
     const p: Proj = { kind, x, y, px, py, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, r, dmg, pierce, life, life0: life, knock, src, sprite, hit: new Set(), dead: false };
@@ -1096,8 +1096,11 @@ export class GameScene extends Phaser.Scene {
         p.vy += (p.gravity ?? 0) * dt;
         p.sprite.rotation += dt * (p.spin ?? 14);
       } else if (p.kind === 'flame') {
+        // Hot and small at the nozzle, then a wider, redder lick that fades out.
         const k = 1 - p.life / (p.life0 || 1);
-        p.sprite.setScale(0.5 + k * 1.5).setAlpha(1 - k * 0.75);
+        p.sprite.setScale(0.6 + k * 1.5).setAlpha(k < 0.55 ? 1 : Math.max(0, 1 - (k - 0.55) / 0.45));
+        if (k > 0.6) p.sprite.setTint(0xf04020);
+        else if (k > 0.3) p.sprite.setTint(0xff9a30);
       } else if (p.kind === 'rocket') {
         if (Math.random() < 0.7) this.fx.dust(p.x - p.vx * 0.03, p.y - p.vy * 0.03, 1);
       }

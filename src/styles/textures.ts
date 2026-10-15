@@ -64,7 +64,7 @@ export function buildCommonTextures(scene: Phaser.Scene) {
   add(scene, 'b-arrow', Grid.ascii(['bbbbbgw', 'G....g.']).render({ outline: E.ink }));
   add(scene, 'b-snipe', Grid.ascii(['wwwwwwwY']).render({ outline: E.orange }));
   add(scene, 'b-rocket', Grid.ascii(['r.....', 'rLLLlw', 'rLLLlw', 'r.....']).render());
-  add(scene, 'b-flame', Grid.ascii(['.OO.', 'OYYO', 'OYYO', '.OO.']).render({ outline: false }));
+  add(scene, 'b-flame', Grid.ascii(['..YY..', '.YwwY.', 'YwwwwY', 'YwwwwY', '.YwwY.', '..YY..']).render({ outline: E.orange }));
   add(scene, 'b-wave', Grid.ascii(['ww...', 'ccw..', '..cw.', '..cw.', '..cw.', '..cw.', 'ccw..', 'ww...']).render({ outline: E.blueD }));
   add(scene, 'b-shard', Grid.ascii(['wcc', 'ccc']).render({ outline: false }));
   add(scene, 'b-orb', Grid.ascii(['.cc.', 'cwwc', 'cwwc', '.cc.']).render({ outline: E.blueD }));

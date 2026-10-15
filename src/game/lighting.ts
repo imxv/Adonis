@@ -77,7 +77,7 @@ export class Lighting {
 
   setLevel(kit: StyleKit, d: Dungeon, seed: number) {
     // Darker biomes keep less ambient light; shadows lean cold so warm lights pop.
-    const k = Math.max(0.42, 0.86 - kit.overlay.vignette * 0.75);
+    const k = Math.max(0.5, 0.92 - kit.overlay.vignette * 0.75);
     const [r, g, b] = hexRgb(E.white);
     this.ambient = (Math.round(r * k * 0.9) << 16) | (Math.round(g * k * 0.9) << 8) | Math.min(255, Math.round(b * k * 1.08));
     this.torches = d.torches.map(([x, y], i) => ({ x, y, r: 56, color: hexToNum(E.orange), flicker: (seed + i * 37) % 100 }));
@@ -107,8 +107,12 @@ export class Lighting {
     const rt = this.rt;
     const W = rt.width;
     const H = rt.height;
-    rt.fill(this.ambient, 1);
+    // Clear, then lay the ambient down as an opaque stamp inside the batch. fill() blends with whatever
+    // mode the renderer was left in, which made the light map accumulate and lights punch dark squares.
+    rt.clear();
     rt.beginDraw();
+    const white = s.textures.get('__WHITE').getSourceImage() as HTMLCanvasElement;
+    rt.stamp('__WHITE', undefined, 0, 0, { originX: 0, originY: 0, scaleX: W / white.width, scaleY: H / white.height, tint: this.ambient, alpha: 1, blendMode: Phaser.BlendModes.NORMAL, skipBatch: true });
     const add = (x: number, y: number, r: number, color: number, alpha = 1) => {
       const lx = x - ox;
       const ly = y - oy;
@@ -116,7 +120,7 @@ export class Lighting {
       rt.stamp('light', undefined, Math.round(lx), Math.round(ly), { scale: (r * 2) / TEX, tint: color, alpha, blendMode: Phaser.BlendModes.ADD, skipBatch: true });
     };
     const p = s.player;
-    if (p && p.sprite.visible) add(p.x, p.y - 6, 150, 0xfff3d6, 1);
+    if (p && p.sprite.visible) add(p.x, p.y - 6, 160, 0xfff3d6, 1);
     for (const l of this.torches) {
       const f = 1 + Math.sin(this.t * 9 + l.flicker) * 0.06 + Math.sin(this.t * 23 + l.flicker * 2) * 0.03;
       add(l.x, l.y, l.r * f, l.color, 0.85);
