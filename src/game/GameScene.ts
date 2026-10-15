@@ -6,7 +6,7 @@ import { audio } from '../audio/audio';
 import { ENEMIES, AFFIXES, PETS, type Affix, type EnemyKind } from '../data/enemies';
 import { SPELLS, SPELL_ORDER } from '../data/spells';
 import { UPGRADE_BY_ID } from '../data/upgrades';
-import { WEAPON_ORDER, weaponLevelCount, weaponLevelDamage, type WeaponInstance } from '../data/weapons';
+import { WEAPON_ORDER, magSize, reloadTime, weaponLevelCount, weaponLevelDamage, type WeaponInstance } from '../data/weapons';
 import { E } from '../pixel/palette';
 import { K, buildCommonTextures, buildKitTextures, buildLevel, textTexture } from '../styles/textures';
 import type { StyleKit } from '../styles/types';
@@ -33,10 +33,11 @@ import {
 import { DEPTH, Fx } from './fx';
 import { Lighting } from './lighting';
 import { syncPets, updatePets } from './pets';
-import { LEVELS, applyChoice, evolutionsReady, newRun, restoreRun, rollChoices, snapshotRun, xpForLevel, type Choice, type RunState } from './run';
+import { LEVELS, applyChoice, applyFusion, evolutionsReady, fusionsReady, newRun, restoreRun, rollChoices, snapshotRun, spellTaken, xpForLevel, type Choice, type RunState } from './run';
+import type { FusionId } from '../data/spells';
 import { addScore, clearRun, loadRun, saveRun, scoreOf, type SavedRun } from '../save';
 import { buildCodex } from '../ui/codex';
-import { clearSpellVisuals, updateSpells } from './spells';
+import { clearSpellVisuals, updateSpells, zap } from './spells';
 
 type Mode = 'title' | 'play' | 'choose' | 'pause' | 'transition' | 'dead' | 'end';
 
@@ -82,6 +83,9 @@ interface SawTrap {
 }
 
 export type Trap = SpikeTrap | SawTrap;
+
+/** How strong each enemy's summon looks: weak ones rise from a rune, strong ones step out of a rift. */
+const SPAWN_TIER: Record<EnemyKind, 1 | 2 | 3> = { wanderer: 1, bat: 1, charger: 2, shooter: 2, bomber: 2, shield: 3 };
 
 /** How far the camera leans toward the cursor, in pixels. */
 const LEAN_X = 46;
@@ -179,6 +183,9 @@ export class GameScene extends Phaser.Scene {
       ui.toast(this.autoFire ? '自动射击 开' : '自动射击 关', 900);
     });
     kb.on('keydown-Q', () => this.switchGun());
+    kb.on('keydown-R', () => {
+      if (this.mode === 'play') this.startReload(this.run.weapons[this.run.held]);
+    });
     kb.on('keydown-E', () => this.useSkill());
     this.input.on('pointermove', () => (this.pointerMoved = true));
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
@@ -389,6 +396,7 @@ export class GameScene extends Phaser.Scene {
     ui.banner(`第${['一', '二', '三', '四'][this.run.level]}层`, kit.name, kit.en, kit.subtitle, first ? 2400 : 2200);
     if (!first) cam.fadeIn(420, 255, 255, 255);
     if (saved && d.boss.cleared) this.spawnTrapdoor(...roomCenter(d.boss));
+    if (saved) this.time.delayedCall(800, () => this.checkFusions());
     if (this.pendingLevelUps > 0) this.time.delayedCall(700, () => this.openLevelUp());
     this.saveProgress();
   }
@@ -550,8 +558,18 @@ export class GameScene extends Phaser.Scene {
       audio.setIntensity(2);
       audio.roar();
       this.spawnT = 6;
-      this.time.delayedCall(700, () => {
-        if (this.active === r) this.boss = spawnBoss(this, this.run.level === LEVELS - 1 ? 'boar' : 'guardian');
+      const R = this.roomRect();
+      this.telegraphs.push({
+        kind: 'spawn',
+        x: R.cx,
+        y: R.y0 + 92,
+        r: 40,
+        t: 0,
+        dur: 1.1,
+        tier: 5,
+        onDone: () => {
+          if (this.active === r) this.boss = spawnBoss(this, this.run.level === LEVELS - 1 ? 'boar' : 'guardian');
+        },
       });
     } else if (r.type === 'horde') {
       this.hordeDur = 20 + this.run.level * 4;
@@ -647,22 +665,44 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /** Summon an enemy: a warning on the floor whose look (and length) depends on how strong it is. */
   queueSpawn(kind: EnemyKind, x: number, y: number, elite = false, mini = false, delay = 0.7) {
     if (solidAt(this.dungeon, x, y)) [x, y] = openSpot(this.dungeon, x, y);
     this.pendingSpawns++;
+    const tier = elite ? 4 : SPAWN_TIER[kind];
     this.telegraphs.push({
       kind: 'spawn',
       x,
       y,
-      r: elite ? 12 : 8,
+      r: tier >= 4 ? 14 : tier === 3 ? 11 : tier === 2 ? 10 : 8,
       t: 0,
-      dur: delay,
+      dur: delay * [0.9, 1.05, 1.3, 1.6][tier - 1],
+      tier,
       onDone: () => {
         this.pendingSpawns--;
         if (this.mode === 'dead' || this.mode === 'end' || !this.active) return;
-        this.spawnEnemy(kind, x, y, elite, mini);
+        const e = this.spawnEnemy(kind, x, y, elite, mini);
+        this.arrive(e, tier);
       },
     });
+  }
+
+  /** The moment a summoned enemy appears. */
+  arrive(e: Enemy, tier: number) {
+    const danger = this.kit.palette.danger;
+    if (tier === 1) {
+      e.enter = { kind: 'rise', t: 0 };
+      this.fx.dust(e.x, e.y, 3);
+    } else if (tier === 2) {
+      e.enter = { kind: 'drop', t: 0 };
+    } else {
+      e.enter = { kind: 'emerge', t: 0 };
+      this.fx.ring(e.x, e.y - 4, tier >= 4 ? 46 : 30, danger, 360, 2);
+      this.fx.burst(e.x, e.y - 4, tier >= 4 ? 14 : 8);
+      this.fx.shake(tier >= 4 ? 0.2 : 0.08);
+      this.light.flash(e.x, e.y - 4, tier >= 4 ? 90 : 60, danger, 0.3);
+      if (tier >= 4) this.fx.flash(danger, 0.12, 200);
+    }
   }
 
   spawnEnemy(kind: EnemyKind, x: number, y: number, elite = false, mini = false): Enemy {
@@ -927,11 +967,14 @@ export class GameScene extends Phaser.Scene {
       xp: run.xp,
       xpNext: run.xpNext,
       xpLevel: run.xpLevel,
-      guns: run.weapons.map((w, i) => ({ id: w.def.id, name: w.def.name, level: w.level, held: i === run.held })),
-      gunCd: held ? clamp(held.cd / held.def.cooldown, 0, 1) : 0,
+      guns: run.weapons.map((w, i) => {
+        const mag = magSize(w, run.mods.mag);
+        const rt = reloadTime(w, run.mods.reload);
+        return { id: w.def.id, name: w.def.name, level: w.level, held: i === run.held, kind: w.def.kind, mag: mag || undefined, ammo: w.ammo, reload: (w.reloadT ?? 0) > 0 && rt > 0 ? 1 - w.reloadT! / rt : undefined };
+      }),
       skill: p.skillT > 0 ? 1 : 1 - clamp(p.skillCd / 14, 0, 1),
       skillActive: p.skillT > 0,
-      spells: run.spells.map((s) => ({ id: s.id, level: s.level, evolved: s.evolved })),
+      spells: run.spells.map((s) => ({ id: s.id, level: s.level, evolved: s.evolved, fused: !!SPELLS[s.id].fusion })),
       pets: run.pets,
       level: run.level,
       styleName: this.kit.name,
@@ -1058,20 +1101,48 @@ export class GameScene extends Phaser.Scene {
     return Math.max(0.2, m.fireRate * skill * (1 + Math.min(0.4, this.run.frenzyStacks * m.frenzy)));
   }
 
+  /**
+   * Guns with a magazine reload when empty (or on R); energy and melee weapons never do.
+   * A holstered gun keeps reloading in the background, so swapping is a way to skip the wait.
+   */
   updateWeapons(dt: number) {
     const run = this.run;
     const firing = this.input.activePointer.leftButtonDown() || this.autoFire;
     const rate = this.fireRateMult();
     const dual = this.player.skillT > 0 && run.weapons.length > 1;
     run.weapons.forEach((w, i) => {
+      const mag = magSize(w, run.mods.mag);
+      if (mag && w.ammo === undefined) w.ammo = mag;
+      if ((w.reloadT ?? 0) > 0) {
+        w.reloadT! -= dt;
+        if (w.reloadT! <= 0) {
+          w.reloadT = 0;
+          w.ammo = mag;
+          if (i === run.held) audio.reload(true);
+        }
+      }
       const active = i === run.held || dual;
       w.cd -= dt * rate;
-      if (active && firing && w.cd <= 0) {
-        this.fire(w, i !== run.held);
-        w.cd += w.def.cooldown;
-        if (w.cd < 0) w.cd = 0;
+      if (active && firing && w.cd <= 0 && !(w.reloadT! > 0)) {
+        if (mag && (w.ammo ?? 0) <= 0) this.startReload(w);
+        else {
+          this.fire(w, i !== run.held);
+          w.cd += w.def.cooldown;
+          if (w.cd < 0) w.cd = 0;
+          if (mag) {
+            w.ammo = (w.ammo ?? mag) - 1;
+            if (w.ammo <= 0) this.startReload(w);
+          }
+        }
       } else if (w.cd < 0) w.cd = 0;
     });
+  }
+
+  startReload(w: WeaponInstance | undefined) {
+    if (!w?.def.mag || (w.reloadT ?? 0) > 0) return;
+    if ((w.ammo ?? 0) >= magSize(w, this.run.mods.mag)) return;
+    w.reloadT = reloadTime(w, this.run.mods.reload);
+    audio.reload(false);
   }
 
   damageMult() {
@@ -1289,7 +1360,7 @@ export class GameScene extends Phaser.Scene {
           }
         }
         p.sprite.rotation += dt * 22;
-      } else if (p.kind === 'orb' && p.homing) {
+      } else if (p.homing) {
         let best: Enemy | undefined;
         let bd = 200 * 200;
         for (const e of this.enemies) {
@@ -1307,6 +1378,7 @@ export class GameScene extends Phaser.Scene {
           const na = cur + clamp(angleDiff(cur, want), -p.homing * dt, p.homing * dt);
           p.vx = Math.cos(na) * sp;
           p.vy = Math.sin(na) * sp;
+          if (p.kind === 'bolt') p.sprite.setRotation(na);
         }
       } else if (p.kind === 'axe') {
         p.vy += (p.gravity ?? 0) * dt;
@@ -1661,6 +1733,7 @@ export class GameScene extends Phaser.Scene {
     if (run.mods.healOnKill > 0 && Math.random() < run.mods.healOnKill) this.heal(1, e.x, e.y);
     if (run.mods.explodeOnKill > 0) this.explode(e.x, e.y, 30, e.maxHp * run.mods.explodeOnKill, { src: '连锁殉爆', small: true });
     if (e.kind === 'bomber') this.explode(e.x, e.y, 36, 18, { src: '炸弹怪', hurtsPlayer: 1 });
+    this.spreadPoison(e);
     if (e.affix === 'split' && !e.mini) for (let i = 0; i < 2; i++) this.spawnEnemy(e.kind as EnemyKind, e.x + rand(-8, 8), e.y + rand(-8, 8), false, true);
     if (e.affix === 'burst') for (let i = 0; i < 10; i++) this.spawnEnemyBullet(e.x, e.y, (i / 10) * TAU, 80);
     if (e.boss) {
@@ -1858,6 +1931,7 @@ export class GameScene extends Phaser.Scene {
       else if (a.status.burn > 0 && Math.floor(this.time0 * 10) % 2 === 0) sp.setTint(0xffb080);
       else if (a.boss?.enraged) sp.setTint(0xff9a9a);
       else sp.clearTint();
+      if (a.enter) this.entrance(a, sp, dt);
       a.shadow.setPosition(Math.round(a.x), Math.round(a.y + 1));
       a.ring?.setPosition(a.x, a.y - 4);
       if (a.extra) {
@@ -1971,7 +2045,7 @@ export class GameScene extends Phaser.Scene {
     let c: Choice;
     if (evo.length) c = evo[0];
     else {
-      const ups = run.spells.filter((s) => s.level < 5).map((s) => ({ type: 'spell-up', id: s.id }) as Choice);
+      const ups = run.spells.filter((s) => s.level < 5 && !SPELLS[s.id].fusion).map((s) => ({ type: 'spell-up', id: s.id }) as Choice);
       c = ups.length && run.rng.chance(0.6) ? run.rng.pick(ups) : rollChoices(run, 'rare')[0];
     }
     this.takeChoice(c);
@@ -1985,10 +2059,10 @@ export class GameScene extends Phaser.Scene {
     const items: Choice[] = [];
     const guns = WEAPON_ORDER.filter((id) => !run.weapons.some((w) => w.def.id === id));
     if (guns.length) items.push({ type: 'weapon-new', id: rng.pick(guns) });
-    const spellsNew = SPELL_ORDER.filter((id) => !run.spells.some((s) => s.id === id));
+    const spellsNew = SPELL_ORDER.filter((id) => !spellTaken(run, id));
     if (spellsNew.length && run.spells.length < 4) items.push({ type: 'spell-new', id: rng.pick(spellsNew) });
     else {
-      const up = run.spells.find((s) => s.level < 5);
+      const up = run.spells.find((s) => s.level < 5 && !SPELLS[s.id].fusion);
       if (up) items.push({ type: 'spell-up', id: up.id });
     }
     const pets = (['hound', 'dove', 'swan'] as const).filter((k) => !run.pets.includes(k));
@@ -2140,26 +2214,99 @@ export class GameScene extends Phaser.Scene {
   takeChoice(c: Choice) {
     applyChoice(this.run, c);
     this.time.delayedCall(0, () => this.saveProgress());
+    if (c.type === 'spell-new' || c.type === 'spell-up') this.time.delayedCall(350, () => this.checkFusions());
     if (c.type === 'pet') {
       syncPets(this);
       ui.toast(`${PETS[c.kind].name}加入了队伍`);
     } else if (c.type === 'evolve') {
       this.fx.flash(E.yellow, 0.4, 500);
       this.fx.ring(this.player.x, this.player.y, 120, E.yellow, 600, 3);
-      ui.toast(`进化：${SPELLS[c.id].evolved.name}`, 1600);
+      ui.toast(`进化：${SPELLS[c.id].evolved?.name ?? SPELLS[c.id].name}`, 1600);
     } else if (c.type === 'upgrade') ui.toast(UPGRADE_BY_ID[c.def.id].name, 800);
   }
 
+  checkFusions() {
+    if (this.mode === 'dead' || this.mode === 'end' || this.mode === 'title') return;
+    for (const f of fusionsReady(this.run)) this.fuse(f);
+  }
+
+  /** Two spells merge: their icons fly together over the knight's head and the fused spell bursts out. */
+  fuse(f: FusionId) {
+    const usedUp = applyFusion(this.run, f);
+    const p = this.player;
+    const y = p.y - 36;
+    for (const [i, sp] of usedUp.entries()) {
+      const img = this.add.image(p.x + (i ? 28 : -28), y, `spell-${sp.id}`).setDepth(DEPTH.numbers).setScale(2);
+      this.tweens.add({ targets: img, x: p.x, duration: 420, ease: 'Quad.easeIn', onComplete: () => img.destroy() });
+    }
+    this.slow(0.45, 0.6);
+    audio.levelUp();
+    this.time.delayedCall(420, () => {
+      this.fx.flash(E.magenta, 0.35, 420);
+      this.fx.ring(p.x, y, 64, E.magenta, 520, 3);
+      this.fx.ring(p.x, y, 30, E.white, 320, 2);
+      this.fx.sparks(p.x, y, 24, 'gold');
+      this.fx.shake(0.18);
+      this.light.flash(p.x, y, 150, E.magenta, 0.45);
+      const big = this.add.image(p.x, y, `spell-${f}`).setDepth(DEPTH.numbers + 1).setScale(5);
+      this.tweens.add({ targets: big, scale: 2, duration: 240, ease: 'Back.easeOut' });
+      this.tweens.add({ targets: big, y: y - 12, alpha: 0, delay: 1000, duration: 400, onComplete: () => big.destroy() });
+      this.fx.callout(p.x, y - 20, '融合！', E.magenta, true);
+      audio.levelUp();
+      ui.fusionReward(f);
+      this.saveProgress();
+    });
+  }
+
   updateHazards(dt: number) {
+    const COLOR = { ember: ELEMENT_COLOR.fire, poison: E.green, vortex: E.magenta };
     for (const h of this.hazards) {
       h.t -= dt;
       h.tick -= dt;
+      if (h.kind === 'vortex') {
+        // Pull everything but bosses toward the core.
+        for (const e of this.enemies) {
+          if (e.dead || e.boss) continue;
+          const d = dist(e.x, e.y, h.x, h.y);
+          if (d > h.r * 1.25 || d < 3) continue;
+          const f = (h.pull ?? 40) * dt * (0.5 + (1 - d / (h.r * 1.25)));
+          e.x += ((h.x - e.x) / d) * f;
+          e.y += ((h.y - e.y) / d) * f;
+        }
+        if (h.arc) {
+          h.arcT = (h.arcT ?? 0) - dt;
+          if (h.arcT <= 0) {
+            h.arcT = 0.35;
+            const inside = this.enemies.filter((e) => !e.dead && dist2(e.x, e.y, h.x, h.y) < h.r * h.r).slice(0, 4);
+            for (const e of inside) zap(this, h.x, h.y - 4, e, h.arc, h.src ?? '雷暴奇点');
+          }
+        }
+      }
       if (h.tick <= 0) {
-        h.tick = 0.3;
-        for (const e of this.enemies) if (!e.dead && dist2(e.x, e.y, h.x, h.y) < (h.r + e.r) ** 2) this.damageEnemy(e, h.dmg, { src: '余烬', dot: true, color: ELEMENT_COLOR.fire });
+        h.tick = h.kind === 'poison' ? 0.4 : 0.3;
+        for (const e of this.enemies) {
+          if (e.dead || dist2(e.x, e.y, h.x, h.y) >= (h.r + e.r) ** 2) continue;
+          this.damageEnemy(e, h.dmg, { src: h.src ?? '余烬', dot: true, color: COLOR[h.kind] });
+          if (h.kind === 'poison' && !e.dead) e.status.chill = Math.max(e.status.chill, 0.5);
+        }
+      }
+      if (h.t <= 0 && h.kind === 'vortex' && h.burst) {
+        this.explode(h.x, h.y, h.r * 0.8, h.burst, { src: h.src ?? '黑洞', knock: 160 });
+        this.fx.ring(h.x, h.y, h.r, E.magenta, 360, 3);
       }
     }
     this.hazards = this.hazards.filter((h) => h.t > 0);
+  }
+
+  /** Poison that spreads: kills inside an evolved cloud, or inside the plague aura, leave a new cloud. */
+  spreadPoison(e: Enemy) {
+    const run = this.run;
+    const plague = run.spells.some((s) => s.id === 'plague') && dist2(e.x, e.y, this.player.x, this.player.y) < (62 * run.mods.area) ** 2;
+    const host = this.hazards.find((h) => h.kind === 'poison' && h.spread && dist2(e.x, e.y, h.x, h.y) < h.r * h.r);
+    if (!plague && !host) return;
+    if (this.hazards.filter((h) => h.kind === 'poison').length >= 14) return;
+    const dmg = 2.2 * this.damageMult();
+    this.hazards.push({ kind: 'poison', x: e.x, y: e.y, r: 22 * run.mods.area, t: 2.5, dur: 2.5, tick: 0.2, dmg, src: plague ? '瘟疫领域' : '瘟疫爆发', spread: !!host });
   }
 
   updateTelegraphs(dt: number) {
@@ -2214,14 +2361,13 @@ export class GameScene extends Phaser.Scene {
     }
     const g = this.floorGfx;
     g.clear();
+    // Summons draw their light pillars on the effects layer, so clear it before them.
+    this.gfx.clear();
     const danger = hexToNum(this.kit.palette.danger);
     for (const t of this.telegraphs) {
       const k = t.t / t.dur;
       if (t.kind === 'spawn') {
-        g.lineStyle(1, danger, 0.5 + 0.5 * k);
-        g.strokeCircle(t.x, t.y, t.r! * (1.8 - k));
-        g.fillStyle(danger, 0.25 + 0.3 * k);
-        g.fillCircle(t.x, t.y, Math.max(1, t.r! * k * 0.6));
+        this.drawSummon(g, t, k, danger);
       } else if (t.kind === 'circle') {
         g.lineStyle(1, hexToNum(E.yellow), 0.6);
         g.strokeCircle(t.x, t.y, t.r!);
@@ -2233,8 +2379,43 @@ export class GameScene extends Phaser.Scene {
       }
     }
     for (const h of this.hazards) {
-      g.fillStyle(hexToNum(ELEMENT_COLOR.fire), 0.18 + 0.08 * Math.sin(this.time0 * 12));
-      g.fillCircle(h.x, h.y, h.r);
+      const life = h.dur ? Math.min(1, h.t / 0.3, (h.dur - h.t) / 0.2 + 0.2) : 1;
+      if (h.kind === 'ember') {
+        g.fillStyle(hexToNum(ELEMENT_COLOR.fire), (0.18 + 0.08 * Math.sin(this.time0 * 12)) * life);
+        g.fillCircle(h.x, h.y, h.r);
+      } else if (h.kind === 'poison') {
+        g.fillStyle(hexToNum(E.greenD), 0.28 * life);
+        g.fillCircle(h.x, h.y, h.r);
+        g.fillStyle(hexToNum(E.green), 0.22 * life);
+        g.fillCircle(h.x, h.y, h.r * 0.7);
+        // Bubbles rise through the cloud.
+        for (let i = 0; i < 4; i++) {
+          const a = i * 1.7 + h.x * 0.1;
+          const k = (this.time0 * 0.8 + i * 0.25) % 1;
+          g.fillStyle(hexToNum(E.green), (1 - k) * 0.8 * life);
+          g.fillCircle(h.x + Math.cos(a) * h.r * 0.5, h.y + Math.sin(a) * h.r * 0.35 - k * 8, 1.5);
+        }
+      } else {
+        const spin = this.time0 * 5;
+        g.fillStyle(hexToNum(E.ink), 0.55 * life);
+        g.fillCircle(h.x, h.y, h.r * 0.45);
+        g.lineStyle(1, hexToNum(E.magenta), 0.6 * life);
+        g.strokeCircle(h.x, h.y, h.r);
+        for (let arm = 0; arm < 3; arm++) {
+          g.lineStyle(2, hexToNum(arm % 2 ? E.purple : E.magenta), 0.7 * life);
+          g.beginPath();
+          for (let k = 0; k <= 12; k++) {
+            const t = k / 12;
+            const a = spin + arm * (TAU / 3) + t * 3.2;
+            const rr = h.r * (1 - t * 0.85);
+            if (k === 0) g.moveTo(h.x + Math.cos(a) * rr, h.y + Math.sin(a) * rr * 0.7);
+            else g.lineTo(h.x + Math.cos(a) * rr, h.y + Math.sin(a) * rr * 0.7);
+          }
+          g.strokePath();
+        }
+        g.fillStyle(hexToNum(E.white), 0.8 * life);
+        g.fillCircle(h.x, h.y, 2);
+      }
     }
     const b = this.boss;
     if (b && !b.dead && b.boss) {
@@ -2258,7 +2439,18 @@ export class GameScene extends Phaser.Scene {
       }
     }
     const vg = this.gfx;
-    vg.clear();
+    const heldGun = run?.weapons[run.held];
+    if (p && heldGun?.def.mag && (heldGun.reloadT ?? 0) > 0 && this.mode === 'play') {
+      const k = 1 - heldGun.reloadT! / Math.max(0.01, reloadTime(heldGun, run.mods.reload));
+      const bx = Math.round(p.x - 8);
+      const by = Math.round(p.y - 24);
+      vg.fillStyle(hexToNum(E.ink), 1);
+      vg.fillRect(bx - 1, by - 1, 18, 4);
+      vg.fillStyle(hexToNum(E.slateD), 1);
+      vg.fillRect(bx, by, 16, 2);
+      vg.fillStyle(hexToNum(E.white), 1);
+      vg.fillRect(bx, by, Math.round(16 * k), 2);
+    }
     for (const v of this.visuals) {
       const k = 1 - v.t / v.dur;
       if (v.kind === 'slash') {
@@ -2282,6 +2474,132 @@ export class GameScene extends Phaser.Scene {
         this.strokePts(vg, v.pts);
         vg.lineStyle(Math.max(1, v.width - 1), 0xffffff, k);
         this.strokePts(vg, v.pts);
+      }
+    }
+  }
+
+  /** Entrance tweens, driven per frame since the enemy loop repositions sprites every frame. */
+  entrance(a: Enemy, sp: Img, dt: number) {
+    const en = a.enter!;
+    en.t += dt;
+    const DUR = { rise: 0.2, drop: 0.24, emerge: 0.4 };
+    const k = Math.min(1, en.t / DUR[en.kind]);
+    if (en.kind === 'rise') {
+      // Grows up out of the circle, overshooting a little.
+      const s = k < 0.7 ? (k / 0.7) * 1.15 : 1.15 - ((k - 0.7) / 0.3) * 0.15;
+      sp.setScale(a.scale * (1 - (1 - k) * 0.3), a.scale * s);
+    } else if (en.kind === 'drop') {
+      // Falls from above and squashes on landing.
+      sp.y -= Math.round((1 - k) * (1 - k) * 48);
+      sp.setAlpha(Math.min(1, k * 4));
+      if (k >= 1 && !en.landed) {
+        en.landed = true;
+        this.fx.dust(a.x, a.y, 6);
+        this.fx.shake(0.04);
+      }
+      if (k >= 1) sp.setScale(a.scale * 1.25, a.scale * 0.75);
+    } else {
+      // Steps out of the rift as a black silhouette, then takes its colours.
+      sp.setScale(a.scale * (0.6 + 0.4 * k));
+      if (k < 0.65) sp.setTintFill(hexToNum(E.ink));
+      sp.setAlpha(Math.min(1, 0.3 + k));
+    }
+    const settle = en.kind === 'drop' ? 0.12 : 0;
+    if (en.t >= DUR[en.kind] + settle) {
+      a.enter = undefined;
+      sp.setScale(a.scale).setAlpha(1);
+    }
+  }
+
+  /** Summoning circles: rune ring, light pillar, dark rift, elite lightning, boss sigil. */
+  drawSummon(g: Phaser.GameObjects.Graphics, t: Telegraph, k: number, danger: number) {
+    const tier = t.tier ?? 1;
+    const r = t.r ?? 8;
+    const spin = this.time0 * (tier >= 5 ? 1.2 : 3);
+    const grow = Math.min(1, k * 2.2);
+    const ring = (rr: number, alpha: number, w = 1) => {
+      g.lineStyle(w, danger, alpha);
+      g.strokeCircle(t.x, t.y, rr);
+    };
+    const ticks = (rr: number, n: number, len: number, alpha: number, offset = 0) => {
+      g.lineStyle(1, danger, alpha);
+      for (let i = 0; i < n; i++) {
+        const a = spin + offset + (i / n) * TAU;
+        g.lineBetween(t.x + Math.cos(a) * rr, t.y + Math.sin(a) * rr * 0.6, t.x + Math.cos(a) * (rr + len), t.y + Math.sin(a) * (rr + len) * 0.6);
+      }
+    };
+    if (tier === 3) {
+      // A rift tears open in the floor.
+      const rx = r * 1.3 * grow;
+      g.fillStyle(hexToNum(E.ink), 0.85);
+      g.fillEllipse(t.x, t.y, rx * 2, rx * 0.8);
+      g.lineStyle(1, danger, 0.5 + 0.5 * k);
+      g.strokeEllipse(t.x, t.y, rx * 2 + 2, rx * 0.8 + 2);
+      for (let arm = 0; arm < 3; arm++) {
+        g.lineStyle(1, danger, 0.7);
+        g.beginPath();
+        for (let i = 0; i <= 8; i++) {
+          const q = i / 8;
+          const a = -spin * 1.5 + arm * (TAU / 3) + q * 2.6;
+          const rr = rx * (1 - q * 0.8);
+          if (i === 0) g.moveTo(t.x + Math.cos(a) * rr, t.y + Math.sin(a) * rr * 0.4);
+          else g.lineTo(t.x + Math.cos(a) * rr, t.y + Math.sin(a) * rr * 0.4);
+        }
+        g.strokePath();
+      }
+      return;
+    }
+    // Rune circle (all other tiers), squashed for the 3/4 view.
+    g.lineStyle(1, danger, 0.4 + 0.5 * k);
+    g.strokeEllipse(t.x, t.y, r * 2 * grow, r * 1.2 * grow);
+    if (tier >= 2) g.strokeEllipse(t.x, t.y, r * 1.3 * grow, r * 0.78 * grow);
+    ticks(r * grow * 0.8, tier >= 4 ? 8 : 4, 3, 0.7);
+    g.fillStyle(danger, 0.15 + 0.35 * k);
+    g.fillEllipse(t.x, t.y, r * 1.2 * k, r * 0.7 * k);
+    if (tier >= 5) {
+      // Boss sigil: a slow hexagram inside double rings.
+      ring(r * grow, 0.6, 2);
+      ring(r * 0.8 * grow, 0.4);
+      g.lineStyle(1, danger, 0.7);
+      for (const off of [0, Math.PI / 3]) {
+        g.beginPath();
+        for (let i = 0; i <= 3; i++) {
+          const a = spin + off + (i / 3) * TAU;
+          const px = t.x + Math.cos(a) * r * 0.78 * grow;
+          const py = t.y + Math.sin(a) * r * 0.78 * grow * 0.6;
+          if (i === 0) g.moveTo(px, py);
+          else g.lineTo(px, py);
+        }
+        g.strokePath();
+      }
+      ticks(r * grow, 24, 4, 0.5);
+    }
+    // Medium and up: a pillar of light comes down, and motes swirl in.
+    if (tier >= 2) {
+      const vg = this.gfx;
+      const w = (tier >= 4 ? 6 : 3) + 4 * k;
+      vg.fillStyle(danger, 0.12 + 0.25 * k);
+      vg.fillRect(t.x - w / 2, t.y - 90, w, 90);
+      vg.fillStyle(0xffffff, 0.15 + 0.3 * k);
+      vg.fillRect(t.x - w / 6, t.y - 90, Math.max(1, w / 3), 90);
+      for (let i = 0; i < 6; i++) {
+        const a = spin * 1.4 + (i / 6) * TAU;
+        const rr = (1 - k) * r * 2.6;
+        vg.fillStyle(danger, 0.8);
+        vg.fillRect(Math.round(t.x + Math.cos(a) * rr), Math.round(t.y - 6 + Math.sin(a) * rr * 0.6), 2, 2);
+      }
+    }
+    // Elites call down three red bolts.
+    if (tier === 4) {
+      const due = Math.floor(k * 3.2);
+      while ((t.strikes ?? 0) < Math.min(3, due)) {
+        t.strikes = (t.strikes ?? 0) + 1;
+        const pts = [t.x + rand(-8, 8), t.y - 120];
+        for (let i = 1; i < 6; i++) pts.push(t.x + rand(-8, 8), t.y - 120 + (i * 120) / 6);
+        pts.push(t.x, t.y);
+        this.visuals.push({ kind: 'bolt', pts, width: 2, t: 0, dur: 0.14, color: danger });
+        this.light.flash(t.x, t.y, 50, this.kit.palette.danger, 0.15);
+        audio.shoot('chain');
       }
     }
   }

@@ -93,6 +93,144 @@ body {
   height: 10px;
 }
 
+/* Hearts and shields: icons only, animated when they change. */
+.icons {
+  display: flex;
+  gap: 1px;
+  height: 9px;
+  align-items: center;
+}
+
+.ico {
+  transform-origin: 50% 60%;
+}
+
+.ico.gain {
+  animation: icoGain 0.32s steps(6) both;
+}
+
+.ico.lose {
+  animation: icoLose 0.42s steps(8) both;
+}
+
+@keyframes icoGain {
+  0% { transform: scale(0); }
+  60% { transform: scale(1.5); }
+  100% { transform: scale(1); }
+}
+
+@keyframes icoLose {
+  0% { transform: scale(1.6); }
+  25% { transform: translate(-1px, 0) scale(1.2); }
+  45% { transform: translate(1px, 1px); }
+  65% { transform: translate(-1px, 1px); }
+  85% { transform: translate(0, 2px); }
+  100% { transform: none; }
+}
+
+/* Bottom left: gun in hand, holstered gun, dual-wield skill. */
+.wbar {
+  position: absolute;
+  left: 3px;
+  bottom: 3px;
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+.wslot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.wslot.main {
+  min-width: 120px;
+  height: 30px;
+  padding: 3px 6px 3px 4px;
+  box-shadow: inset 0 0 0 1px var(--gold), 0 0 0 1px #000;
+}
+
+.wslot.sub {
+  height: 22px;
+  min-width: 46px;
+  padding: 2px 10px 2px 4px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+
+.wslot.sub.empty {
+  justify-content: center;
+  padding: 2px 5px;
+}
+
+.wslot .key {
+  position: absolute;
+  right: 1px;
+  top: 0;
+}
+
+.wic {
+  min-width: 34px;
+  display: grid;
+  place-items: center;
+}
+
+.wtx {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wn {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.pips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  max-width: 64px;
+}
+
+.pips i {
+  width: 2px;
+  height: 4px;
+  background: #fff;
+  box-shadow: 0 1px 0 #000;
+}
+
+.pips i.e {
+  background: #3a4466;
+}
+
+.abar {
+  position: relative;
+  height: 3px;
+  background: #262b44;
+  box-shadow: 0 0 0 1px #000;
+}
+
+.abar i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: #fff;
+}
+
+.abar.re i {
+  background: var(--hot);
+}
+
+.wbar .slot.skill {
+  height: 22px;
+}
+
 .bar {
   position: relative;
   width: 54px;
@@ -127,15 +265,6 @@ body {
 .stats .n {
   min-width: 26px;
   margin-left: 1px;
-}
-
-.gear {
-  position: absolute;
-  left: 3px;
-  top: 42px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
 }
 
 .slots {
@@ -192,7 +321,7 @@ body {
 .spells {
   position: absolute;
   left: 3px;
-  top: 80px;
+  top: 38px;
   display: flex;
   gap: 2px;
 }
@@ -207,6 +336,10 @@ body {
 
 .sp.evo {
   box-shadow: inset 0 0 0 1px var(--gold), 0 0 0 1px #000;
+}
+
+.sp.fused {
+  box-shadow: inset 0 0 0 1px #b55088, 0 0 0 1px #000;
 }
 
 .sp.pet {
@@ -355,6 +488,16 @@ body {
   min-width: 24px;
   display: grid;
   place-items: center;
+}
+
+.chest.fusion {
+  box-shadow: inset 0 0 0 1px var(--hot), 0 0 0 1px #000;
+}
+
+.chest.fusion .ic {
+  display: flex;
+  align-items: center;
+  gap: 3px;
 }
 
 .chest .col {

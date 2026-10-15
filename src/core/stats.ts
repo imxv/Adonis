@@ -28,6 +28,8 @@ export interface Mods {
   maxArmor: number; // regenerating shield points (Soul Knight style)
   pickupRadius: number; // multiplier
   dashCooldown: number; // multiplier
+  reload: number; // multiplier on reload time (lower is faster)
+  mag: number; // multiplier on magazine size
   petInherit: number; // fraction of player damage bonuses pets inherit
   petRate: number; // multiplier on pet attack rate
 }
@@ -53,10 +55,12 @@ export function baseMods(): Mods {
     frenzy: 0,
     desperate: 0,
     moveSpeed: 1,
-    maxHp: 6,
+    maxHp: 5,
     maxArmor: 4,
     pickupRadius: 1,
     dashCooldown: 1,
+    reload: 1,
+    mag: 1,
     petInherit: 0.5,
     petRate: 1,
   };

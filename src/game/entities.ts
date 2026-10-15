@@ -110,6 +110,8 @@ export interface Enemy {
   boss?: BossState;
   mini?: boolean;
   hurry?: boolean;
+  /** Entrance after a summon: grows out of the circle, drops in, or steps out of a rift. */
+  enter?: { kind: 'rise' | 'drop' | 'emerge'; t: number; landed?: boolean };
 }
 
 export interface BossState {
@@ -159,14 +161,28 @@ export interface Obstacle {
   dead: boolean;
 }
 
+/** Ground effects: burning embers, poison clouds, and vortices that pull enemies in. */
 export interface Hazard {
-  kind: 'ember';
+  kind: 'ember' | 'poison' | 'vortex';
   x: number;
   y: number;
   r: number;
+  /** Seconds left. */
   t: number;
+  /** Total seconds, for drawing. */
+  dur?: number;
   tick: number;
   dmg: number;
+  src?: string;
+  /** Vortex: pull speed toward the centre. */
+  pull?: number;
+  /** Vortex: lightning arcs from the core to enemies inside (damage per arc). */
+  arc?: number;
+  arcT?: number;
+  /** Vortex: damage of the burst when it closes. */
+  burst?: number;
+  /** Poison: enemies that die inside leave a new cloud. */
+  spread?: boolean;
 }
 
 export interface Pet {
@@ -194,6 +210,10 @@ export interface Telegraph {
   t: number;
   dur: number;
   onDone?: () => void;
+  /** Summons: 1 weak, 2 medium, 3 strong, 4 elite, 5 boss. */
+  tier?: number;
+  /** Lightning strikes already thrown down by an elite summon. */
+  strikes?: number;
 }
 
 export interface Visual {

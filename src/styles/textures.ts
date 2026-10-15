@@ -32,7 +32,11 @@ export function buildCommonTextures(scene: Phaser.Scene) {
   add(scene, 'knight-a', sprite(S.KNIGHT_A).render());
   add(scene, 'knight-b', sprite(S.KNIGHT_B).render());
   icon('knight', scene.textures.get('knight-a').getSourceImage() as HTMLCanvasElement);
-  icon('armor', Grid.ascii(['GgggggG', 'GgwgggG', 'GgggggG', 'GgggggG', '.GgggG.', '..GgG..', '...G...']).render());
+  const shieldRows = ['GgggggG', 'GgwgggG', 'GgggggG', 'GgggggG', '.GgggG.', '..GgG..', '...G...'];
+  icon('armor', Grid.ascii(shieldRows).render());
+  // Empty and flash versions for the HUD: a lost shield or heart flashes white, then goes dark.
+  icon('armor-empty', Grid.ascii(shieldRows).render({ colors: { G: '#2c2a3c', g: '#211f2e', w: '#2c2a3c' } }));
+  icon('armor-flash', Grid.ascii(shieldRows).render({ colors: { G: '#ffffff', g: '#ffffff', w: '#ffffff' } }));
   icon('xp', sprite(S.GEM).render({ roles: { 1: ramp(E.cyan, E.white, E.blue) } }));
 
   // Weapons, drawn facing right with the grip on the left.
@@ -70,6 +74,9 @@ export function buildCommonTextures(scene: Phaser.Scene) {
   add(scene, 'b-orb', Grid.ascii(['.cc.', 'cwwc', 'cwwc', '.cc.']).render({ outline: E.blueD }));
   add(scene, 'b-axe', Grid.ascii(['.ggg..', 'gwwgb.', 'gwggbb', '.gg.bb', '....bb', '.....b']).render());
   add(scene, 'b-book', Grid.ascii(['PPPPPT', 'PyyyPT', 'PyPyPT', 'PyyyPT', 'PPPPPT']).render());
+  add(scene, 'b-knife', Grid.ascii(['bbgggw', 'bbGGG.']).render());
+  add(scene, 'b-sword', Grid.ascii(['.y.......', 'byggggggw', '.y.GGGGG.']).render());
+  add(scene, 'b-meteor', Grid.ascii(['......rr.', '.....rOOr', '....rOYYO', '...rOYwYO', '..rOYYYO.', '.rOOOOr..', 'rrr.r....']).render());
 
   // Spell icons for cards and HUD.
   const spellIcons: Record<string, string[]> = {
@@ -79,6 +86,18 @@ export function buildCommonTextures(scene: Phaser.Scene) {
     missile: ['..cc..', '.cwwc.', 'cwwwwc', 'cwwwwc', '.cwwc.', '..cc..'],
     axe: ['.ggg...', 'gwwgb..', 'gwggbb.', '.gg.bb.', '....bb.', '.....bb'],
     nova: ['...c...', '.c.c.c.', '..ccc..', 'cccwccc', '..ccc..', '.c.c.c.', '...c...'],
+    knife: ['.....w.', '....wg.', '...gg..', '..gg...', '.bG....', 'bb.....', 'b......'],
+    meteor: ['....OO.', '...OYYO', '..OYwYO', '.rOYYO.', 'rrOOO..', 'r.r....', '.r.....'],
+    poison: ['..lll..', '.lLLLl.', 'lLlLLLl', 'lLLLlLl', '.lLLLl.', '..lll..', '.l.l.l.'],
+    arc: ['Y..Y..Y', '.Y.Y.Y.', '..YwY..', 'YYwcwYY', '..YwY..', '.Y.Y.Y.', 'Y..Y..Y'],
+    swords: ['w.....w', '.g...g.', '..g.g..', '...g...', '..g.g..', 'yy...yy', 'b.....b'],
+    vortex: ['..PPP..', '.P...P.', 'P..v..P', 'P.vev.P', 'P..v...', '.P...P.', '..PPP..'],
+    storm: ['c..Y..c', '.c.Y.c.', '..cYc..', 'cccYccc', '..YYY..', '.c.Y.c.', 'c..Y..c'],
+    bladestorm: ['.w.w.w.', 'wg.g.gw', '.ggYgg.', 'wgYwYgw', '.ggYgg.', 'wg.g.gw', '.w.w.w.'],
+    plague: ['.lllll.', 'lL...Ll', 'l.www.l', 'l.wew.l', 'l..w..l', 'lL...Ll', '.lllll.'],
+    starfall: ['O..O..O', 'YO.YO.Y', '.r..r..', 'O..O...', 'YO.YO..', '.r..r..', 'r..r...'],
+    seeker: ['w......', '.g..w..', '..g..g.', '...g..g', '..g..g.', '.g..g..', 'w..w...'],
+    singularity: ['Y.PPP.Y', '.P.Y.P.', 'P.YvY.P', 'PYvevYP', 'P.YvY.P', '.P.Y.P.', 'Y.PPP.Y'],
   };
   for (const [id, rows] of Object.entries(spellIcons)) {
     const c = Grid.ascii(rows).render();
@@ -143,6 +162,8 @@ export function buildCommonTextures(scene: Phaser.Scene) {
   }
   add(scene, 'heart', sprite(S.HEART).render({ roles: { 1: ramp(E.red, E.pink, E.redD) } }));
   icon('heart', sprite(S.HEART).render({ roles: { 1: ramp(E.red, E.pink, E.redD) } }));
+  icon('heart-empty', sprite(S.HEART).render({ roles: { 1: ['#3a2a38', '#2a1f2b', '#211824'] } }));
+  icon('heart-flash', sprite(S.HEART).render({ roles: { 1: ['#ffffff', '#ffffff', '#ffffff'] } }));
 
   const chest = new Grid(16, 13);
   chest.rect(1, 1, 14, 5, '1').rect(1, 6, 14, 7, '1').rect(1, 5, 14, 1, 'y').rect(3, 1, 1, 12, 'y').rect(12, 1, 1, 12, 'y').rect(7, 4, 2, 4, 'Y').set(7, 6, 'e');

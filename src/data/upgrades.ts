@@ -32,6 +32,8 @@ export const UPGRADES: UpgradeDef[] = [
   { id: 'vigor', name: '生机', glyph: '生', rarity: 'common', tags: ['vital'], max: 4, desc: '生命上限 +1，护甲上限 +1', apply: (m) => ((m.maxHp += 1), (m.maxArmor += 1)) },
   { id: 'magnet', name: '磁石', glyph: '引', rarity: 'common', tags: ['vital'], max: 3, desc: '宝石拾取范围 +50%', apply: (m) => (m.pickupRadius += 0.5) },
   { id: 'dashmaster', name: '掠影', glyph: '影', rarity: 'common', tags: ['agile'], max: 3, desc: '冲刺冷却 -25%', apply: (m) => (m.dashCooldown *= 0.75) },
+  { id: 'quickload', name: '快手', glyph: '换', rarity: 'common', tags: ['barrage'], max: 3, desc: '换弹速度 +25%', apply: (m) => (m.reload *= 0.8) },
+  { id: 'bigmag', name: '扩容弹匣', glyph: '匣', rarity: 'rare', tags: ['barrage'], max: 2, desc: '弹匣容量 +50%', apply: (m) => (m.mag += 0.5) },
 
   { id: 'multi', name: '多重', glyph: '多', rarity: 'rare', tags: ['barrage'], max: 3, desc: '数量 +1：子弹、光束、炮弹、飞轮、法术全部 +1', apply: (m) => (m.count += 1) },
   { id: 'pierce', name: '贯穿', glyph: '穿', rarity: 'rare', tags: ['barrage'], max: 3, desc: '穿透 +1：子弹穿透、光束反射、爆炸留余烬、链电分叉', apply: (m) => (m.pierce += 1) },

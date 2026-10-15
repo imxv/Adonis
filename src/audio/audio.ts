@@ -247,6 +247,17 @@ class AudioEngine {
     this.safe(() => this.sparkle.triggerAttackRelease(this.note(streak % 12, 2), 0.08, Tone.now(), 0.7));
   }
 
+  /** A soft mechanical click: the magazine out, or the slide racked back when it is done. */
+  reload(done: boolean) {
+    this.safe(() => {
+      if (!this.gate(done ? 'reload-done' : 'reload', 120)) return;
+      if (done) {
+        this.pop.triggerAttackRelease('A4', 0.03, this.at(this.pop), 0.35);
+        this.hitNoise.triggerAttackRelease(0.03, this.at(this.hitNoise), 0.25);
+      } else this.thump.triggerAttackRelease('E3', 0.05, this.at(this.thump), 0.3);
+    });
+  }
+
   levelUp() {
     this.safe(() => {
       const t = Tone.now();

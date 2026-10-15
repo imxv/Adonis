@@ -2,7 +2,7 @@ import { Rng } from '../core/rng';
 import { baseMods, type Mods, type Tag } from '../core/stats';
 import { RARITY_INFO, UPGRADES, UPGRADE_BY_ID, type Rarity, type UpgradeDef } from '../data/upgrades';
 import { MAX_WEAPONS, MAX_WEAPON_LEVEL, WEAPONS, WEAPON_ORDER, type WeaponInstance } from '../data/weapons';
-import { MAX_SPELLS, MAX_SPELL_LEVEL, SPELLS, SPELL_ORDER, type SpellId, type SpellInstance } from '../data/spells';
+import { FUSE_LEVEL, FUSION_ORDER, MAX_SPELLS, MAX_SPELL_LEVEL, SPELLS, SPELL_ORDER, fusionOf, type FusionId, type SpellId, type SpellInstance } from '../data/spells';
 import { PETS, type Pets } from '../data/enemies';
 import { KITS, KIT_BY_ID } from '../styles/kits';
 import { DIFFICULTIES, type Difficulty, type DifficultyId } from '../data/difficulty';
@@ -148,7 +148,7 @@ export function restoreRun(s: SavedRun): RunState {
   };
 }
 
-export const newSpell = (id: SpellId): SpellInstance => ({ id, level: 1, evolved: false, cd: 0.5, angle: 0, hits: new Map(), kills: 0 });
+export const newSpell = (id: SpellId): SpellInstance => ({ id, level: 1, evolved: false, cd: 0.5, angle: 0, hits: new Map(), kills: 0, t: 0 });
 
 export type Choice =
   | { type: 'upgrade'; def: UpgradeDef }
@@ -229,21 +229,54 @@ function weaponChoices(run: RunState): Choice[] {
   return out;
 }
 
+/** Whether a base spell is already spent: owned as-is, or inside a fusion you hold. */
+export const spellTaken = (run: RunState, id: SpellId) => run.spells.some((s) => s.id === id || SPELLS[s.id].fusion?.includes(id as never));
+
 function spellChoices(run: RunState): Choice[] {
   const out: Choice[] = [];
   for (const s of run.spells) {
-    if (s.level < MAX_SPELL_LEVEL) out.push({ type: 'spell-up', id: s.id });
+    if (!SPELLS[s.id].fusion && s.level < MAX_SPELL_LEVEL) out.push({ type: 'spell-up', id: s.id });
   }
   if (run.spells.length < MAX_SPELLS) {
-    for (const id of SPELL_ORDER) if (!run.spells.some((s) => s.id === id)) out.push({ type: 'spell-new', id });
+    for (const id of SPELL_ORDER) if (!spellTaken(run, id)) out.push({ type: 'spell-new', id });
   }
   return out;
 }
 
+/** Steps toward a fusion: picking up the partner of a spell you hold, or levelling either of a pair. */
+function towardFusion(run: RunState, c: Choice) {
+  if (c.type !== 'spell-new' && c.type !== 'spell-up') return false;
+  const f = fusionOf(c.id);
+  return !!f && run.spells.some((s) => s.id === f.partner || s.id === c.id);
+}
+
 export function evolutionsReady(run: RunState): Choice[] {
   return run.spells
-    .filter((s) => !s.evolved && s.level >= MAX_SPELL_LEVEL && (run.stacks[SPELLS[s.id].evolveWith] ?? 0) > 0)
+    .filter((s) => {
+      const key = SPELLS[s.id].evolveWith;
+      return !s.evolved && key && s.level >= MAX_SPELL_LEVEL && (run.stacks[key] ?? 0) > 0;
+    })
     .map((s) => ({ type: 'evolve', id: s.id }));
+}
+
+/** Pairs of spells that are both at the fusion level: they merge automatically. */
+export function fusionsReady(run: RunState): FusionId[] {
+  return FUSION_ORDER.filter((f) => {
+    if (run.spells.some((s) => s.id === f)) return false;
+    const [a, b] = SPELLS[f].fusion!;
+    const sa = run.spells.find((s) => s.id === a);
+    const sb = run.spells.find((s) => s.id === b);
+    return !!sa && !!sb && sa.level >= FUSE_LEVEL && sb.level >= FUSE_LEVEL;
+  });
+}
+
+/** Replace the two ingredients with the fused spell. Returns the instances that were consumed. */
+export function applyFusion(run: RunState, f: FusionId): SpellInstance[] {
+  const [a, b] = SPELLS[f].fusion!;
+  const used = run.spells.filter((s) => s.id === a || s.id === b);
+  run.spells = run.spells.filter((s) => s.id !== a && s.id !== b);
+  run.spells.push({ ...newSpell(f), evolved: used.some((s) => s.evolved) });
+  return used;
 }
 
 export function rollChoices(run: RunState, kind: 'level' | 'rare' | 'weapon' | 'pet'): Choice[] {
@@ -263,7 +296,9 @@ export function rollChoices(run: RunState, kind: 'level' | 'rare' | 'weapon' | '
   if (evo.length) out.push(evo[0]);
   // Early on, spells dominate so the screen fills up fast.
   if (kind === 'level') {
+    // Steps toward a fusion float to the front half the time, so pairs actually come together.
     const sc = rng.shuffle(spellChoices(run));
+    if (rng.chance(0.5)) sc.sort((x, y) => Number(towardFusion(run, y)) - Number(towardFusion(run, x)));
     const wantSpells = run.spells.length < 2 ? 2 : rng.chance(0.6) ? 1 : 0;
     out.push(...sc.slice(0, Math.max(0, wantSpells - (out.length ? 0 : 0))));
   }
@@ -286,6 +321,8 @@ export function rollChoices(run: RunState, kind: 'level' | 'rare' | 'weapon' | '
 function spellPairBonus(run: RunState, upgradeId: string) {
   return run.spells.some((s) => SPELLS[s.id].evolveWith === upgradeId && (run.stacks[upgradeId] ?? 0) === 0);
 }
+
+export { towardFusion };
 
 export function topTags(run: RunState): string[] {
   return Object.entries(run.tags)

@@ -157,7 +157,7 @@ export class Lighting {
       else if (b.kind === 'rocket') add(b.x, b.y, 34, hexToNum(E.amber), 0.8);
       else add(b.x, b.y, 14, hexToNum(E.yellow), 0.55);
     }
-    for (const h of s.hazards) add(h.x, h.y, h.r * 1.6, hexToNum(E.orange), 0.5);
+    for (const h of s.hazards) add(h.x, h.y, h.r * 1.6, hexToNum(h.kind === 'poison' ? E.green : h.kind === 'vortex' ? E.magenta : E.orange), h.kind === 'ember' ? 0.5 : 0.35);
     for (const t of s.traps) if (t.kind === 'saw' && s.active === t.room) add(t.x, t.y, 26, danger, 0.45);
     for (const e of s.enemies) {
       if (e.dead) continue;

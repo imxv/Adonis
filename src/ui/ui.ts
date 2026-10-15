@@ -1,11 +1,11 @@
 import { RARITY_INFO, UPGRADE_BY_ID } from '../data/upgrades';
 import { WEAPONS, STAT_MEANING, MAX_WEAPON_LEVEL } from '../data/weapons';
-import { SPELLS } from '../data/spells';
+import { FUSE_LEVEL, SPELLS, fusionOf, spellName, type FusionId } from '../data/spells';
 import { PETS } from '../data/enemies';
 import type { StyleKit } from '../styles/types';
 import type { Choice, RunState } from '../game/run';
 import type { Dir } from '../game/dirs';
-import { ICON_SIZE } from '../styles/textures';
+import { ICONS, ICON_SIZE } from '../styles/textures';
 import { E } from '../pixel/palette';
 import { audio } from '../audio/audio';
 import { DIFFICULTIES } from '../data/difficulty';
@@ -44,11 +44,10 @@ export interface HudData {
   xp: number;
   xpNext: number;
   xpLevel: number;
-  guns: { id: string; name: string; level: number; held: boolean }[];
-  gunCd: number;
+  guns: { id: string; name: string; level: number; held: boolean; kind: string; ammo?: number; mag?: number; reload?: number }[];
   skill: number;
   skillActive: boolean;
-  spells: { id: string; level: number; evolved: boolean }[];
+  spells: { id: string; level: number; evolved: boolean; fused: boolean }[];
   pets: string[];
   level: number;
   styleName: string;
@@ -64,6 +63,17 @@ const BOSS_W = 200;
 const CELL_W = 9;
 const CELL_H = 7;
 const FLOOR_NAMES = ['一', '二', '三', '四'];
+
+const NO_MAG: Record<string, string> = { beam: '能量', chain: '能量', slash: '近战', boomerang: '回收' };
+
+/** Ammo as pixels: a pip per round for small magazines, a bar for big ones, a red bar while reloading. */
+function ammoHtml(g: HudData['guns'][number], width: number, mini = false) {
+  if (!g.mag) return mini ? '' : px(NO_MAG[g.kind] ?? '', DIM);
+  if (g.reload !== undefined) return `<div class="abar re" style="width:${width}px"><i style="width:${Math.round(g.reload * width)}px"></i></div>${mini ? '' : px('换弹', E.hot)}`;
+  const ammo = g.ammo ?? g.mag;
+  if (!mini && g.mag <= 16) return `<div class="pips">${Array.from({ length: g.mag }, (_, i) => `<i class="${i < ammo ? '' : 'e'}"></i>`).join('')}</div>`;
+  return `<div class="abar" style="width:${width}px"><i style="width:${Math.round((ammo / g.mag) * width)}px"></i></div>`;
+}
 
 export interface TitleActions {
   save: () => SavedRun | null;
@@ -120,12 +130,12 @@ class UI implements LayerHost {
     this.hud = el('div', 'hud');
     this.hud.innerHTML = `
       <div class="stats panel">
-        <div class="row">${icon('heart')}<div class="bar hp"><i></i></div><span class="n" data-n="hp"></span></div>
-        <div class="row">${icon('armor')}<div class="bar ar"><i></i></div><span class="n" data-n="ar"></span></div>
+        <div class="icons hearts"></div>
+        <div class="icons shields"></div>
         <div class="row">${icon('xp')}<div class="bar xp"><i></i></div><span class="n" data-n="xp"></span></div>
       </div>
-      <div class="gear"></div>
       <div class="spells"></div>
+      <div class="wbar"></div>
       <div class="tr"><div class="mmwrap panel"><canvas class="mm" width="1" height="1"></canvas></div><div class="sname"></div><div class="kills"></div></div>
       <div class="timer"></div>
       <div class="bossbar"><div class="bname"></div><div class="bar"><i></i><b></b></div></div>
@@ -172,26 +182,28 @@ class UI implements LayerHost {
     const bar = (cls: string, v: number, max: number) => {
       ($(`.bar.${cls} i`, this.hud) as HTMLElement).style.width = `${Math.round(Math.max(0, Math.min(1, v / max)) * BAR_W)}px`;
     };
-    bar('hp', d.hp, d.maxHp);
-    bar('ar', d.armor, d.maxArmor);
+    this.syncIcons('hearts', Math.max(0, d.hp), d.maxHp, 'heart', 'heart-empty', 'heart-flash');
+    this.syncIcons('shields', d.armor, d.maxArmor, 'armor', 'armor-empty', 'armor-flash');
     bar('xp', d.xp, d.xpNext);
-    this.set('[data-n=hp]', px(`${Math.max(0, d.hp)}/${d.maxHp}`, E.white, { small: true }));
-    this.set('[data-n=ar]', px(`${d.armor}/${d.maxArmor}`, E.white, { small: true }));
     this.set('[data-n=xp]', px(`LV${d.xpLevel}`, E.cyan, { small: true }));
 
+    // Bottom left: the gun in hand, the holstered one, and the dual-wield skill.
     const held = d.guns.find((g) => g.held);
-    const guns = d.guns
-      .map((g) => `<div class="slot panel ${g.held ? 'held' : ''}">${icon(`gun-${g.id}`)}${g.held ? '<i class="cd"></i>' : ''}${g.level > 1 ? `<span class="lv">${px(String(g.level), E.yellow, { small: true })}</span>` : ''}</div>`)
-      .join('');
+    const off = d.guns.find((g) => !g.held);
+    const main = held
+      ? `<div class="wslot main panel"><div class="wic">${icon(`gun-${held.id}`, (ICON_SIZE[`gun-${held.id}`]?.[0] ?? 99) * 2 <= 40 ? 2 : 1)}</div><div class="wtx"><div class="wn">${px(held.name, E.white)}${held.level > 1 ? px(`Lv${held.level}`, E.yellow, { small: true }) : ''}</div>${ammoHtml(held, 64)}</div></div>`
+      : '';
+    const sub = off
+      ? `<div class="wslot sub panel">${icon(`gun-${off.id}`)}${ammoHtml(off, 30, true)}<span class="key">${px('Q', DIM, { small: true })}</span></div>`
+      : `<div class="wslot sub panel empty">${px('副武器', E.slate)}</div>`;
     const skill = `<div class="slot panel skill ${d.skillActive ? 'on' : ''}">${px('双持', d.skillActive ? E.cyan : E.white)}<i class="cd" data-skill></i><span class="key">${px('E', DIM, { small: true })}</span></div>`;
-    const name = held ? `<div class="gname">${px(held.name, GREY)}${d.guns.length > 1 ? px('Q换枪', DIM) : ''}</div>` : '';
-    this.set('.gear', `<div class="slots">${guns}${skill}</div>${name}`);
-    const cd = $('.slot.held .cd', this.hud) as HTMLElement | null;
-    if (cd) cd.style.height = `${Math.round(d.gunCd * 16)}px`;
+    this.set('.wbar', main + sub + skill);
     const scd = $('[data-skill]', this.hud) as HTMLElement | null;
     if (scd) scd.style.height = `${Math.round((1 - d.skill) * 16)}px`;
 
-    const spells = d.spells.map((s) => `<div class="sp panel ${s.evolved ? 'evo' : ''}">${icon(`spell-${s.id}`)}<span class="lv">${px(s.evolved ? '★' : String(s.level), E.yellow, { small: !s.evolved })}</span></div>`).join('');
+    const spells = d.spells
+      .map((s) => `<div class="sp panel ${s.fused ? 'fused' : s.evolved ? 'evo' : ''}">${icon(`spell-${s.id}`)}<span class="lv">${s.fused ? px('融', E.magenta) : px(s.evolved ? '★' : String(s.level), E.yellow, { small: !s.evolved })}</span></div>`)
+      .join('');
     const pets = d.pets.map((p) => `<div class="sp panel pet">${icon(`pet-${p}`)}</div>`).join('');
     this.set('.spells', spells + pets);
 
@@ -264,6 +276,47 @@ class UI implements LayerHost {
     }
   }
 
+  private iconRows: Record<string, { el: HTMLImageElement; full: boolean; timer?: number }[]> = { hearts: [], shields: [] };
+
+  /**
+   * Hearts and shields as icons, no numbers. A lost one flashes white and shakes as it goes dark;
+   * a regained one pops back in, several in a row with a little stagger.
+   */
+  private syncIcons(sel: 'hearts' | 'shields', n: number, max: number, full: string, empty: string, flash: string) {
+    const box = $(`.${sel}`, this.hud);
+    const list = this.iconRows[sel];
+    const [w, h] = ICON_SIZE[full];
+    while (list.length < max) {
+      const el = document.createElement('img');
+      el.className = 'px ico';
+      el.src = ICONS[empty];
+      el.style.width = `${w}px`;
+      el.style.height = `${h}px`;
+      box.appendChild(el);
+      list.push({ el, full: false });
+    }
+    while (list.length > max) list.pop()!.el.remove();
+    let gains = 0;
+    list.forEach((it, i) => {
+      const want = i < n;
+      if (want === it.full) return;
+      it.full = want;
+      clearTimeout(it.timer);
+      it.el.classList.remove('gain', 'lose');
+      void it.el.offsetWidth;
+      if (want) {
+        it.el.src = ICONS[full];
+        it.el.style.animationDelay = `${gains++ * 60}ms`;
+        it.el.classList.add('gain');
+      } else {
+        it.el.src = ICONS[flash];
+        it.el.style.animationDelay = '0ms';
+        it.el.classList.add('lose');
+        it.timer = window.setTimeout(() => (it.el.src = ICONS[empty]), 140);
+      }
+    });
+  }
+
   toast(text: string, ms = 1300) {
     const node = $('.toast', this.hud);
     node.innerHTML = `<div class="panel">${px(text, E.white)}</div>`;
@@ -289,6 +342,18 @@ class UI implements LayerHost {
     setTimeout(() => b.remove(), 1900);
   }
 
+  /** The fusion popup: both ingredients, an arrow, the fused spell and what it does. */
+  fusionReward(f: FusionId) {
+    const s = SPELLS[f];
+    const [a, b] = s.fusion!;
+    this.root.querySelectorAll('.chest').forEach((x) => x.remove());
+    const node = el('div', 'chest panel fusion');
+    node.style.top = '26px';
+    node.innerHTML = `<div class="ic">${icon(`spell-${a}`, 2)}${px('+', E.white)}${icon(`spell-${b}`, 2)}${px('→', E.magenta)}${icon(`spell-${f}`, 3)}</div><div class="col">${px('法术融合', E.magenta)}${px(s.name, E.white, { scale: 2 })}${pxBlock(s.desc, GREY, 170)}</div>`;
+    this.root.appendChild(node);
+    setTimeout(() => node.remove(), 2200);
+  }
+
   describe(c: Choice, run: RunState): { icon: string; name: string; tag: string; tagColor: string; desc: string; rarity: string } {
     switch (c.type) {
       case 'upgrade': {
@@ -298,17 +363,24 @@ class UI implements LayerHost {
       }
       case 'spell-new': {
         const s = SPELLS[c.id];
-        return { icon: `spell-${c.id}`, name: s.name, tag: '新法术', tagColor: E.yellow, desc: s.desc, rarity: 'rare' };
+        const f = fusionOf(c.id);
+        const partner = f && run.spells.find((x) => x.id === f.partner);
+        const hint = partner ? `。和「${SPELLS[f.partner].name}」都升到 ${FUSE_LEVEL} 级会融合成「${SPELLS[f.fusion].name}」` : '';
+        return { icon: `spell-${c.id}`, name: s.name, tag: partner ? '新法术 · 可融合' : '新法术', tagColor: partner ? E.magenta : E.yellow, desc: s.desc + hint, rarity: partner ? 'epic' : 'rare' };
       }
       case 'spell-up': {
         const s = SPELLS[c.id];
         const inst = run.spells.find((x) => x.id === c.id);
         const lv = inst?.level ?? 1;
-        return { icon: `spell-${c.id}`, name: s.name, tag: `Lv${lv}→${lv + 1}`, tagColor: E.cyan, desc: s.levels[lv - 1] ?? '强化', rarity: 'common' };
+        const f = fusionOf(c.id);
+        const partner = f && run.spells.find((x) => x.id === f.partner);
+        const fuses = !!partner && lv + 1 >= FUSE_LEVEL && partner.level >= FUSE_LEVEL;
+        const desc = (s.levels[lv - 1] ?? '强化') + (fuses ? `。升级后与「${SPELLS[f!.partner].name}」融合成「${SPELLS[f!.fusion].name}」` : partner ? `。两者都到 ${FUSE_LEVEL} 级会融合成「${SPELLS[f!.fusion].name}」` : '');
+        return { icon: `spell-${c.id}`, name: spellName(inst ?? { id: c.id, evolved: false }), tag: fuses ? `Lv${lv}→${lv + 1} · 将融合` : `Lv${lv}→${lv + 1}`, tagColor: fuses ? E.magenta : E.cyan, desc, rarity: fuses ? 'epic' : 'common' };
       }
       case 'evolve': {
         const s = SPELLS[c.id];
-        return { icon: `spell-${c.id}`, name: s.evolved.name, tag: '进化', tagColor: E.yellow, desc: s.evolved.desc, rarity: 'legendary' };
+        return { icon: `spell-${c.id}`, name: s.evolved?.name ?? s.name, tag: '进化', tagColor: E.yellow, desc: s.evolved?.desc ?? s.desc, rarity: 'legendary' };
       }
       case 'weapon-new': {
         const w = WEAPONS[c.id];
@@ -496,11 +568,20 @@ class UI implements LayerHost {
       ['移速', mult(m.moveSpeed)],
     ];
     const elems = (['fire', 'ice', 'shock'] as const).filter((k) => m.elements[k] > 0).map((k) => `${{ fire: '火', ice: '冰', shock: '电' }[k]} ${Math.round(m.elements[k] * 100)}%`);
-    const hero = `<div class="ps-hero">${icon('knight', 2)}<div class="ps-bars">${bar('hp', run.hp, m.maxHp, `${Math.max(0, run.hp)}/${m.maxHp}`)}${bar('ar', run.armor, m.maxArmor, `${run.armor}/${m.maxArmor}`)}${bar('xp', run.xp, run.xpNext, `LV${run.xpLevel}`)}</div></div>`;
+    const row = (n: number, max: number, full: string, empty: string) => `<div class="icons">${Array.from({ length: max }, (_, i) => icon(i < n ? full : empty)).join('')}</div>`;
+    const hero = `<div class="ps-hero">${icon('knight', 2)}<div class="ps-bars">${row(Math.max(0, run.hp), m.maxHp, 'heart', 'heart-empty')}${row(run.armor, m.maxArmor, 'armor', 'armor-empty')}${bar('xp', run.xp, run.xpNext, `LV${run.xpLevel}`)}</div></div>`;
     const statGrid = `<div class="ps-stats">${stats.map(([k, v]) => `<div class="st">${px(k, DIM)}${px(v, E.white, { small: true })}</div>`).join('')}</div>${elems.length ? `<div class="ps-line">${px('元素', DIM)}${px(elems.join('  '), E.white)}</div>` : ''}`;
-    const guns = run.weapons.map((w, i) => `<div class="ps-item">${icon(`gun-${w.def.id}`)}${px(w.def.name, E.white)}${px(`Lv${w.level}`, E.yellow, { small: true })}${i === run.held ? px('手持', E.cyan) : ''}</div>`).join('');
+    const guns = run.weapons
+      .map((w, i) => `<div class="ps-item">${icon(`gun-${w.def.id}`)}${px(w.def.name, E.white)}${px(`Lv${w.level}`, E.yellow, { small: true })}${px(i === run.held ? '主' : '副', i === run.held ? E.cyan : DIM)}${w.def.mag ? px(`弹匣${Math.round(w.def.mag * m.mag)}`, DIM) : ''}</div>`)
+      .join('');
     const spells = run.spells.length
-      ? run.spells.map((s) => `<div class="ps-item">${icon(`spell-${s.id}`)}${px(s.evolved ? SPELLS[s.id].evolved.name : SPELLS[s.id].name, s.evolved ? E.yellow : E.white)}${px(s.evolved ? '★' : `Lv${s.level}`, E.yellow, { small: !s.evolved })}</div>`).join('')
+      ? run.spells
+          .map((s) => {
+            const fused = !!SPELLS[s.id].fusion;
+            const mark = fused ? px('融合', E.magenta) : s.evolved ? px('★', E.yellow) : px(`Lv${s.level}`, E.yellow, { small: true });
+            return `<div class="ps-item">${icon(`spell-${s.id}`)}${px(spellName(s), fused ? E.magenta : s.evolved ? E.yellow : E.white)}${mark}</div>`;
+          })
+          .join('')
       : px('还没有法术', DIM);
     const pets = run.pets.length ? run.pets.map((p) => `<div class="ps-item">${icon(`pet-${p}`)}${px(PETS[p].name, E.white)}</div>`).join('') : px('还没有宠物', DIM);
     const ups = Object.entries(run.stacks);

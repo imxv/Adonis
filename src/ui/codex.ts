@@ -1,7 +1,7 @@
 import type Phaser from 'phaser';
 import { TAG_NAMES } from '../core/stats';
 import { ENEMIES, PETS, type EnemyKind, type Pets } from '../data/enemies';
-import { MAX_SPELL_LEVEL, SPELLS, SPELL_ORDER } from '../data/spells';
+import { FUSE_LEVEL, FUSION_ORDER, MAX_SPELL_LEVEL, SPELLS, SPELL_ORDER, fusionOf } from '../data/spells';
 import { RARITY_INFO, UPGRADES, UPGRADE_BY_ID } from '../data/upgrades';
 import { STAT_MEANING, WEAPONS, WEAPON_ORDER, type Delivery } from '../data/weapons';
 import { FLOOR, T, WALL, type Dungeon } from '../game/dungeon';
@@ -121,6 +121,7 @@ export function buildCodex(scene: Phaser.Scene): CodexTab[] {
       ['射程', `${Math.max(1, Math.round(w.range / T))} 格`],
       ['穿透', pierce],
     ];
+    stats.push(['弹匣', w.mag ? `${w.mag} 发，换弹 ${w.reload} 秒` : w.kind === 'slash' ? '近战，无需换弹' : w.kind === 'boomerang' ? '飞轮回收，无需换弹' : '能量武器，无需换弹']);
     if (w.element === 'fire') stats.push(['元素', '火，命中点燃']);
     return {
       id,
@@ -134,10 +135,14 @@ export function buildCodex(scene: Phaser.Scene): CodexTab[] {
     };
   });
 
-  // ---------------------------------------------------------------- spells
+  // ---------------------------------------------------------------- spells, then the fusions they make
   const spells: CodexEntry[] = SPELL_ORDER.map((id) => {
     const s = SPELLS[id];
-    const key = UPGRADE_BY_ID[s.evolveWith];
+    const key = s.evolveWith ? UPGRADE_BY_ID[s.evolveWith] : undefined;
+    const f = fusionOf(id);
+    const sections: { title: string; lines: string[] }[] = [{ title: '升级', lines: s.levels.map((l, i) => `Lv${i + 2}　${l}`) }];
+    if (s.evolved && key) sections.push({ title: `进化：${s.evolved.name}`, lines: [s.evolved.desc, `条件：升到 ${MAX_SPELL_LEVEL} 级，并拿到加成「${key.name}」，之后升级或开宝箱时出现进化。`] });
+    if (f) sections.push({ title: `融合：${SPELLS[f.fusion].name}`, lines: [`和「${SPELLS[f.partner].name}」都升到 ${FUSE_LEVEL} 级时自动融合，空出一个法术栏。`] });
     return {
       id,
       name: s.name,
@@ -145,17 +150,30 @@ export function buildCodex(scene: Phaser.Scene): CodexTab[] {
       tag: '自动施放',
       tagColor: E.yellow,
       desc: `${s.desc}。升级时可以选到它，最多同时带 4 个法术。`,
-      sections: [
-        { title: '升级', lines: s.levels.map((l, i) => `Lv${i + 2}　${l}`) },
-        { title: `进化：${s.evolved.name}`, lines: [s.evolved.desc, `条件：升到 ${MAX_SPELL_LEVEL} 级，并拿到加成「${key.name}」，之后升级或开宝箱时出现进化。`] },
-      ],
+      sections,
     };
   });
+  for (const id of FUSION_ORDER) {
+    const s = SPELLS[id];
+    const [a, b] = s.fusion!;
+    spells.push({
+      id,
+      name: s.name,
+      icon: tex(`spell-${id}`),
+      tag: '融合法术',
+      tagColor: E.magenta,
+      desc: `${s.desc}。`,
+      sections: [
+        { title: '配方', lines: [`「${SPELLS[a].name}」+「${SPELLS[b].name}」，两者都到 ${FUSE_LEVEL} 级时自动融合。`, '融合后不再升级，但威力远超两者之和，还会空出一个法术栏。'] },
+      ],
+      gallery: { title: '由这两个法术融合', pics: [tex(`spell-${a}`), tex(`spell-${b}`)] },
+    });
+  }
 
   // ---------------------------------------------------------------- upgrades
   const upgrades: CodexEntry[] = UPGRADES.map((u) => {
     const r = RARITY_INFO[u.rarity];
-    const evolves = SPELL_ORDER.map((id) => SPELLS[id]).filter((s) => s.evolveWith === u.id);
+    const evolves = SPELL_ORDER.map((id) => SPELLS[id]).filter((s) => s.evolveWith === u.id && s.evolved);
     return {
       id: u.id,
       name: u.name,
@@ -167,7 +185,7 @@ export function buildCodex(scene: Phaser.Scene): CodexTab[] {
         ['最多叠加', `${u.max} 层`],
         ['流派', u.tags.map((t) => TAG_NAMES[t]).join('、')],
       ],
-      sections: evolves.length ? [{ title: '进化钥匙', lines: evolves.map((s) => `法术「${s.name}」满级后，有它就能进化成「${s.evolved.name}」。`) }] : undefined,
+      sections: evolves.length ? [{ title: '进化钥匙', lines: evolves.map((s) => `法术「${s.name}」满级后，有它就能进化成「${s.evolved!.name}」。`) }] : undefined,
     };
   });
 
