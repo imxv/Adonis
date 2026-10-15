@@ -24,7 +24,8 @@ export interface Mods {
   frenzy: number; // fire-rate bonus per recent kill (stacks, decays)
   desperate: number; // damage bonus while under half health
   moveSpeed: number; // multiplier
-  maxHp: number; // in half hearts
+  maxHp: number; // hit points
+  maxArmor: number; // regenerating shield points (Soul Knight style)
   pickupRadius: number; // multiplier
   dashCooldown: number; // multiplier
   petInherit: number; // fraction of player damage bonuses pets inherit
@@ -52,7 +53,8 @@ export function baseMods(): Mods {
     frenzy: 0,
     desperate: 0,
     moveSpeed: 1,
-    maxHp: 10,
+    maxHp: 6,
+    maxArmor: 4,
     pickupRadius: 1,
     dashCooldown: 1,
     petInherit: 0.5,

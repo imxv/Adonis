@@ -17,12 +17,19 @@ export interface Player {
   dashX: number;
   dashY: number;
   trailT: number;
+  walkT: number;
+  sinceHit: number;
+  armorT: number;
+  skillT: number;
+  skillCd: number;
+  punch: number;
   sprite: Img;
-  glow: Img;
+  gun: Img;
+  gun2: Img;
   shadow: Img;
 }
 
-export type ProjKind = 'bolt' | 'pellet' | 'blade' | 'shell' | 'shard' | 'ebullet' | 'ebig';
+export type ProjKind = 'bolt' | 'pellet' | 'blade' | 'shell' | 'shard' | 'orb' | 'axe' | 'ebullet' | 'ebig';
 
 export interface Proj {
   kind: ProjKind;
@@ -37,14 +44,15 @@ export interface Proj {
   knock: number;
   src: string;
   sprite: Img;
-  glow?: Img;
   hit: Set<Enemy>;
   dead: boolean;
-  // boomerang
+  element?: Element;
+  homing?: number;
+  gravity?: number;
+  spin?: number;
   dist?: number;
   maxDist?: number;
   returning?: boolean;
-  // mortar
   ox?: number;
   oy?: number;
   tx?: number;
@@ -86,6 +94,7 @@ export interface Enemy {
   state: string;
   t: number;
   t2: number;
+  anim: number;
   facing: number;
   flash: number;
   dead: boolean;
@@ -93,9 +102,11 @@ export interface Enemy {
   status: Status;
   sprite: Img;
   shadow: Img;
+  extra?: Img;
   ring?: Img;
   boss?: BossState;
   mini?: boolean;
+  hurry?: boolean;
 }
 
 export interface BossState {
@@ -122,7 +133,8 @@ export interface BossState {
 }
 
 export interface Pickup {
-  kind: 'petal' | 'heart';
+  kind: 'gem' | 'heart' | 'chest';
+  tier: number;
   x: number;
   y: number;
   vx: number;
@@ -135,7 +147,7 @@ export interface Pickup {
 }
 
 export interface Obstacle {
-  kind: 'pillar' | 'barrel';
+  kind: 'pillar' | 'barrel' | 'crate';
   x: number;
   y: number;
   r: number;
@@ -145,14 +157,13 @@ export interface Obstacle {
 }
 
 export interface Hazard {
-  kind: 'ember' | 'shock';
+  kind: 'ember';
   x: number;
   y: number;
   r: number;
   t: number;
   tick: number;
   dmg: number;
-  sprite?: Img;
 }
 
 export interface Pet {
@@ -177,8 +188,8 @@ export interface Door {
   y: number;
   reward: DoorReward;
   sprite: Img;
-  badge: Phaser.GameObjects.Text;
-  label: Phaser.GameObjects.Text;
+  badge: Img;
+  label: Img;
   glow: Img;
   open: number;
 }
@@ -196,7 +207,7 @@ export interface Telegraph {
 }
 
 export interface Visual {
-  kind: 'beam' | 'chain';
+  kind: 'beam' | 'chain' | 'bolt';
   pts: number[];
   width: number;
   t: number;
@@ -204,6 +215,5 @@ export interface Visual {
   color: number;
 }
 
-export type ElementColor = Record<Element, string>;
-export const ELEMENT_COLOR: ElementColor = { fire: '#FF7A1A', ice: '#7FD8FF', shock: '#F7E94B' };
+export const ELEMENT_COLOR: Record<Element, string> = { fire: '#f77622', ice: '#2ce8f5', shock: '#fee761' };
 export const ELEMENT_NAME: Record<Element, string> = { fire: '燃烧', ice: '冰寒', shock: '感电' };

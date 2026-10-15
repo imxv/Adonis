@@ -5,19 +5,18 @@ import { GameScene } from './game/GameScene';
 import { KIT_BY_ID } from './styles/kits';
 
 async function boot() {
-  // Canvas-painted textures and Phaser text need the display fonts loaded first.
-  await Promise.race([
-    Promise.allSettled(DISPLAY_FONTS.map((f) => document.fonts.load(`24px "${f}"`))),
-    new Promise((r) => setTimeout(r, 2500)),
-  ]);
+  // Pixel text is rasterised from the webfont, so it must be loaded first.
+  await Promise.race([Promise.allSettled(DISPLAY_FONTS.map((f) => document.fonts.load(`8px "${f}"`))), new Promise((r) => setTimeout(r, 2500))]);
   const game = new Phaser.Game({
     type: Phaser.WEBGL,
     parent: 'game',
-    width: 1280,
-    height: 720,
-    backgroundColor: '#0d0c10',
+    width: 640,
+    height: 360,
+    backgroundColor: '#0b0a12',
+    pixelArt: true,
+    roundPixels: true,
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-    render: { antialias: true, pixelArt: false, powerPreference: 'high-performance' },
+    render: { antialias: false, pixelArt: true, roundPixels: true, powerPreference: 'high-performance' },
     scene: [GameScene],
     fps: { target: 60 },
     banner: false,

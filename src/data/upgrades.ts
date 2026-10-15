@@ -29,16 +29,16 @@ export const UPGRADES: UpgradeDef[] = [
   { id: 'lethal', name: '致命', glyph: '命', rarity: 'common', tags: ['crit'], max: 5, desc: '暴击伤害 +40%', apply: (m) => (m.critMult += 0.4) },
   { id: 'impact', name: '冲击', glyph: '震', rarity: 'common', tags: ['power'], max: 3, desc: '击退 +40%，伤害 +6%', apply: (m) => ((m.knockback += 0.4), (m.damage += 0.06)) },
   { id: 'light', name: '轻盈', glyph: '轻', rarity: 'common', tags: ['agile'], max: 4, desc: '移动速度 +10%', apply: (m) => (m.moveSpeed += 0.1) },
-  { id: 'vigor', name: '生机', glyph: '生', rarity: 'common', tags: ['vital'], max: 4, desc: '生命上限 +1 颗心，并回满这颗心', apply: (m) => (m.maxHp += 2) },
-  { id: 'magnet', name: '花引', glyph: '引', rarity: 'common', tags: ['vital'], max: 3, desc: '花瓣拾取范围 +45%', apply: (m) => (m.pickupRadius += 0.45) },
+  { id: 'vigor', name: '生机', glyph: '生', rarity: 'common', tags: ['vital'], max: 4, desc: '生命上限 +1，护甲上限 +1', apply: (m) => ((m.maxHp += 1), (m.maxArmor += 1)) },
+  { id: 'magnet', name: '磁石', glyph: '引', rarity: 'common', tags: ['vital'], max: 3, desc: '宝石拾取范围 +50%', apply: (m) => (m.pickupRadius += 0.5) },
   { id: 'dashmaster', name: '掠影', glyph: '影', rarity: 'common', tags: ['agile'], max: 3, desc: '冲刺冷却 -25%', apply: (m) => (m.dashCooldown *= 0.75) },
 
-  { id: 'multi', name: '多重', glyph: '多', rarity: 'rare', tags: ['barrage'], max: 3, desc: '数量 +1：多发、多一道光束、多一枚炮弹、多一把刃、多跳一次', apply: (m) => (m.count += 1) },
+  { id: 'multi', name: '多重', glyph: '多', rarity: 'rare', tags: ['barrage'], max: 3, desc: '数量 +1：子弹、光束、炮弹、飞轮、法术全部 +1', apply: (m) => (m.count += 1) },
   { id: 'pierce', name: '贯穿', glyph: '穿', rarity: 'rare', tags: ['barrage'], max: 3, desc: '穿透 +1：子弹穿透、光束反射、爆炸留余烬、链电分叉', apply: (m) => (m.pierce += 1) },
   { id: 'fire', name: '火种', glyph: '火', rarity: 'rare', tags: ['element'], max: 3, desc: '命中有 25% 概率点燃，持续灼烧', apply: (m) => (m.elements.fire += 0.25) },
   { id: 'ice', name: '霜结', glyph: '霜', rarity: 'rare', tags: ['element'], max: 3, desc: '命中有 25% 概率冰寒，叠满三层冻结', apply: (m) => (m.elements.ice += 0.25) },
   { id: 'shock', name: '雷鸣', glyph: '雷', rarity: 'rare', tags: ['element'], max: 3, desc: '命中有 25% 概率感电，电流传给附近敌人', apply: (m) => (m.elements.shock += 0.25) },
-  { id: 'bloom', name: '吸血花', glyph: '吸', rarity: 'rare', tags: ['vital'], max: 3, desc: '击杀时 6% 概率回复半颗心', apply: (m) => (m.healOnKill += 0.06) },
+  { id: 'bloom', name: '吸血花', glyph: '吸', rarity: 'rare', tags: ['vital'], max: 3, desc: '击杀时 2% 概率回复 1 点生命', apply: (m) => (m.healOnKill += 0.02) },
   { id: 'desperate', name: '背水', glyph: '背', rarity: 'rare', tags: ['power'], max: 2, desc: '生命低于一半时，伤害 +35%', apply: (m) => (m.desperate += 0.35) },
   { id: 'twin', name: '双生', glyph: '双', rarity: 'rare', tags: ['barrage'], max: 2, desc: '数量 +1，伤害 -8%', apply: (m) => ((m.count += 1), (m.damage -= 0.08)) },
   { id: 'sniper', name: '狙心', glyph: '狙', rarity: 'rare', tags: ['crit', 'power'], max: 2, desc: '伤害 +35%，弹速 +30%，攻击频率 -10%', apply: (m) => ((m.damage += 0.35), (m.speed += 0.3), (m.fireRate -= 0.1)) },
@@ -51,7 +51,7 @@ export const UPGRADES: UpgradeDef[] = [
   { id: 'frenzy', name: '狂热', glyph: '狂', rarity: 'epic', tags: ['barrage'], max: 2, desc: '每次击杀攻击频率 +4%，最多 +40%，2 秒不杀逐渐消退', apply: (m) => (m.frenzy += 0.04) },
   { id: 'resonance', name: '共鸣', glyph: '鸣', rarity: 'epic', tags: ['element'], max: 2, desc: '元素效果强度 +50%，元素触发率 +10%', apply: (m) => ((m.elementPower += 0.5), (m.elements.fire += 0.1 * Math.sign(m.elements.fire)), (m.elements.ice += 0.1 * Math.sign(m.elements.ice)), (m.elements.shock += 0.1 * Math.sign(m.elements.shock))) },
 
-  { id: 'anemone', name: '银莲之血', glyph: '莲', rarity: 'legendary', tags: ['power', 'vital'], max: 1, desc: '伤害 +40%，生命上限 +1 颗心，暴击率 +10%', apply: (m) => ((m.damage += 0.4), (m.maxHp += 2), (m.critChance += 0.1)) },
+  { id: 'anemone', name: '银莲之血', glyph: '莲', rarity: 'legendary', tags: ['power', 'vital'], max: 1, desc: '伤害 +40%，生命上限 +2，暴击率 +10%', apply: (m) => ((m.damage += 0.4), (m.maxHp += 2), (m.critChance += 0.1)) },
   { id: 'aphrodite', name: '爱神之吻', glyph: '爱', rarity: 'legendary', tags: ['barrage', 'crit'], max: 1, desc: '数量 +2，暴击伤害 +60%', apply: (m) => ((m.count += 2), (m.critMult += 0.6)) },
 ];
 

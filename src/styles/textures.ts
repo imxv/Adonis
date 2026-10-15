@@ -1,762 +1,487 @@
 import Phaser from 'phaser';
 import { Rng } from '../core/rng';
-import { TAU, mixHex, withAlpha } from '../core/math';
 import { ARENA } from '../game/arena';
-import type { StyleKit } from './types';
-import {
-  type Ctx,
-  blobPath,
-  circlePath,
-  gearPath,
-  paintBody,
-  paintEyes,
-  polyPath,
-  silhouette,
-  starPath,
-  strokeOutline,
-} from './paint';
-import { paintBackground, paintVignette } from './backgrounds';
+import { Grid, flipCanvas, outlineCanvas, pxText, ramp, type Ramp } from '../pixel/draw';
+import { E, mix } from '../pixel/palette';
+import * as S from '../pixel/sprites';
+import type { Biome } from '../pixel/biomes';
 
-export function tex(scene: Phaser.Scene, key: string, w: number, h: number, draw: (ctx: Ctx, w: number, h: number) => void) {
-  if (scene.textures.exists(key)) return;
-  const t = scene.textures.createCanvas(key, w, h);
-  if (!t) return;
-  const ctx = t.getContext();
-  draw(ctx, w, h);
-  t.refresh();
+export const K = (name: string, kit: Biome) => `${name}@${kit.id}`;
+
+function add(scene: Phaser.Scene, key: string, c: HTMLCanvasElement) {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  scene.textures.addCanvas(key, c);
 }
 
-export const K = (name: string, kit: StyleKit) => `${name}@${kit.id}`;
+const sprite = (d: S.SpriteDef) => Grid.ascii(d.rows, d.mirror);
 
-/** Textures that do not depend on the art style. */
+/** Data-URL icons for the DOM HUD and cards. */
+export const ICONS: Record<string, string> = {};
+
+function icon(name: string, c: HTMLCanvasElement) {
+  ICONS[name] = c.toDataURL();
+}
+
+// ---------------------------------------------------------------- shared art
+
 export function buildCommonTextures(scene: Phaser.Scene) {
-  tex(scene, 'glow', 64, 64, (ctx) => {
-    const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-    g.addColorStop(0, 'rgba(255,255,255,1)');
-    g.addColorStop(0.25, 'rgba(255,255,255,0.55)');
-    g.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, 64, 64);
-  });
-  tex(scene, 'ring', 128, 128, (ctx) => {
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 6;
-    ctx.beginPath();
-    ctx.arc(64, 64, 58, 0, TAU);
-    ctx.stroke();
-  });
-  tex(scene, 'disc', 64, 64, (ctx) => {
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.arc(32, 32, 30, 0, TAU);
-    ctx.fill();
-  });
-  tex(scene, 'spark', 16, 4, (ctx) => {
-    const g = ctx.createLinearGradient(0, 0, 16, 0);
-    g.addColorStop(0, 'rgba(255,255,255,0)');
-    g.addColorStop(1, 'rgba(255,255,255,1)');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, 16, 4);
-  });
-  tex(scene, 'shadow', 64, 24, (ctx) => {
-    const g = ctx.createRadialGradient(32, 12, 0, 32, 12, 32);
-    g.addColorStop(0, 'rgba(0,0,0,0.35)');
-    g.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = g;
-    ctx.scale(1, 0.375);
-    ctx.fillRect(0, 0, 64, 64);
-  });
-  tex(scene, 'grain', 256, 256, (ctx) => {
-    const img = ctx.createImageData(256, 256);
-    const rng = new Rng(99);
-    for (let i = 0; i < img.data.length; i += 4) {
-      const v = Math.floor(rng.range(0, 255));
-      img.data[i] = v;
-      img.data[i + 1] = v;
-      img.data[i + 2] = v;
-      img.data[i + 3] = Math.floor(rng.range(30, 120));
-    }
-    ctx.putImageData(img, 0, 0);
-  });
-}
+  if (scene.textures.exists('knight-a')) return;
 
-/** Everything a level needs, painted from one style kit. Cached per kit. */
-export function buildKitTextures(scene: Phaser.Scene, kit: StyleKit) {
-  const pal = kit.palette;
+  add(scene, 'knight-a', sprite(S.KNIGHT_A).render());
+  add(scene, 'knight-b', sprite(S.KNIGHT_B).render());
+  icon('knight', scene.textures.get('knight-a').getSourceImage() as HTMLCanvasElement);
+  icon('armor', Grid.ascii(['GgggggG', 'GgwgggG', 'GgggggG', 'GgggggG', '.GgggG.', '..GgG..', '...G...']).render());
+  icon('xp', sprite(S.GEM).render({ roles: { 1: ramp(E.cyan, E.white, E.blue) } }));
 
-  tex(scene, K('bg', kit), ARENA.w, ARENA.h, (ctx) => paintBackground(ctx, kit));
-  tex(scene, K('vignette', kit), ARENA.w, ARENA.h, (ctx) => paintVignette(ctx, kit));
-
-  // Player: a red anemone with a dark heart.
-  tex(scene, K('player', kit), 56, 56, (ctx) => {
-    const c = 28;
-    for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * TAU;
-      const p = new Path2D();
-      p.ellipse(c + Math.cos(a) * 11, c + Math.sin(a) * 11, 11, 8, a, 0, TAU);
-      const g = ctx.createRadialGradient(c, c, 2, c, c, 24);
-      g.addColorStop(0, pal.accentDark);
-      g.addColorStop(0.45, pal.accent);
-      g.addColorStop(1, mixHex(pal.accent, '#ffffff', 0.25));
-      ctx.fillStyle = g;
-      ctx.fill(p);
-      if (kit.outline.mode !== 'none') {
-        ctx.strokeStyle = withAlpha(pal.ink, 0.85);
-        ctx.lineWidth = kit.outline.mode === 'thick' ? 2.5 : 1.2;
-        ctx.stroke(p);
-      }
-    }
-    ctx.fillStyle = '#16121A';
-    ctx.beginPath();
-    ctx.arc(c, c, 7, 0, TAU);
-    ctx.fill();
-    ctx.fillStyle = withAlpha('#ffffff', 0.8);
-    for (let i = 0; i < 10; i++) {
-      const a = (i / 10) * TAU;
-      ctx.beginPath();
-      ctx.arc(c + Math.cos(a) * 9, c + Math.sin(a) * 9, 1, 0, TAU);
-      ctx.fill();
-    }
-  });
+  // Guns, drawn facing right with the grip on the left.
+  const guns: Record<string, string[]> = {
+    bolt: ['ggggggggg.', 'GGGGGGGGGw', 'DDBBD.....', '.BBB......', '.BB.......'],
+    spread: ['bb....gggggggggg', 'bbbbGGGGGGGGGGGw', 'bbbbbDDDDDDDDDD.', '.bb...B.........'],
+    beam: ['....kkkkkkkkk..', 'DDDDccccccccccw', 'DDDDkkkkkkkkk..', '..DD...........', '..DD...........'],
+    mortar: ['...LLLLLLLLL.', '..LlllllllLLy', '..LLLLLLLLLLy', '.DDDDLLLLLLL.', '..BB.........', '..BB.........'],
+    boomerang: ['..ggg..', '.gwwwg.', 'gw...wg', 'gw...wg', 'gw...wg', '.gwwwg.', '..ggg..'],
+    chain: ['..yyyy........', '.DDDDDDDDDDy..', 'DDcDcDcDcDDDyw', '.DDDDDDDDDDy..', '..BB..........', '..BB..........'],
+  };
+  for (const [id, rows] of Object.entries(guns)) {
+    const c = Grid.ascii(rows).render();
+    add(scene, `gun-${id}`, c);
+    icon(`gun-${id}`, c);
+  }
 
   // Player projectiles.
-  tex(scene, K('bolt', kit), 30, 12, (ctx) => {
-    const p = new Path2D();
-    p.roundRect(1, 1, 28, 10, 5);
-    ctx.fillStyle = pal.accent;
-    ctx.fill(p);
-    ctx.fillStyle = mixHex(pal.accent, '#ffffff', 0.75);
-    ctx.beginPath();
-    ctx.roundRect(10, 3.5, 17, 5, 2.5);
-    ctx.fill();
-    if (kit.outline.mode === 'thick') {
-      ctx.strokeStyle = pal.ink;
-      ctx.lineWidth = 2;
-      ctx.stroke(p);
-    }
-  });
-  tex(scene, K('pellet', kit), 16, 16, (ctx) => {
-    ctx.fillStyle = pal.accent;
-    ctx.beginPath();
-    ctx.arc(8, 8, 7, 0, TAU);
-    ctx.fill();
-    ctx.fillStyle = mixHex(pal.accent, '#ffffff', 0.7);
-    ctx.beginPath();
-    ctx.arc(7, 7, 3, 0, TAU);
-    ctx.fill();
-  });
-  tex(scene, K('blade', kit), 40, 40, (ctx) => {
-    const p = new Path2D();
-    p.arc(20, 20, 17, -2.4, 2.4);
-    p.arc(26, 20, 11, 2.2, -2.2, true);
-    p.closePath();
-    ctx.fillStyle = pal.accent;
-    ctx.fill(p);
-    ctx.strokeStyle = mixHex(pal.accent, '#ffffff', 0.6);
-    ctx.lineWidth = 2;
-    ctx.stroke(p);
-  });
-  tex(scene, K('shell', kit), 22, 22, (ctx) => {
-    paintBody(ctx, kit, circlePath(11, 11, 8), pal.accent, { cx: 11, cy: 11, r: 8 });
-  });
-  tex(scene, K('shard', kit), 14, 8, (ctx) => {
-    ctx.fillStyle = mixHex(pal.accent, '#ffffff', 0.4);
-    ctx.beginPath();
-    ctx.moveTo(0, 4);
-    ctx.lineTo(10, 0);
-    ctx.lineTo(14, 4);
-    ctx.lineTo(10, 8);
-    ctx.closePath();
-    ctx.fill();
-  });
+  add(scene, 'b-bolt', Grid.ascii(['.YYYY.', 'YwwwwY', '.YYYY.']).render({ outline: E.orange }));
+  add(scene, 'b-pellet', Grid.ascii(['.OO.', 'OYYO', 'OYYO', '.OO.']).render({ outline: E.redD }));
+  add(scene, 'b-shell', Grid.ascii(['.LL.', 'LllL', 'LllL', '.LL.']).render());
+  add(scene, 'b-blade', Grid.ascii(guns.boomerang).render());
+  add(scene, 'b-shard', Grid.ascii(['wcc', 'ccc']).render({ outline: false }));
+  add(scene, 'b-orb', Grid.ascii(['.cc.', 'cwwc', 'cwwc', '.cc.']).render({ outline: E.blueD }));
+  add(scene, 'b-axe', Grid.ascii(['.ggg..', 'gwwgb.', 'gwggbb', '.gg.bb', '....bb', '.....b']).render());
+  add(scene, 'b-book', Grid.ascii(['PPPPPT', 'PyyyPT', 'PyPyPT', 'PyyyPT', 'PPPPPT']).render());
 
-  // Enemy bullets: danger colour with a contrasting rim so they read on any floor.
-  tex(scene, K('ebullet', kit), 20, 20, (ctx) => {
-    ctx.fillStyle = pal.dangerRim;
-    ctx.beginPath();
-    ctx.arc(10, 10, 9, 0, TAU);
-    ctx.fill();
-    ctx.fillStyle = pal.danger;
-    ctx.beginPath();
-    ctx.arc(10, 10, 6.5, 0, TAU);
-    ctx.fill();
-    ctx.fillStyle = withAlpha(pal.dangerRim, 0.7);
-    ctx.beginPath();
-    ctx.arc(8, 8, 2, 0, TAU);
-    ctx.fill();
-  });
-  tex(scene, K('ebullet-big', kit), 34, 34, (ctx) => {
-    ctx.fillStyle = pal.dangerRim;
-    ctx.beginPath();
-    ctx.arc(17, 17, 16, 0, TAU);
-    ctx.fill();
-    ctx.fillStyle = pal.danger;
-    ctx.beginPath();
-    ctx.arc(17, 17, 12, 0, TAU);
-    ctx.fill();
-    ctx.strokeStyle = withAlpha(pal.dangerRim, 0.6);
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(17, 17, 7, 0, TAU);
-    ctx.stroke();
-  });
+  // Spell icons for cards and HUD.
+  const spellIcons: Record<string, string[]> = {
+    orbit: ['PPPPPPT', 'PyyyyPT', 'PyPPyPT', 'PyyyyPT', 'PyPPyPT', 'PPPPPPT'],
+    aura: ['..y.y..', '.yYYYy.', 'yYwwwYy', '.YwwwY.', 'yYwwwYy', '.yYYYy.', '..y.y..'],
+    lightning: ['...YY', '..YY.', '.YYYY', '...YY', '..YY.', '.YY..', 'YY...'],
+    missile: ['..cc..', '.cwwc.', 'cwwwwc', 'cwwwwc', '.cwwc.', '..cc..'],
+    axe: ['.ggg...', 'gwwgb..', 'gwggbb.', '.gg.bb.', '....bb.', '.....bb'],
+    nova: ['...c...', '.c.c.c.', '..ccc..', 'cccwccc', '..ccc..', '.c.c.c.', '...c...'],
+  };
+  for (const [id, rows] of Object.entries(spellIcons)) icon(`spell-${id}`, Grid.ascii(rows).render());
 
-  // Floor decal left by every kill: "where his blood fell, anemones bloomed".
-  tex(scene, K('bloom', kit), 44, 44, (ctx) => {
-    const c = 22;
-    for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * TAU + 0.2;
-      const p = new Path2D();
-      p.ellipse(c + Math.cos(a) * 9, c + Math.sin(a) * 9, 9.5, 6.5, a, 0, TAU);
-      ctx.fillStyle = withAlpha(i % 2 ? pal.accent : mixHex(pal.accent, pal.accentDark, 0.3), 0.9);
-      ctx.fill(p);
-      if (kit.outline.mode === 'thick' || kit.outline.mode === 'ink') {
-        ctx.strokeStyle = withAlpha(pal.ink, 0.6);
-        ctx.lineWidth = 1.2;
-        ctx.stroke(p);
-      }
-    }
-    ctx.fillStyle = '#17121A';
-    ctx.beginPath();
-    ctx.arc(c, c, 5, 0, TAU);
-    ctx.fill();
-  });
+  // Pickups.
+  const gemCols: Record<string, Ramp> = { 1: ramp(E.blue, E.cyan, E.blueD), 2: ramp(E.green, '#a8f07a', E.greenD), 3: ramp(E.red, E.pink, E.redD) };
+  for (const [tier, r] of Object.entries(gemCols)) {
+    const c = sprite(S.GEM).render({ roles: { 1: r } });
+    c.getContext('2d')!.fillStyle = '#ffffff';
+    c.getContext('2d')!.fillRect(3, 2, 1, 1);
+    add(scene, `gem-${tier}`, c);
+  }
+  add(scene, 'heart', sprite(S.HEART).render({ roles: { 1: ramp(E.red, E.pink, E.redD) } }));
+  icon('heart', sprite(S.HEART).render({ roles: { 1: ramp(E.red, E.pink, E.redD) } }));
 
-  // XP: an anemone petal.
-  tex(scene, K('petal', kit), 16, 12, (ctx) => {
-    const p = new Path2D();
-    p.ellipse(8, 6, 7, 4.5, 0.3, 0, TAU);
-    ctx.fillStyle = pal.accent;
-    ctx.fill(p);
-    ctx.fillStyle = withAlpha('#ffffff', 0.5);
-    ctx.beginPath();
-    ctx.ellipse(6, 5, 3, 1.5, 0.3, 0, TAU);
-    ctx.fill();
-  });
-  tex(scene, K('heart', kit), 20, 18, (ctx) => {
-    const p = new Path2D();
-    p.moveTo(10, 17);
-    p.bezierCurveTo(-2, 8, 3, -1, 10, 5);
-    p.bezierCurveTo(17, -1, 22, 8, 10, 17);
-    ctx.fillStyle = pal.accent;
-    ctx.fill(p);
-    ctx.strokeStyle = pal.ink;
-    ctx.lineWidth = 1.5;
-    ctx.stroke(p);
-  });
-
-  // Style particle.
-  tex(scene, K('pt', kit), 16, 16, (ctx) => paintParticle(ctx, kit));
-
-  // Enemies, drawn facing +x so sprites can rotate toward their heading.
-  const E = 64;
-  const c = E / 2;
-  tex(scene, K('en-wanderer', kit), E, E, (ctx) => {
-    const p = silhouette(kit, c, c, 20, 11);
-    paintBody(ctx, kit, p, pal.mid, { cx: c, cy: c, r: 20 });
-    paintEyes(ctx, kit, c, c, 20);
-  });
-  tex(scene, K('en-charger', kit), E, E, (ctx) => {
-    let p: Path2D;
-    if (kit.shape === 'geometric' || kit.shape === 'angular') {
-      p = polyPath([
-        [c + 24, c],
-        [c - 18, c - 18],
-        [c - 10, c],
-        [c - 18, c + 18],
-      ]);
-    } else {
-      p = new Path2D();
-      p.moveTo(c + 25, c);
-      p.bezierCurveTo(c + 8, c - 20, c - 22, c - 22, c - 20, c);
-      p.bezierCurveTo(c - 22, c + 22, c + 8, c + 20, c + 25, c);
-      p.closePath();
-    }
-    paintBody(ctx, kit, p, mixHex(pal.mid, pal.accentDark, 0.25), { cx: c, cy: c, r: 20 });
-    paintEyes(ctx, kit, c - 2, c, 16);
-  });
-  tex(scene, K('en-shooter', kit), E, E, (ctx) => {
-    ctx.fillStyle = pal.ink;
-    ctx.fillRect(c + 6, c - 4, 22, 8);
-    const p = polyPath([
-      [c + 18, c],
-      [c, c - 20],
-      [c - 18, c],
-      [c, c + 20],
-    ]);
-    paintBody(ctx, kit, p, mixHex(pal.mid, pal.light, 0.15), { cx: c, cy: c, r: 19 });
-    ctx.fillStyle = pal.danger;
-    ctx.beginPath();
-    ctx.arc(c, c, 5, 0, TAU);
-    ctx.fill();
-    ctx.strokeStyle = pal.dangerRim;
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-  });
-  tex(scene, K('en-bomber', kit), E, E, (ctx) => {
-    const p = starPath(c, c, 22, 16, 10, 0);
-    paintBody(ctx, kit, p, mixHex(pal.mid, pal.danger, 0.35), { cx: c, cy: c, r: 19 });
-    ctx.fillStyle = pal.danger;
-    ctx.beginPath();
-    ctx.arc(c, c, 7, 0, TAU);
-    ctx.fill();
-    ctx.strokeStyle = pal.dangerRim;
-    ctx.lineWidth = 2;
-    ctx.stroke();
-  });
-  tex(scene, K('en-shield', kit), E, E, (ctx) => {
-    const p = silhouette(kit, c - 3, c, 18, 23);
-    paintBody(ctx, kit, p, mixHex(pal.mid, pal.ink, 0.2), { cx: c - 3, cy: c, r: 18 });
-    paintEyes(ctx, kit, c - 6, c, 15);
-    const s = new Path2D();
-    s.arc(c - 4, c, 26, -1.05, 1.05);
-    s.arc(c - 4, c, 19, 1.05, -1.05, true);
-    s.closePath();
-    paintBody(ctx, kit, s, pal.light, { cx: c + 16, cy: c, r: 14 }, { dark: mixHex(pal.light, pal.ink, 0.4) });
-  });
-
-  // Obstacles.
-  tex(scene, K('pillar', kit), 76, 76, (ctx) => paintPillar(ctx, kit));
-  tex(scene, K('barrel', kit), 52, 52, (ctx) => {
-    const p = kit.shape === 'geometric' ? polyPath([[6, 6], [46, 6], [46, 46], [6, 46]]) : circlePath(26, 26, 21);
-    paintBody(ctx, kit, p, mixHex(pal.danger, pal.ink, 0.15), { cx: 26, cy: 26, r: 21 });
-    ctx.strokeStyle = pal.dangerRim;
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(26, 13);
-    ctx.lineTo(18, 28);
-    ctx.lineTo(28, 28);
-    ctx.lineTo(24, 40);
-    ctx.stroke();
-  });
-
-  // Door: an arch in the wall.
-  tex(scene, K('door', kit), 112, 84, (ctx) => paintDoor(ctx, kit));
+  const chest = new Grid(16, 13);
+  chest.rect(1, 1, 14, 5, '1').rect(1, 6, 14, 7, '1').rect(1, 5, 14, 1, 'y').rect(3, 1, 1, 12, 'y').rect(12, 1, 1, 12, 'y').rect(7, 4, 2, 4, 'Y').set(7, 6, 'e');
+  add(scene, 'chest', chest.render({ roles: { 1: ramp(E.brownL, E.tan, E.brown) } }));
+  const open = new Grid(16, 14);
+  open.rect(1, 0, 14, 3, '1').rect(1, 3, 14, 2, 'Y').rect(2, 4, 12, 2, 'w').rect(1, 6, 14, 8, '1').rect(3, 6, 1, 8, 'y').rect(12, 6, 1, 8, 'y');
+  add(scene, 'chest-open', open.render({ roles: { 1: ramp(E.brownL, E.tan, E.brown) } }));
 
   // Pets.
-  tex(scene, K('pet-hound', kit), 48, 48, (ctx) => {
-    const b = { cx: 24, cy: 26, r: 15 };
-    const ears = polyPath([[14, 16], [10, 4], [20, 12]]);
-    const ears2 = polyPath([[34, 16], [38, 4], [28, 12]]);
-    paintBody(ctx, kit, ears, mixHex(pal.ally, pal.ink, 0.3), b);
-    paintBody(ctx, kit, ears2, mixHex(pal.ally, pal.ink, 0.3), b);
-    paintBody(ctx, kit, circlePath(24, 26, 15), pal.ally, b);
-    ctx.fillStyle = pal.ink;
-    ctx.beginPath();
-    ctx.ellipse(24, 32, 5, 3.5, 0, 0, TAU);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(18, 23, 2.2, 0, TAU);
-    ctx.arc(30, 23, 2.2, 0, TAU);
-    ctx.fill();
-    ctx.strokeStyle = pal.accent;
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(24, 26, 15, 0.6, 2.5);
-    ctx.stroke();
-  });
-  tex(scene, K('pet-dove', kit), 48, 48, (ctx) => {
-    const wing = new Path2D();
-    wing.moveTo(24, 26);
-    wing.quadraticCurveTo(6, 6, 2, 20);
-    wing.quadraticCurveTo(12, 24, 24, 28);
-    wing.quadraticCurveTo(36, 24, 46, 20);
-    wing.quadraticCurveTo(42, 6, 24, 26);
-    wing.closePath();
-    paintBody(ctx, kit, wing, pal.ally, { cx: 24, cy: 22, r: 18 });
-    paintBody(ctx, kit, circlePath(24, 30, 9), pal.ally, { cx: 24, cy: 30, r: 9 });
-    ctx.fillStyle = pal.accent;
-    ctx.beginPath();
-    ctx.moveTo(24, 38);
-    ctx.lineTo(21, 34);
-    ctx.lineTo(27, 34);
-    ctx.closePath();
-    ctx.fill();
-  });
-  tex(scene, K('pet-swan', kit), 48, 48, (ctx) => {
-    paintBody(ctx, kit, blobPath(22, 30, 14, 4, 0.08, 8), pal.ally, { cx: 22, cy: 30, r: 14 });
-    const neck = new Path2D();
-    neck.moveTo(30, 26);
-    neck.bezierCurveTo(42, 18, 26, 8, 34, 6);
-    ctx.strokeStyle = pal.ally;
-    ctx.lineWidth = 6;
-    ctx.lineCap = 'round';
-    ctx.stroke(neck);
-    ctx.strokeStyle = pal.ink;
-    ctx.lineWidth = 1.2;
-    ctx.stroke(neck);
-    ctx.fillStyle = pal.accent;
-    ctx.beginPath();
-    ctx.moveTo(35, 5);
-    ctx.lineTo(43, 7);
-    ctx.lineTo(35, 9);
-    ctx.closePath();
-    ctx.fill();
-  });
+  add(scene, 'pet-hound', sprite(S.HOUND).render());
+  add(scene, 'pet-dove', sprite(S.DOVE_A).render());
+  add(scene, 'pet-dove-b', sprite(S.DOVE_B).render());
+  add(scene, 'pet-swan', Grid.ascii(S.SWAN.rows).render());
+  for (const p of ['hound', 'dove', 'swan']) icon(`pet-${p}`, (scene.textures.get(`pet-${p}`).getSourceImage() as HTMLCanvasElement));
 
-  // Bosses.
-  tex(scene, K('boss-guardian', kit), 220, 220, (ctx) => paintGuardian(ctx, kit));
-  tex(scene, K('boss-boar', kit), 240, 170, (ctx) => paintBoar(ctx, kit));
-}
+  // Props.
+  const barrel = new Grid(10, 12);
+  barrel.rect(1, 0, 8, 12, '1').rect(0, 2, 10, 8, '1').rect(0, 3, 10, 1, 'n').rect(0, 8, 10, 1, 'n').rect(4, 4, 2, 3, 'Y').set(4, 7, 'Y').set(5, 7, 'Y');
+  add(scene, 'barrel', barrel.render({ roles: { 1: ramp(E.red, E.pink, E.redD) } }));
+  const crate = new Grid(12, 12);
+  crate.rect(0, 0, 12, 12, '1').line(1, 1, 10, 10, '2').line(10, 1, 1, 10, '2').rect(0, 0, 12, 1, '2').rect(0, 11, 12, 1, '2').rect(0, 0, 1, 12, '2').rect(11, 0, 1, 12, '2');
+  add(scene, 'crate', crate.render({ roles: { 1: ramp(E.tan, E.cream, E.brownL), 2: ramp(E.brownL, E.tan, E.brown) } }));
 
-function paintParticle(ctx: Ctx, kit: StyleKit) {
-  const pal = kit.palette;
-  switch (kit.particle) {
-    case 'flakes':
-      ctx.fillStyle = pal.extra[0];
-      ctx.fillRect(3, 4, 10, 8);
-      ctx.fillStyle = withAlpha('#ffffff', 0.6);
-      ctx.fillRect(4, 5, 4, 2);
-      break;
-    case 'stars':
-      ctx.fillStyle = '#ffffff';
-      ctx.fill(starPath(8, 8, 7.5, 3, 4));
-      ctx.strokeStyle = pal.ink;
-      ctx.lineWidth = 1;
-      ctx.stroke(starPath(8, 8, 7.5, 3, 4));
-      break;
-    case 'gears':
-      ctx.fillStyle = pal.mid;
-      ctx.fill(gearPath(8, 8, 7, 6, 0.3));
-      ctx.fillStyle = pal.ink;
-      ctx.beginPath();
-      ctx.arc(8, 8, 2, 0, TAU);
-      ctx.fill();
-      break;
-    case 'ink':
-      ctx.fillStyle = withAlpha(pal.ink, 0.9);
-      ctx.fill(blobPath(8, 8, 6, 5, 0.3, 7));
-      break;
-    case 'foam':
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(8, 10, 5, Math.PI, TAU);
-      ctx.stroke();
-      break;
-    case 'shards':
-      ctx.fillStyle = pal.light;
-      ctx.fill(polyPath([[2, 12], [8, 2], [14, 10]]));
-      break;
-    case 'glass': {
-      const col = pal.extra[Math.floor(Math.random() * pal.extra.length)];
-      ctx.fillStyle = col;
-      ctx.fill(polyPath([[2, 10], [7, 2], [14, 6], [11, 14]]));
-      ctx.strokeStyle = pal.ink;
-      ctx.lineWidth = 1.5;
-      ctx.stroke(polyPath([[2, 10], [7, 2], [14, 6], [11, 14]]));
-      break;
-    }
-    default:
-      ctx.fillStyle = pal.light;
-      ctx.beginPath();
-      ctx.arc(8, 8, 5, 0, TAU);
-      ctx.fill();
+  // Anemone floor decal and petal.
+  const bloom = new Grid(11, 11);
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    bloom.ellipse(5 + Math.cos(a) * 3, 5 + Math.sin(a) * 3, 1.6, 1.6, '1');
   }
+  bloom.ellipse(5, 5, 1, 1, 'e');
+  add(scene, 'bloom', bloom.render({ roles: { 1: ramp(E.red, E.pink, E.redD) }, outline: false }));
+  add(scene, 'petal', Grid.ascii(['.rr', 'rRr', 'rr.']).render({ outline: false }));
+
+  // Effects.
+  for (let i = 0; i < 5; i++) {
+    const g = new Grid(26, 26);
+    const r = 4 + i * 2.6;
+    if (i < 3) g.ellipse(13, 13, r, r, i === 0 ? 'w' : 'O').ellipse(13, 13, r * 0.65, r * 0.65, i === 0 ? 'w' : 'Y').ellipse(13, 13, r * 0.3, r * 0.3, 'w');
+    else {
+      const rng = new Rng(i * 31);
+      for (let k = 0; k < 9; k++) g.ellipse(13 + rng.range(-r, r) * 0.7, 13 + rng.range(-r, r) * 0.7, rng.range(1.5, 3.2), rng.range(1.5, 3.2), i === 3 ? 'G' : 'D');
+    }
+    add(scene, `boom-${i}`, g.render({ outline: i < 3 ? E.redD : false }));
+  }
+  add(scene, 'spark', Grid.ascii(['.w.', 'www', '.w.']).render({ outline: false }));
+  add(scene, 'muzzle', Grid.ascii(['..Y..', '.YwY.', 'YwwwY', '.YwY.', '..Y..']).render({ outline: false }));
+  add(scene, 'dot', Grid.ascii(['ww', 'ww']).render({ outline: false }));
+  add(scene, 'smoke', Grid.ascii(['.GG.', 'GGGG', 'GGGG', '.GG.']).render({ outline: false }));
+  const shadow = document.createElement('canvas');
+  shadow.width = 14;
+  shadow.height = 5;
+  const sctx = shadow.getContext('2d')!;
+  sctx.fillStyle = 'rgba(24,20,37,0.45)';
+  sctx.fillRect(2, 0, 10, 5);
+  sctx.fillRect(0, 1, 14, 3);
+  add(scene, 'shadow', shadow);
+
+  const glow = document.createElement('canvas');
+  glow.width = glow.height = 32;
+  const gctx = glow.getContext('2d')!;
+  const grad = gctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+  grad.addColorStop(0, 'rgba(255,255,255,0.9)');
+  grad.addColorStop(0.4, 'rgba(255,255,255,0.35)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  gctx.fillStyle = grad;
+  gctx.fillRect(0, 0, 32, 32);
+  add(scene, 'glow', glow);
+
+  // Boss: the boar that killed Adonis, side view facing right.
+  add(scene, 'boss-boar', boar().render({ roles: { 1: ramp('#4a2e2a', '#7a4a3c', E.brownD), 2: ramp(E.pink, '#ffb0a8', E.skinD), 3: ramp(E.brownD, E.brown, E.ink) } }));
+  icon('boar', scene.textures.get('boss-boar').getSourceImage() as HTMLCanvasElement);
+  icon('chest', scene.textures.get('chest-open').getSourceImage() as HTMLCanvasElement);
 }
 
-function paintPillar(ctx: Ctx, kit: StyleKit) {
-  const pal = kit.palette;
-  const c = 38;
-  ctx.save();
-  ctx.fillStyle = withAlpha('#000000', 0.18);
-  ctx.beginPath();
-  ctx.ellipse(c + 4, c + 6, 30, 26, 0, 0, TAU);
-  ctx.fill();
-  ctx.restore();
-  switch (kit.pattern) {
-    case 'marble': {
-      paintBody(ctx, kit, polyPath([[8, 8], [68, 8], [68, 68], [8, 68]]), pal.bg2, { cx: c, cy: c, r: 30 });
-      paintBody(ctx, kit, circlePath(c, c, 24), pal.light, { cx: c, cy: c, r: 24 });
-      ctx.strokeStyle = withAlpha(pal.ink, 0.35);
-      ctx.lineWidth = 1;
-      for (let i = 0; i < 16; i++) {
-        const a = (i / 16) * TAU;
-        ctx.beginPath();
-        ctx.moveTo(c + Math.cos(a) * 8, c + Math.sin(a) * 8);
-        ctx.lineTo(c + Math.cos(a) * 22, c + Math.sin(a) * 22);
-        ctx.stroke();
+function boar(): Grid {
+  const g = new Grid(40, 28);
+  g.ellipse(17, 15, 14, 8, '1');
+  for (let x = 5; x <= 25; x += 3) g.tri(x, 9, x + 3, 9, x + 1, 2 + ((x * 7) % 3), '3');
+  g.ellipse(29, 15, 7, 6, '1');
+  g.tri(25, 9, 28, 3, 30, 9, '3');
+  g.rect(34, 12, 4, 5, '2').set(36, 13, 'e').set(36, 15, 'e');
+  for (const [x, y] of [[33, 18], [34, 18], [35, 17], [36, 16], [36, 15], [37, 14]] as [number, number][]) g.set(x, y, 'w');
+  g.set(30, 12, 'r').set(31, 12, 'r').set(30, 11, 'w');
+  for (const x of [7, 12, 21, 26]) g.rect(x, 20, 3, 6, '3').rect(x, 26, 3, 1, 'B');
+  g.set(2, 12, '3').set(1, 11, '3').set(2, 10, '3');
+  return g;
+}
+
+function golem(): Grid {
+  const g = new Grid(30, 30);
+  g.ellipse(15, 18, 9, 8, '1');
+  g.rect(10, 3, 10, 9, '1');
+  g.ellipse(5, 12, 4, 4, '2').ellipse(24, 12, 4, 4, '2');
+  g.rect(2, 14, 5, 10, '2').rect(23, 14, 5, 10, '2');
+  g.ellipse(4, 25, 3, 3, '1').ellipse(25, 25, 3, 3, '1');
+  g.rect(9, 24, 4, 6, '2').rect(17, 24, 4, 6, '2');
+  g.rect(12, 7, 2, 2, '4').rect(16, 7, 2, 2, '4');
+  g.ellipse(15, 18, 2, 2, '4');
+  g.line(13, 13, 11, 16, 'o').line(19, 20, 21, 23, 'o').line(8, 18, 10, 20, 'o');
+  return g;
+}
+
+// ---------------------------------------------------------------- per-biome art
+
+export function buildKitTextures(scene: Phaser.Scene, kit: Biome) {
+  if (scene.textures.exists(K('en-wanderer-a', kit))) return;
+  const px = kit.px;
+  const glow = { 4: [px.glow, px.glow, px.glow] as Ramp };
+
+  const enemy = (name: string, a: S.SpriteDef, b: S.SpriteDef, roles: Record<string, Ramp>) => {
+    add(scene, K(`en-${name}-a`, kit), sprite(a).render({ roles: { ...glow, ...roles } }));
+    add(scene, K(`en-${name}-b`, kit), sprite(b).render({ roles: { ...glow, ...roles } }));
+  };
+  enemy('wanderer', S.SLIME_A, S.SLIME_B, { 1: ramp(px.slime) });
+  enemy('bat', S.BAT_A, S.BAT_B, { 1: ramp(px.bat) });
+  enemy('charger', S.PIGLET_A, S.PIGLET_B, { 1: ramp(px.piglet), 2: ramp(E.pink, '#ffc2b8', E.skinD) });
+  enemy('shooter', S.GOBLIN_A, S.GOBLIN_B, { 1: ramp(px.robe), 2: ramp(px.goblin) });
+  enemy('bomber', S.BOMB_A, S.BOMB_B, { 3: ramp(E.slateD, E.slate, E.navy) });
+  enemy('shield', S.SKELETON_A, S.SKELETON_B, { 1: ramp(E.grey, E.white, E.greyM) });
+
+  const shield = new Grid(5, 13);
+  shield.rect(0, 0, 5, 13, '1').rect(1, 1, 3, 11, '2').rect(2, 3, 1, 7, 'y');
+  add(scene, K('shield', kit), shield.render({ roles: { 1: ramp(E.slate, E.greyM, E.slateD), 2: ramp(px.robe) } }));
+
+  // Enemy bullets in the biome's danger colour, with a white core so they read on any floor.
+  const eb = Grid.ascii(['..dd..', '.dwwd.', 'dwwwwd', 'dwwwwd', '.dwwd.', '..dd..']).render({ colors: { d: kit.palette.danger } });
+  add(scene, K('ebullet', kit), eb);
+  const ebb = new Grid(10, 10);
+  ebb.ellipse(4.5, 4.5, 4.5, 4.5, 'd').ellipse(4.5, 4.5, 2.6, 2.6, 'w');
+  add(scene, K('ebullet-big', kit), ebb.render({ colors: { d: kit.palette.danger } }));
+
+  add(scene, K('pillar', kit), prop(kit).render({ roles: { 1: ramp(px.propCols[0]), 2: ramp(px.propCols[1]) } }));
+  add(scene, K('boss-guardian', kit), golem().render({ roles: { 1: ramp(px.stone), 2: ramp(mix(px.stone, E.ink, 0.25)), 4: [px.glow, px.glow, px.glow] } }));
+  add(scene, K('pt', kit), particle(kit));
+  add(scene, K('door', kit), door(kit));
+}
+
+function prop(kit: Biome): Grid {
+  const g = new Grid(16, 18);
+  switch (kit.px.prop) {
+    case 'bush':
+      g.ellipse(8, 9, 7, 6, '1').ellipse(5, 7, 3, 3, '2').ellipse(10, 6, 3, 2, '2').set(4, 11, 'r').set(11, 10, 'r');
+      break;
+    case 'crystal':
+      g.tri(8, 0, 4, 12, 12, 12, '2').tri(3, 5, 1, 14, 7, 14, '1').tri(13, 4, 9, 15, 15, 15, '1').rect(2, 14, 13, 3, '1');
+      break;
+    case 'cactus':
+      g.rect(6, 1, 4, 16, '1').rect(2, 6, 3, 6, '1').rect(2, 10, 5, 2, '1').rect(11, 4, 3, 6, '1').rect(9, 8, 4, 2, '1').set(7, 3, '2').set(8, 7, '2').set(7, 11, '2');
+      break;
+    case 'lavarock':
+      g.ellipse(8, 10, 7, 6, '1').line(4, 8, 8, 12, '2').line(8, 12, 12, 9, '2').set(9, 6, '2');
+      break;
+    case 'boiler':
+      g.ellipse(8, 9, 7, 7, '1').rect(6, 0, 4, 3, '2').rect(1, 8, 14, 2, '2').set(8, 9, 'e').set(4, 4, 'y').set(12, 4, 'y');
+      break;
+    case 'tomb':
+      g.rect(3, 4, 10, 13, '1').ellipse(8, 4, 5, 3, '1').rect(7, 5, 2, 7, '2').rect(5, 7, 6, 2, '2');
+      break;
+    case 'lantern':
+      g.rect(5, 12, 6, 5, '1').rect(6, 7, 4, 5, '2').tri(2, 7, 8, 2, 14, 7, '1').set(7, 9, 'Y').set(8, 9, 'Y').set(7, 10, 'y').set(8, 10, 'y');
+      break;
+    case 'column':
+      g.rect(2, 14, 12, 3, '2').rect(4, 2, 8, 12, '1').rect(2, 0, 12, 3, '2').set(6, 4, '2').set(6, 8, '2').set(9, 6, '2').set(9, 10, '2');
+      break;
+  }
+  return g;
+}
+
+function particle(kit: Biome): HTMLCanvasElement {
+  const shapes: Record<string, [string[], string]> = {
+    forest: [['.l', 'lL'], E.green],
+    glacier: [['.w.', 'www', '.w.'], E.white],
+    desert: [['tt'], E.tan],
+    volcano: [['O'], E.orange],
+    factory: [['GG', 'G.'], E.greyM],
+    castle: [['.P', 'P.'], E.magenta],
+    garden: [['pp', '.p'], E.pink],
+    palace: [['y'], E.amber],
+  };
+  const [rows] = shapes[kit.id] ?? shapes.forest;
+  return Grid.ascii(rows).render({ outline: false, margin: 0 });
+}
+
+function door(kit: Biome): HTMLCanvasElement {
+  const px = kit.px;
+  const g = new Grid(30, 38);
+  g.rect(0, 0, 30, 38, 'f').rect(3, 4, 24, 34, 'e');
+  g.ellipse(15, 8, 12, 6, 'f').ellipse(15, 9, 9, 5, 'e').rect(6, 9, 18, 29, 'e');
+  for (let y = 2; y < 38; y += 6) {
+    g.set(1, y, 'h');
+    g.set(28, y + 3, 'h');
+  }
+  return g.render({ colors: { f: px.wallTop, h: mix(px.wallFace, E.white, 0.3) } });
+}
+
+// ---------------------------------------------------------------- rooms
+
+/** Paint one room: tiled floor, walls with a 3/4 face on the top edge, and scattered floor detail. */
+export function buildRoom(scene: Phaser.Scene, kit: Biome, seed: number): string {
+  const key = `room@${kit.id}`;
+  const W = ARENA.w;
+  const H = ARENA.h;
+  const c = document.createElement('canvas');
+  c.width = W;
+  c.height = H;
+  const ctx = c.getContext('2d')!;
+  const rng = new Rng(seed);
+  const px = kit.px;
+  const [base, alt, d1, d2] = px.floorCols;
+  const P = (x: number, y: number, col: string, w = 1, h = 1) => {
+    ctx.fillStyle = col;
+    ctx.fillRect(x, y, w, h);
+  };
+
+  for (let ty = 0; ty < H / 16; ty++) {
+    for (let tx = 0; tx < W / 16; tx++) {
+      const x = tx * 16;
+      const y = ty * 16;
+      const odd = (tx + ty) % 2 === 1;
+      switch (px.floor) {
+        case 'checker':
+        case 'marble':
+          P(x, y, odd ? alt : base, 16, 16);
+          if (px.floor === 'marble' && rng.chance(0.35)) {
+            let vx = x + rng.int(0, 15);
+            for (let k = 0; k < 10; k++) {
+              P(vx, y + k + rng.int(0, 5), odd ? d2 : d1);
+              vx += rng.int(-1, 1);
+            }
+          }
+          if (px.floor === 'checker' && rng.chance(0.1)) P(x + rng.int(2, 12), y + rng.int(2, 12), d2, 3, 1);
+          break;
+        case 'metal':
+          P(x, y, rng.chance(0.15) ? alt : base, 16, 16);
+          P(x, y, d2, 16, 1);
+          P(x, y, d2, 1, 16);
+          P(x + 1, y + 1, mix(base, '#ffffff', 0.15), 14, 1);
+          P(x + 2, y + 2, d1);
+          P(x + 13, y + 2, d1);
+          P(x + 2, y + 13, d1);
+          P(x + 13, y + 13, d1);
+          break;
+        default:
+          P(x, y, base, 16, 16);
+          for (let k = 0; k < 5; k++) P(x + rng.int(0, 15), y + rng.int(0, 15), alt);
       }
-      break;
-    }
-    case 'gears':
-    case 'blueprint': {
-      paintBody(ctx, kit, circlePath(c, c, 28), pal.mid, { cx: c, cy: c, r: 28 });
-      ctx.fillStyle = pal.ink;
-      for (let i = 0; i < 10; i++) {
-        const a = (i / 10) * TAU;
-        ctx.beginPath();
-        ctx.arc(c + Math.cos(a) * 22, c + Math.sin(a) * 22, 2, 0, TAU);
-        ctx.fill();
+      // Biome detail.
+      const r = rng.next();
+      switch (px.floor) {
+        case 'grass':
+          if (r < 0.28) {
+            const gx = x + rng.int(2, 12);
+            const gy = y + rng.int(4, 12);
+            P(gx, gy, d1);
+            P(gx + 2, gy, d1);
+            P(gx + 1, gy - 1, d1);
+            P(gx + 1, gy + 1, d2);
+          } else if (r < 0.32) P(x + rng.int(2, 13), y + rng.int(2, 13), rng.pick([E.yellow, E.white, E.pink]));
+          break;
+        case 'ice':
+          if (r < 0.12) {
+            let cx = x + rng.int(0, 15);
+            let cy = y + rng.int(0, 15);
+            for (let k = 0; k < 8; k++) {
+              P(cx, cy, d1);
+              cx += rng.int(0, 1);
+              cy += rng.int(-1, 1);
+            }
+          } else if (r < 0.2) P(x + rng.int(2, 12), y + rng.int(2, 12), d2, 2, 1);
+          break;
+        case 'sand':
+          if (r < 0.3) {
+            const ry = y + rng.int(3, 12);
+            for (let k = 0; k < 10; k++) P(x + 2 + k, ry + (k % 4 < 2 ? 0 : 1), d2);
+          } else if (r < 0.36) P(x + rng.int(2, 12), y + rng.int(2, 12), d1, 2, 2);
+          break;
+        case 'lava':
+          if (r < 0.22) {
+            let cx = x + rng.int(0, 15);
+            let cy = y + rng.int(0, 15);
+            for (let k = 0; k < 9; k++) {
+              P(cx, cy, k % 3 === 0 ? E.amber : d1);
+              cx += rng.int(-1, 1);
+              cy += rng.int(0, 1);
+            }
+          }
+          break;
+        case 'paper':
+          if (ty % 6 === 3 && tx % 2 === 0) P(x + 2, y + 2, d2, 12, 12);
+          else if (r < 0.15) P(x + rng.int(2, 12), y + rng.int(2, 12), d1);
+          break;
       }
-      ctx.strokeStyle = pal.ink;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(c, c, 10, 0, TAU);
-      ctx.moveTo(c - 14, c);
-      ctx.lineTo(c + 14, c);
-      ctx.moveTo(c, c - 14);
-      ctx.lineTo(c, c + 14);
-      ctx.stroke();
-      break;
     }
-    case 'ink':
-    case 'impression': {
-      paintBody(ctx, kit, blobPath(c, c, 27, 17, 0.22, 9), kit.pattern === 'ink' ? pal.mid : pal.extra[2], { cx: c, cy: c, r: 27 });
-      paintBody(ctx, kit, blobPath(c - 6, c - 6, 12, 5, 0.25, 7), mixHex(pal.mid, pal.light, 0.4), { cx: c - 6, cy: c - 6, r: 12 });
-      break;
-    }
-    case 'seigaiha': {
-      paintBody(ctx, kit, polyPath([[12, 12], [64, 12], [64, 64], [12, 64]]), pal.mid, { cx: c, cy: c, r: 28 });
-      paintBody(ctx, kit, polyPath([[4, 22], [c, 4], [72, 22], [c, 30]]), pal.ink, { cx: c, cy: 18, r: 18 });
-      ctx.fillStyle = pal.extra[1];
-      ctx.fillRect(c - 7, c + 4, 14, 14);
-      break;
-    }
-    case 'meander':
-    case 'nouveau': {
-      paintBody(ctx, kit, circlePath(c, c, 26), pal.mid, { cx: c, cy: c, r: 26 });
-      ctx.strokeStyle = pal.light;
-      ctx.lineWidth = 2;
-      for (const r of [8, 15, 21]) {
-        ctx.beginPath();
-        ctx.arc(c, c, r, 0, TAU);
-        ctx.stroke();
+  }
+
+  // Large organic patches with dithered edges break up the tiling without looking blocky.
+  if (px.floor !== 'metal' && px.floor !== 'checker' && px.floor !== 'marble') {
+    const patchCol = px.floor === 'ice' || px.floor === 'paper' ? mix(base, '#ffffff', 0.18) : alt;
+    const shadeCol = mix(base, E.ink, 0.12);
+    for (let i = 0; i < 26; i++) {
+      const cx = rng.range(0, W);
+      const cy = rng.range(ARENA.top, H);
+      const r = rng.range(18, 56);
+      const col = i % 3 === 0 ? patchCol : shadeCol;
+      for (let y = Math.max(0, Math.floor(cy - r)); y < Math.min(H, cy + r); y++) {
+        for (let x = Math.max(0, Math.floor(cx - r)); x < Math.min(W, cx + r); x++) {
+          const d = Math.hypot((x - cx) / r, (y - cy) / (r * 0.7));
+          if (d < 0.78 || (d < 1 && (x + y) % 2 === 0 && d < 0.78 + rng.next() * 0.3)) {
+            ctx.fillStyle = col;
+            ctx.fillRect(x, y, 1, 1);
+          }
+        }
       }
-      break;
     }
-    case 'bauhaus': {
-      paintBody(ctx, kit, polyPath([[10, 10], [66, 10], [66, 66], [10, 66]]), pal.extra[0], { cx: c, cy: c, r: 28 });
-      paintBody(ctx, kit, circlePath(c, c, 15), pal.extra[1], { cx: c, cy: c, r: 15 });
-      break;
-    }
-    case 'stainedglass': {
-      paintBody(ctx, kit, circlePath(c, c, 28), pal.extra[0], { cx: c, cy: c, r: 28 });
-      break;
-    }
-    default: {
-      const p = polyPath([[10, 10], [66, 10], [66, 66], [10, 66]]);
-      paintBody(ctx, kit, p, pal.light, { cx: c, cy: c, r: 28 });
-      ctx.strokeStyle = pal.ink;
-      ctx.lineWidth = kit.outline.width;
-      ctx.beginPath();
-      ctx.moveTo(10, 10);
-      ctx.lineTo(66, 66);
-      ctx.moveTo(66, 10);
-      ctx.lineTo(10, 66);
-      ctx.stroke();
-    }
-  }
-}
-
-function paintDoor(ctx: Ctx, kit: StyleKit) {
-  const pal = kit.palette;
-  const w = 112;
-  const h = 84;
-  const arch = new Path2D();
-  const round = kit.pattern === 'ink';
-  if (round) {
-    arch.arc(w / 2, h / 2 + 4, 38, 0, TAU);
-  } else if (kit.shape === 'geometric' || kit.pattern === 'blueprint') {
-    arch.rect(14, 6, w - 28, h - 6);
-  } else {
-    arch.moveTo(14, h);
-    arch.lineTo(14, 36);
-    arch.arc(w / 2, 36, w / 2 - 14, Math.PI, 0);
-    arch.lineTo(w - 14, h);
-    arch.closePath();
-  }
-  ctx.save();
-  ctx.fillStyle = mixHex(pal.wall, pal.light, 0.35);
-  ctx.translate(0, 0);
-  ctx.lineWidth = 10;
-  ctx.strokeStyle = mixHex(pal.wall, pal.light, 0.35);
-  ctx.stroke(arch);
-  ctx.restore();
-  ctx.fillStyle = pal.ink;
-  ctx.fill(arch);
-  strokeOutline(ctx, kit, arch);
-}
-
-function paintGuardian(ctx: Ctx, kit: StyleKit) {
-  const pal = kit.palette;
-  const c = 110;
-  const ornament = kit.bossOrnament;
-  ctx.lineJoin = 'round';
-
-  if (ornament === 'vitruvian') {
-    ctx.strokeStyle = pal.extra[0];
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.arc(c, c, 96, 0, TAU);
-    ctx.stroke();
-    ctx.strokeRect(c - 76, c - 76, 152, 152);
-    ctx.strokeStyle = pal.ink;
-    ctx.lineWidth = 6;
-    ctx.lineCap = 'round';
-    for (const a of [0.35, Math.PI - 0.35, Math.PI + 0.35, -0.35]) {
-      ctx.beginPath();
-      ctx.moveTo(c + Math.cos(a) * 40, c + Math.sin(a) * 40);
-      ctx.lineTo(c + Math.cos(a) * 92, c + Math.sin(a) * 92);
-      ctx.stroke();
-    }
-  } else if (ornament === 'clock') {
-    paintBody(ctx, kit, circlePath(c, c, 98), pal.light, { cx: c, cy: c, r: 98 });
-    ctx.strokeStyle = pal.ink;
-    for (let i = 0; i < 12; i++) {
-      const a = (i / 12) * TAU;
-      ctx.lineWidth = i % 3 === 0 ? 6 : 3;
-      ctx.beginPath();
-      ctx.moveTo(c + Math.cos(a) * 80, c + Math.sin(a) * 80);
-      ctx.lineTo(c + Math.cos(a) * 92, c + Math.sin(a) * 92);
-      ctx.stroke();
-    }
-  } else if (ornament === 'rose') {
-    const n = 12;
-    for (let i = 0; i < n; i++) {
-      const a = (i / n) * TAU;
-      const p = new Path2D();
-      p.ellipse(c + Math.cos(a) * 66, c + Math.sin(a) * 66, 30, 16, a, 0, TAU);
-      paintBody(ctx, kit, p, pal.extra[i % pal.extra.length], { cx: c + Math.cos(a) * 66, cy: c + Math.sin(a) * 66, r: 30 });
-    }
-  } else if (ornament === 'shapes') {
-    paintBody(ctx, kit, polyPath([[14, 150], [110, 6], [206, 150]]), pal.extra[1], { cx: c, cy: 100, r: 90 });
-    paintBody(ctx, kit, polyPath([[30, 120], [120, 120], [120, 210], [30, 210]]), pal.extra[2], { cx: 75, cy: 165, r: 45 });
-  } else if (ornament === 'dragon') {
-    ctx.strokeStyle = withAlpha(pal.ink, 0.8);
-    for (let i = 0; i < 3; i++) {
-      ctx.lineWidth = 16 - i * 5;
-      ctx.beginPath();
-      for (let t = 0; t < 1; t += 0.01) {
-        const a = t * TAU * 1.6 + i;
-        const r = 50 + t * 52;
-        const x = c + Math.cos(a) * r;
-        const y = c + Math.sin(a) * r;
-        if (t === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
+    // Re-sprinkle small details on top of the patches.
+    for (let i = 0; i < 900; i++) {
+      const x = rng.int(0, W - 4);
+      const y = rng.int(ARENA.top, H - 4);
+      switch (px.floor) {
+        case 'grass':
+          if (i % 3 === 0) {
+            P(x, y, d1);
+            P(x + 2, y, d1);
+            P(x + 1, y - 1, d1);
+          } else if (i % 37 === 0) P(x, y, rng.pick([E.yellow, E.white, E.pink]));
+          else P(x, y, d2);
+          break;
+        case 'sand':
+          if (i % 4 === 0) P(x, y, d2, 3, 1);
+          else if (i % 29 === 0) P(x, y, d1, 2, 2);
+          break;
+        case 'ice':
+          if (i % 9 === 0) P(x, y, d1, 2, 1);
+          break;
+        case 'lava':
+          if (i % 23 === 0) P(x, y, E.amber);
+          else if (i % 3 === 0) P(x, y, d2);
+          break;
+        case 'paper':
+          if (i % 11 === 0) P(x, y, d1);
+          break;
       }
-      ctx.stroke();
-    }
-  } else if (ornament === 'oni' || ornament === 'horns') {
-    const hornCol = ornament === 'oni' ? pal.light : pal.light;
-    for (const s of [-1, 1]) {
-      const p = new Path2D();
-      p.moveTo(c + s * 34, c - 40);
-      p.quadraticCurveTo(c + s * 96, c - 70, c + s * 84, c - 108);
-      p.quadraticCurveTo(c + s * 70, c - 64, c + s * 18, c - 52);
-      p.closePath();
-      paintBody(ctx, kit, p, hornCol, { cx: c + s * 60, cy: c - 70, r: 30 });
-    }
-  } else if (ornament === 'mecha') {
-    for (const s of [-1, 1]) {
-      const p = new Path2D();
-      p.roundRect(c + s * 58 - 26, c - 46, 52, 92, 10);
-      paintBody(ctx, kit, p, pal.extra[0], { cx: c + s * 58, cy: c, r: 40 });
     }
   }
 
-  const core = kit.shape === 'geometric' ? polyPath([[c - 52, c - 52], [c + 52, c - 52], [c + 52, c + 52], [c - 52, c + 52]]) : circlePath(c, c, 54);
-  paintBody(ctx, kit, core, pal.mid, { cx: c, cy: c, r: 54 });
+  // Walls: top band, 3/4 face, sides and bottom.
+  const faceTop = 16;
+  const faceBottom = ARENA.top;
+  P(0, 0, px.wallTop, W, faceTop);
+  P(0, faceTop, px.wallFace, W, faceBottom - faceTop);
+  for (let y = faceTop; y < faceBottom; y += 8) {
+    const off = ((y - faceTop) / 8) % 2 ? 8 : 0;
+    P(0, y, px.wallDark, W, 1);
+    for (let x = -off; x < W; x += 16) {
+      switch (px.wall) {
+        case 'wood':
+          P(x, faceTop, px.wallDark, 2, faceBottom - faceTop);
+          break;
+        case 'brass':
+          P(x + 1, y + 1, mix(px.wallFace, '#ffffff', 0.2), 14, 1);
+          P(x + 3, y + 4, E.amber);
+          P(x + 12, y + 4, E.amber);
+          break;
+        case 'ice':
+          P(x + 2, y + 2, '#ffffff', 3, 1);
+          P(x, y, px.wallDark, 1, 8);
+          break;
+        default:
+          P(x, y, px.wallDark, 1, 8);
+          P(x + 1, y + 1, mix(px.wallFace, '#ffffff', 0.18), 14, 1);
+      }
+    }
+  }
+  if (px.wall === 'gothic' || px.wall === 'marble') {
+    for (let x = 48; x < W - 32; x += 96) {
+      P(x, faceTop + 6, px.wallDark, 12, 26);
+      P(x + 2, faceTop + 8, px.wall === 'gothic' ? E.purple : E.amber, 8, 22);
+      P(x + 4, faceTop + 10, px.wall === 'gothic' ? E.cyan : E.yellow, 4, 4);
+    }
+  }
+  P(0, faceBottom - 2, px.wallDark, W, 2);
+  P(0, faceTop - 1, mix(px.wallTop, '#ffffff', 0.15), W, 1);
+  // Shadow cast on the floor below the wall face.
+  ctx.fillStyle = 'rgba(24,20,37,0.35)';
+  ctx.fillRect(0, faceBottom, W, 6);
+  ctx.fillStyle = 'rgba(24,20,37,0.18)';
+  ctx.fillRect(0, faceBottom + 6, W, 4);
+  P(0, faceTop, px.wallTop, ARENA.left, H - faceTop);
+  P(ARENA.right, faceTop, px.wallTop, W - ARENA.right, H - faceTop);
+  P(0, ARENA.bottom, px.wallTop, W, H - ARENA.bottom);
+  P(ARENA.left - 1, faceBottom, mix(px.wallTop, '#ffffff', 0.15), 1, ARENA.bottom - faceBottom);
+  P(ARENA.right, faceBottom, mix(px.wallTop, '#ffffff', 0.15), 1, ARENA.bottom - faceBottom);
+  P(ARENA.left, ARENA.bottom, mix(px.wallTop, '#ffffff', 0.15), ARENA.right - ARENA.left, 1);
 
-  if (ornament === 'mecha') {
-    ctx.fillStyle = pal.ink;
-    ctx.fillRect(c - 44, c - 12, 88, 22);
-    ctx.fillStyle = pal.danger;
-    ctx.fillRect(c - 36, c - 6, 72, 10);
-  } else {
-    for (const s of [-1, 1]) {
-      ctx.fillStyle = pal.ink;
-      ctx.beginPath();
-      ctx.ellipse(c + s * 20, c - 6, 12, 9, 0, 0, TAU);
-      ctx.fill();
-      ctx.fillStyle = pal.danger;
-      ctx.beginPath();
-      ctx.arc(c + s * 20, c - 6, 5.5, 0, TAU);
-      ctx.fill();
-      ctx.strokeStyle = pal.dangerRim;
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-    }
-    if (ornament === 'oni') {
-      ctx.fillStyle = pal.light;
-      for (let i = -2; i <= 2; i++) ctx.fill(polyPath([[c + i * 9 - 4, c + 22], [c + i * 9 + 4, c + 22], [c + i * 9, c + 32]]));
-    }
-  }
-  if (ornament === 'clock') {
-    ctx.strokeStyle = pal.ink;
-    ctx.lineCap = 'round';
-    ctx.lineWidth = 6;
-    ctx.beginPath();
-    ctx.moveTo(c, c + 24);
-    ctx.lineTo(c, c + 46);
-    ctx.stroke();
-  }
+  add(scene, key, c);
+  return key;
 }
 
-function paintBoar(ctx: Ctx, kit: StyleKit) {
-  const pal = kit.palette;
-  const body = mixHex(pal.mid, pal.ink, kit.id === 'greek' ? 0 : 0.35);
-  // Bristles on the back.
-  const bristle = new Path2D();
-  for (let i = 0; i < 9; i++) {
-    const x = 50 + i * 14;
-    bristle.moveTo(x, 52 - Math.sin(i / 8 * Math.PI) * 6);
-    bristle.lineTo(x + 8, 22 - Math.sin(i / 8 * Math.PI) * 16);
-    bristle.lineTo(x + 14, 52 - Math.sin(i / 8 * Math.PI) * 6);
-  }
-  ctx.fillStyle = mixHex(body, pal.ink, 0.4);
-  ctx.fill(bristle);
-  // Legs.
-  for (const x of [60, 92, 140, 172]) {
-    const leg = new Path2D();
-    leg.roundRect(x, 110, 18, 46, 6);
-    paintBody(ctx, kit, leg, mixHex(body, pal.ink, 0.25), { cx: x + 9, cy: 132, r: 20 });
-  }
-  // Body.
-  const torso = new Path2D();
-  torso.ellipse(112, 92, 84, 50, 0, 0, TAU);
-  paintBody(ctx, kit, torso, body, { cx: 112, cy: 92, r: 84 });
-  // Head and snout.
-  const head = new Path2D();
-  head.moveTo(168, 58);
-  head.quadraticCurveTo(222, 66, 232, 104);
-  head.lineTo(226, 124);
-  head.quadraticCurveTo(196, 132, 162, 118);
-  head.closePath();
-  paintBody(ctx, kit, head, mixHex(body, pal.light, 0.08), { cx: 196, cy: 96, r: 40 });
-  ctx.fillStyle = mixHex(body, pal.ink, 0.5);
-  ctx.beginPath();
-  ctx.ellipse(229, 112, 7, 12, 0, 0, TAU);
-  ctx.fill();
-  // Tusk.
-  const tusk = new Path2D();
-  tusk.moveTo(214, 118);
-  tusk.quadraticCurveTo(236, 120, 238, 92);
-  tusk.quadraticCurveTo(226, 112, 206, 112);
-  tusk.closePath();
-  ctx.fillStyle = pal.light;
-  ctx.fill(tusk);
-  ctx.strokeStyle = pal.ink;
-  ctx.lineWidth = 1.5;
-  ctx.stroke(tusk);
-  // Ear.
-  const ear = polyPath([[176, 60], [170, 30], [192, 56]]);
-  paintBody(ctx, kit, ear, mixHex(body, pal.ink, 0.2), { cx: 180, cy: 48, r: 14 });
-  // Eye, in the danger colour.
-  ctx.fillStyle = pal.danger;
-  ctx.beginPath();
-  ctx.arc(196, 78, 6, 0, TAU);
-  ctx.fill();
-  ctx.strokeStyle = pal.dangerRim;
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  if (kit.outline.mode === 'incised') {
-    ctx.strokeStyle = pal.light;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.arc(112, 92, 56, 2.6, 4.2);
-    ctx.moveTo(150, 70);
-    ctx.quadraticCurveTo(170, 92, 150, 120);
-    ctx.stroke();
-  }
+/** Pixel text as a Phaser texture, cached by content. */
+export function textTexture(scene: Phaser.Scene, text: string, o: Parameters<typeof pxText>[1]): string {
+  const key = `txt:${text}:${o.size}:${o.color}:${o.outline ?? ''}`;
+  if (!scene.textures.exists(key)) scene.textures.addCanvas(key, pxText(text, o));
+  return key;
 }
+
+export { flipCanvas, outlineCanvas };

@@ -18,11 +18,23 @@ export function updateEnemyAI(s: GameScene, e: Enemy, dt: number, slow: number) 
   }
   switch (e.kind) {
     case 'wanderer': {
-      const a = toP + Math.sin(e.t * 2.2 + e.id) * 0.55;
+      const a = toP + Math.sin(e.t * 2 + e.id) * 0.5;
       e.facing = a;
       e.vx = Math.cos(a) * e.speed;
       e.vy = Math.sin(a) * e.speed;
-      e.sprite.setScale(e.scale * (1 + Math.sin(e.t * 9) * 0.04), e.scale * (1 - Math.sin(e.t * 9) * 0.04));
+      break;
+    }
+    case 'bat': {
+      if (e.state === 'swarm') {
+        e.vx = Math.cos(e.facing) * 95;
+        e.vy = Math.sin(e.t * 7 + e.id) * 40 + clamp(dy, -30, 30);
+        if (e.t > 7) e.state = 'idle';
+        break;
+      }
+      const a = toP + Math.sin(e.t * 5 + e.id * 1.7) * 0.9;
+      e.facing = a;
+      e.vx = Math.cos(a) * e.speed;
+      e.vy = Math.sin(a) * e.speed;
       break;
     }
     case 'charger': {
@@ -31,36 +43,34 @@ export function updateEnemyAI(s: GameScene, e: Enemy, dt: number, slow: number) 
         e.facing = turnToward(e.facing, toP, 4 * dt);
         e.vx = Math.cos(e.facing) * e.speed;
         e.vy = Math.sin(e.facing) * e.speed;
-        if (d < 400 && e.t > 1.1) {
+        if (d < 150 && e.t > 1.1) {
           e.state = 'windup';
           e.t = 0;
           e.facing = toP;
-          const len = 560;
-          s.telegraphs.push({ kind: 'line', x: e.x, y: e.y, x2: e.x + Math.cos(toP) * len, y2: e.y + Math.sin(toP) * len, t: 0, dur: 0.7 });
+          s.telegraphs.push({ kind: 'line', x: e.x, y: e.y - 3, x2: e.x + Math.cos(toP) * 210, y2: e.y - 3 + Math.sin(toP) * 210, t: 0, dur: 0.65 });
         }
       } else if (e.state === 'windup') {
         e.vx = e.vy = 0;
-        e.sprite.setX(e.x + Math.sin(e.t * 70) * 2);
-        if (e.t >= 0.7) {
+        e.sprite.setX(Math.round(e.x + Math.sin(e.t * 70)));
+        if (e.t >= 0.65) {
           e.state = 'charge';
           e.t = 0;
-          s.fx.dust(e.x, e.y, 6);
+          s.fx.dust(e.x, e.y, 4);
         }
       } else if (e.state === 'charge') {
-        const sp = e.mini ? 460 : 560;
+        const sp = e.mini ? 190 : 230;
         e.vx = Math.cos(e.facing) * sp;
         e.vy = Math.sin(e.facing) * sp;
-        if (Math.random() < 0.5) s.fx.dust(e.x, e.y + e.r * 0.6, 1);
+        if (Math.random() < 0.4) s.fx.dust(e.x, e.y, 1);
         const atWall = e.x < ARENA.left + e.r + 2 || e.x > ARENA.right - e.r - 2 || e.y < ARENA.top + e.r + 2 || e.y > ARENA.bottom - e.r - 2;
-        if (e.t > 0.48 || atWall) {
+        if (e.t > 0.5 || atWall) {
           e.state = 'recover';
           e.t = 0;
-          if (atWall) s.fx.shake(0.06);
         }
       } else {
-        e.vx *= 0.88;
-        e.vy *= 0.88;
-        if (e.t > 0.8) {
+        e.vx *= 0.85;
+        e.vy *= 0.85;
+        if (e.t > 0.7) {
           e.state = 'approach';
           e.t = 0;
         }
@@ -69,27 +79,24 @@ export function updateEnemyAI(s: GameScene, e: Enemy, dt: number, slow: number) 
     }
     case 'shooter': {
       e.facing = turnToward(e.facing, toP, 5 * dt);
-      const want = d > 380 ? 1 : d < 250 ? -1 : 0;
+      const want = d > 170 ? 1 : d < 105 ? -1 : 0;
       const strafe = e.id % 2 ? 1 : -1;
-      const mx = Math.cos(toP) * want + Math.cos(toP + Math.PI / 2) * strafe * 0.55;
-      const my = Math.sin(toP) * want + Math.sin(toP + Math.PI / 2) * strafe * 0.55;
-      e.vx = mx * e.speed;
-      e.vy = my * e.speed;
-      if (e.state === 'idle' && e.t > 1.6 + (e.id % 5) * 0.17) {
+      e.vx = (Math.cos(toP) * want + Math.cos(toP + Math.PI / 2) * strafe * 0.5) * e.speed;
+      e.vy = (Math.sin(toP) * want + Math.sin(toP + Math.PI / 2) * strafe * 0.5) * e.speed;
+      if (e.state === 'idle' && e.t > 1.8 + (e.id % 5) * 0.2 && d < 260) {
         e.state = 'aim';
         e.t = 0;
       }
       if (e.state === 'aim') {
-        e.vx *= 0.25;
-        e.vy *= 0.25;
-        e.sprite.setScale(e.scale * (1 + e.t * 0.35));
-        if (e.t > 0.42) {
-          const speed = 250 + s.run.level * 25;
-          const n = e.elite ? 3 : 1;
-          for (let i = 0; i < n; i++) s.spawnEnemyBullet(e.x + Math.cos(e.facing) * e.r, e.y + Math.sin(e.facing) * e.r, e.facing + (i - (n - 1) / 2) * 0.22, speed);
+        e.vx *= 0.2;
+        e.vy *= 0.2;
+        e.flash = Math.floor(e.t * 16) % 2 ? 0.02 : 0;
+        if (e.t > 0.4) {
+          const speed = 95 + s.run.level * 12;
+          const n = e.elite ? 5 : 1;
+          for (let i = 0; i < n; i++) s.spawnEnemyBullet(e.x, e.y - 6, e.facing + (i - (n - 1) / 2) * 0.24, speed);
           e.state = 'idle';
           e.t = 0;
-          e.sprite.setScale(e.scale);
         }
       }
       break;
@@ -97,17 +104,15 @@ export function updateEnemyAI(s: GameScene, e: Enemy, dt: number, slow: number) 
     case 'bomber': {
       if (e.state === 'fuse') {
         e.vx = e.vy = 0;
-        const k = 1 + Math.sin(e.t * 40) * 0.12 + e.t * 0.5;
-        e.sprite.setScale(e.scale * k);
+        e.sprite.setScale(e.scale * (1 + Math.sin(e.t * 40) * 0.1 + e.t * 0.4));
         e.flash = Math.sin(e.t * 40) > 0 ? 0.02 : 0;
-        if (e.t > 0.6) s.killEnemy(e, '自爆兵');
+        if (e.t > 0.6) s.killEnemy(e, '炸弹怪');
         break;
       }
       e.facing = toP;
       e.vx = Math.cos(toP) * e.speed;
       e.vy = Math.sin(toP) * e.speed;
-      e.sprite.rotation += dt * 4;
-      if (d < 82) {
+      if (d < 26) {
         e.state = 'fuse';
         e.t = 0;
       }
