@@ -89,6 +89,17 @@ export type Trap = SpikeTrap | SawTrap;
 const SPAWN_TIER: Record<EnemyKind, 1 | 2 | 3> = { wanderer: 1, bat: 1, charger: 2, shooter: 2, bomber: 2, shield: 3 };
 
 /** How far the camera leans toward the cursor, in pixels. */
+/** Seconds from the start of a spell fusion to the moment it lands; the sound is booked for the same moment. */
+const FUSE_GATHER = 1.25;
+/** The two colours each fusion's energy streams in with. */
+const FUSION_GLOW: Record<FusionId, [string, string]> = {
+  storm: [E.cyan, E.yellow],
+  bladestorm: [E.blue, E.grey],
+  plague: [E.green, E.magenta],
+  starfall: [E.orange, E.yellow],
+  seeker: [E.cyan, E.white],
+  singularity: [E.magenta, E.blue],
+};
 const LEAN_X = 46;
 const LEAN_Y = 28;
 
@@ -143,6 +154,8 @@ export class GameScene extends Phaser.Scene {
   slowT = 0;
   slowScale = 1;
   pendingLevelUps = 0;
+  /** A fusion is playing out: the knight cannot be hurt, and level-ups and the pause menu wait for it. */
+  fusing = false;
   keys!: Record<string, Phaser.Input.Keyboard.Key>;
   autoFire = false;
   god = false;
@@ -266,6 +279,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   openPause() {
+    if (this.fusing) return;
     this.mode = 'pause';
     const fights = this.dungeon.rooms.filter((r) => r.type === 'combat' || r.type === 'horde' || r.type === 'boss');
     ui.pause(
@@ -289,6 +303,7 @@ export class GameScene extends Phaser.Scene {
     this.run = saved ? restoreRun(saved) : newRun(this.params);
     this.combo = 0;
     this.pendingLevelUps = 0;
+    this.fusing = false;
     this.autoFire = false;
     this.safeRoom = undefined;
     if (this.player) {
@@ -1806,7 +1821,7 @@ export class GameScene extends Phaser.Scene {
 
   hurtPlayer(n: number, sx: number, sy: number): boolean {
     const p = this.player;
-    if (this.mode !== 'play' || p.iframes > 0 || this.god) return false;
+    if (this.mode !== 'play' || p.iframes > 0 || this.god || this.fusing) return false;
     const run = this.run;
     let left = n;
     const absorbed = Math.min(run.armor, left);
@@ -1994,18 +2009,19 @@ export class GameScene extends Phaser.Scene {
         if (this.mode === 'play' && dist2(p.x, p.y, pl.x, pl.y) < 14 * 14) this.openChest(p);
         continue;
       }
-      if (!p.magnet && p.t > 0.25 && (dist2(p.x, p.y, pl.x, pl.y) < radius * radius || (p.kind === 'heart' && dist2(p.x, p.y, pl.x, pl.y) < 20 * 20))) p.magnet = true;
+      if (!p.magnet && p.t > 0.25 && (dist2(p.x, p.y, pl.x, pl.y) < radius * radius || (p.kind === 'heart' && dist2(p.x, p.y, pl.x, pl.y) < 20 * 20))) {
+        p.magnet = true;
+        p.t = 0;
+      }
       if (p.magnet && this.mode !== 'dead') {
-        const a = Math.atan2(pl.y - 4 - p.y, pl.x - p.x);
-        p.vx += Math.cos(a) * 900 * dt;
-        p.vy += Math.sin(a) * 900 * dt;
-        const sp = Math.hypot(p.vx, p.vy);
-        if (sp > 360) {
-          p.vx *= 360 / sp;
-          p.vy *= 360 / sp;
-        }
-        p.x += p.vx * dt;
-        p.y += p.vy * dt;
+        // Straight at the player with a speed that ramps up. Steering by acceleration let gems keep their sideways
+        // speed and swing into orbit around a moving player; heading straight in can never miss.
+        const dx = pl.x - p.x;
+        const dy = pl.y - 4 - p.y;
+        const d = Math.hypot(dx, dy) || 1;
+        const step = Math.min(d, Math.min(540, 110 + p.t * 1000) * dt);
+        p.x += (dx / d) * step;
+        p.y += (dy / d) * step;
       } else {
         const f = Math.exp(-dt * 5);
         p.vx *= f;
@@ -2205,7 +2221,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   openLevelUp() {
-    if (this.pendingLevelUps <= 0 || this.mode !== 'play') return;
+    if (this.pendingLevelUps <= 0 || this.mode !== 'play' || this.fusing) return;
     this.mode = 'choose';
     audio.levelUp();
     this.fx.ring(this.player.x, this.player.y - 4, 70, E.yellow, 400);
@@ -2241,35 +2257,101 @@ export class GameScene extends Phaser.Scene {
   }
 
   checkFusions() {
-    if (this.mode === 'dead' || this.mode === 'end' || this.mode === 'title') return;
-    for (const f of fusionsReady(this.run)) this.fuse(f);
+    if (this.mode === 'dead' || this.mode === 'end' || this.mode === 'title' || this.fusing) return;
+    // One at a time: a second fusion that is ready plays after the first one lands.
+    const f = fusionsReady(this.run)[0];
+    if (f) this.fuse(f);
   }
 
-  /** Two spells merge: their icons fly together over the knight's head and the fused spell bursts out. */
+  /**
+   * Two spells merge. Time almost stops and the world darkens; energy streams in from all around onto the knight,
+   * who glows brighter as it arrives, while the two spell icons spiral together over its head. The sound rises
+   * with it, and everything lands on one beat: a flash, a shockwave that throws enemies back, and the new spell.
+   */
   fuse(f: FusionId) {
     const usedUp = applyFusion(this.run, f);
     const p = this.player;
-    const y = p.y - 36;
-    for (const [i, sp] of usedUp.entries()) {
-      const img = this.add.image(p.x + (i ? 28 : -28), y, `spell-${sp.id}`).setDepth(DEPTH.numbers).setScale(2);
-      this.tweens.add({ targets: img, x: p.x, duration: 420, ease: 'Quad.easeIn', onComplete: () => img.destroy() });
+    const G = FUSE_GATHER;
+    const [c1, c2] = FUSION_GLOW[f];
+    this.fusing = true;
+    this.slow(0.12, G + 0.3);
+    audio.fusion(G);
+    this.fx.dim(0.55, 350);
+    this.fx.converge(() => ({ x: p.x, y: p.y - 8 }), G, [c1, c2, E.white], 72);
+    // Rings closing in, each timed to shut on the landing.
+    for (const [at, r, c] of [[0.1, 110, c1], [0.45, 90, c2], [0.8, 70, E.white]] as const) {
+      this.time.delayedCall(at * 1000, () => this.fx.implode(p.x, p.y - 8, r, c, (G - at) * 1000, at > 0.7 ? 2 : 1));
     }
-    this.slow(0.45, 0.6);
-    audio.levelUp();
-    this.time.delayedCall(420, () => {
-      this.fx.flash(E.magenta, 0.35, 420);
-      this.fx.ring(p.x, y, 64, E.magenta, 520, 3);
-      this.fx.ring(p.x, y, 30, E.white, 320, 2);
-      this.fx.sparks(p.x, y, 24, 'gold');
-      this.fx.shake(0.18);
-      this.light.flash(p.x, y, 150, E.magenta, 0.45);
-      const big = this.add.image(p.x, y, `spell-${f}`).setDepth(DEPTH.numbers + 1).setScale(5);
-      this.tweens.add({ targets: big, scale: 2, duration: 240, ease: 'Back.easeOut' });
-      this.tweens.add({ targets: big, y: y - 12, alpha: 0, delay: 1000, duration: 400, onComplete: () => big.destroy() });
-      this.fx.callout(p.x, y - 20, '融合！', E.magenta, true);
-      audio.levelUp();
-      ui.fusionReward(f);
-      this.saveProgress();
+    [0.4, 0.75, 1.05].forEach((at, i) => this.time.delayedCall(at * 1000, () => this.fx.shake(0.02 + i * 0.025)));
+
+    // The knight takes on the light: an additive copy of its sprite, brighter as the energy arrives.
+    const glow = this.add.image(p.x, p.y, p.sprite.texture.key, p.sprite.frame.name).setDepth(DEPTH.particles - 0.5).setBlendMode(Phaser.BlendModes.ADD).setTintFill(hexToNum(c1)).setAlpha(0);
+    const halo = this.add.image(p.x, p.y - 8, 'glow').setDepth(DEPTH.particles - 0.6).setBlendMode(Phaser.BlendModes.ADD).setTint(hexToNum(c1)).setAlpha(0).setScale(1);
+    const icons = usedUp.map((sp) => this.add.image(p.x, p.y - 34, `spell-${sp.id}`).setDepth(DEPTH.numbers).setScale(2));
+    const prog = { k: 0 };
+    this.tweens.add({
+      targets: prog,
+      k: 1,
+      duration: G * 1000,
+      onUpdate: () => {
+        const k = prog.k;
+        const e = k * k;
+        // Two and a half turns, closing in faster at the end.
+        const r = 36 * (1 - e);
+        const spin = e * Math.PI * 5;
+        icons.forEach((img, i) => {
+          const a = spin + i * Math.PI;
+          img.setPosition(Math.round(p.x + Math.cos(a) * r), Math.round(p.y - 34 + Math.sin(a) * r * 0.45)).setScale(2 - e * 0.8);
+        });
+        const s = p.sprite;
+        glow.setTexture(s.texture.key, s.frame.name).setPosition(s.x, s.y).setOrigin(s.originX, s.originY).setFlipX(s.flipX).setScale(s.scaleX, s.scaleY);
+        glow.setAlpha(Math.min(0.9, k * 1.1) * (0.8 + 0.2 * Math.sin(k * 46)));
+        halo.setPosition(p.x, p.y - 8).setAlpha(k * 0.7).setScale(0.6 + k * 2.6);
+      },
+      onComplete: () => icons.forEach((img) => img.destroy()),
+    });
+    this.time.delayedCall(G * 1000, () => this.fusionLands(f, glow, halo));
+  }
+
+  /** The landing beat of a fusion: flash, shockwave, and the new spell over the knight's head. */
+  private fusionLands(f: FusionId, glow: Img, halo: Img) {
+    const p = this.player;
+    const [c1, c2] = FUSION_GLOW[f];
+    const x = p.x;
+    const y = p.y - 8;
+    this.fx.dim(0, 500);
+    this.fx.flash(E.white, 0.85, 170);
+    this.time.delayedCall(110, () => this.fx.flash(c1, 0.35, 560));
+    this.fx.ring(x, y, 180, E.white, 520, 4);
+    this.fx.ring(x, y, 130, c1, 720, 3);
+    this.fx.ring(x, y, 80, c2, 460, 2);
+    this.fx.glowPop(x, y, 150, c1, 520);
+    this.fx.sparks(x, y, 30, 'gold');
+    this.fx.sparks(x, y, 24, 'white');
+    this.fx.burst(x, y, 18);
+    this.fx.shake(0.42);
+    this.light.flash(x, y, 230, c1, 0.6);
+    this.tweens.add({ targets: [glow, halo], alpha: 0, duration: 520, ease: 'Quad.easeOut', onComplete: () => (glow.destroy(), halo.destroy()) });
+    // The shockwave: enemies near the knight are hurt and thrown back, and their bullets are wiped away.
+    const R = 130;
+    for (const e of this.enemies) {
+      if (e.dead || dist2(e.x, e.y, x, y) > R * R) continue;
+      this.damageEnemy(e, 18 * this.damageMult(), { src: '融合冲击', kx: e.x - x, ky: e.y - y, knock: 340, ignoreShield: true });
+    }
+    for (const b of this.eproj) if (!b.dead && dist2(b.x, b.y, x, y) < R * R) this.killProj(b);
+    // The new spell bursts out over the knight's head.
+    const iy = p.y - 36;
+    this.fx.burstRays(x, iy, 70, c1, 1600);
+    const big = this.add.image(x, iy, `spell-${f}`).setDepth(DEPTH.numbers + 1).setScale(6);
+    this.tweens.add({ targets: big, scale: 3, duration: 280, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: big, y: iy - 12, alpha: 0, delay: 1300, duration: 400, onComplete: () => big.destroy() });
+    this.fx.callout(x, iy - 46, SPELLS[f].name, c1, true);
+    ui.fusionReward(f);
+    this.saveProgress();
+    this.time.delayedCall(800, () => {
+      this.fusing = false;
+      this.checkFusions();
+      this.openLevelUp();
     });
   }
 

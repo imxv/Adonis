@@ -68,9 +68,11 @@ body {
   box-shadow: 0 0 0 1px #000;
 }
 
+/* Its own stacking context, so nothing in the HUD (the gun cards use z-index) can rise above a pick panel or menu. */
 .hud {
   position: absolute;
   inset: 0;
+  z-index: 0;
   transition: opacity 0.2s;
 }
 

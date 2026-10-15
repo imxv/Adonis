@@ -28,6 +28,14 @@ class AudioEngine {
   private whooshFilter!: Tone.Filter;
   private zap!: Tone.FMSynth;
   private growl!: Tone.FMSynth;
+  // Spell fusion has voices of its own: its sounds are booked a second ahead and must not hold up the shared ones.
+  private riseNoise!: Tone.NoiseSynth;
+  private riseFilter!: Tone.Filter;
+  private riseTone!: Tone.FMSynth;
+  private fuseSub!: Tone.MembraneSynth;
+  private fuseNoise!: Tone.NoiseSynth;
+  private fuseFilter!: Tone.Filter;
+  private fuseBell!: Tone.PolySynth;
 
   private kit?: StyleKit;
   /** Bus gains; the settings' 0-10 sliders map onto these (defaults 7 and 8 give the original mix). */
@@ -101,6 +109,37 @@ class AudioEngine {
     this.zap.volume.value = -22;
     this.growl = new Tone.FMSynth({ harmonicity: 0.5, modulationIndex: 16, envelope: { attack: 0.12, decay: 1.2, sustain: 0, release: 0.4 }, modulationEnvelope: { attack: 0.2, decay: 1, sustain: 0, release: 0.3 } }).connect(this.sfx);
     this.growl.volume.value = -10;
+
+    this.riseFilter = new Tone.Filter({ frequency: 300, type: 'bandpass', Q: 1.6 }).connect(this.sfx);
+    this.riseNoise = new Tone.NoiseSynth({ noise: { type: 'pink' }, envelope: { attack: 1, decay: 0.01, sustain: 1, release: 0.03 } }).connect(this.riseFilter);
+    this.riseNoise.volume.value = -13;
+    this.riseTone = new Tone.FMSynth({
+      harmonicity: 2,
+      modulationIndex: 3,
+      oscillator: { type: 'sine' },
+      modulation: { type: 'triangle' },
+      envelope: { attack: 1, decay: 0.01, sustain: 1, release: 0.04 },
+      modulationEnvelope: { attack: 1, decay: 0.01, sustain: 1, release: 0.04 },
+    } as any).connect(this.sfx);
+    this.riseTone.volume.value = -19;
+    this.fuseSub = new Tone.MembraneSynth({ pitchDecay: 0.12, octaves: 6, envelope: { attack: 0.001, decay: 0.9, sustain: 0, release: 0.3 } }).connect(this.sfx);
+    this.fuseSub.volume.value = -5;
+    this.fuseFilter = new Tone.Filter(6000, 'lowpass').connect(this.sfx);
+    this.fuseNoise = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.9, sustain: 0, release: 0.3 } }).connect(this.fuseFilter);
+    this.fuseNoise.volume.value = -12;
+    this.fuseBell = new Tone.PolySynth({
+      voice: Tone.FMSynth,
+      maxPolyphony: 8,
+      options: {
+        harmonicity: 2.01,
+        modulationIndex: 6,
+        oscillator: { type: 'sine' },
+        modulation: { type: 'sine' },
+        envelope: { attack: 0.004, decay: 1.4, sustain: 0.08, release: 1.6 },
+        modulationEnvelope: { attack: 0.004, decay: 0.6, sustain: 0, release: 0.5 },
+      },
+    } as any).connect(this.sfx);
+    this.fuseBell.volume.value = -13;
 
     this.ready = true;
     if (this.kit) this.setStyle(this.kit);
@@ -276,6 +315,44 @@ class AudioEngine {
     });
   }
 
+  /**
+   * Spell fusion: a riser that swells for `gather` seconds, with notes climbing closer and closer together,
+   * then lands on a deep boom, a crash and a bright chord. Booked on the audio clock itself rather than
+   * Tone's look-ahead clock, so the landing hits on the same frame as the flash the scene schedules.
+   */
+  fusion(gather: number) {
+    this.safe(() => {
+      const t0 = Tone.getContext().currentTime + 0.02;
+      const t1 = t0 + gather;
+      this.riseNoise.envelope.attack = gather * 0.9;
+      this.sweep(this.riseFilter, 260, 7000, t0, gather);
+      this.riseNoise.triggerAttack(t0, 0.9);
+      this.riseNoise.triggerRelease(t1);
+      this.riseTone.envelope.attack = gather * 0.8;
+      this.riseTone.triggerAttack(this.note(0, -1), t0, 0.7);
+      this.riseTone.frequency.exponentialRampToValueAtTime(this.note(0, 2), t1);
+      this.riseTone.triggerRelease(t1);
+      const n = 12;
+      for (let i = 0; i < n; i++) {
+        const q = i / n;
+        this.sparkle.triggerAttackRelease(this.note(i, 1), 0.06, t0 + gather * (1 - (1 - q) ** 1.7), 0.3 + q * 0.5);
+      }
+      // Let the music step back while it builds, and come home after the landing.
+      const g = this.music.gain;
+      g.cancelScheduledValues(t0);
+      g.setValueAtTime(this.vol.music, t0);
+      g.linearRampToValueAtTime(this.vol.music * 0.3, t0 + 0.3);
+      g.setValueAtTime(this.vol.music * 0.3, t1 + 0.3);
+      g.linearRampToValueAtTime(this.vol.music, t1 + 1.3);
+
+      this.fuseSub.triggerAttackRelease('C1', 0.8, t1, 1);
+      this.sweep(this.fuseFilter, 7000, 180, t1, 1);
+      this.fuseNoise.triggerAttackRelease(0.9, t1, 0.9);
+      [0, 2, 4, 5, 7, 9].forEach((d, i) => this.fuseBell.triggerAttackRelease(this.note(d, 1), 1.6, t1 + i * 0.012, 0.75));
+      [9, 7, 5, 4, 2].forEach((d, i) => this.sparkle.triggerAttackRelease(this.note(d, 2), 0.1, t1 + 0.18 + i * 0.07, 0.5));
+    });
+  }
+
   select() {
     this.safe(() => {
       const t = Tone.now();
@@ -306,8 +383,8 @@ class AudioEngine {
       this.sweep(this.boomFilter, 700, 300, t, 0.2);
       this.boomNoise.triggerAttackRelease(0.18, t, 0.5);
       this.music.gain.cancelScheduledValues(t);
-      this.music.gain.setValueAtTime(0.15, t);
-      this.music.gain.linearRampToValueAtTime(0.42, t + 0.8);
+      this.music.gain.setValueAtTime(this.vol.music * 0.35, t);
+      this.music.gain.linearRampToValueAtTime(this.vol.music, t + 0.8);
     });
   }
 
