@@ -16,6 +16,7 @@ import { DIRS, DIR_VEC } from './dirs';
 import { bossDeath, spawnBoss, updateBoss } from './boss';
 import { T, collide, generateDungeon, openSpot, randomFloorIn, raycast, roomAt, roomCenter, solidAt, type DRoom, type Dungeon } from './dungeon';
 import { updateEnemyAI } from './enemyAI';
+import { FlowField } from './flow';
 import {
   ELEMENT_COLOR,
   type Enemy,
@@ -119,6 +120,8 @@ export class GameScene extends Phaser.Scene {
   worldLabels: Img[] = [];
   trapdoor?: { img: Img; label: Img; final: boolean };
   dungeon!: Dungeon;
+  /** Walking distances to the player, for enemies finding their way around cover. */
+  flow!: FlowField;
   /** The room the player is in (or last stood in, while in a corridor). */
   room?: DRoom;
   /** The room whose fight is running; its gates are shut. */
@@ -149,6 +152,12 @@ export class GameScene extends Phaser.Scene {
   params = new URLSearchParams(location.search);
   /** The last room the player stood in that was safe (cleared): where a continued run resumes. */
   private safeRoom?: DRoom;
+  /** Revolver cylinder over the knight's head while reloading. */
+  private reloadIcon!: Img;
+  private reloadShown = -1;
+  private reloadPopping = false;
+  /** Seconds left of the gun-swap flourish. */
+  private swapT = 0;
   private camX = 0;
   private camY = 0;
   private kickX = 0;
@@ -170,6 +179,7 @@ export class GameScene extends Phaser.Scene {
     this.spellGfx = this.add.graphics().setDepth(DEPTH.pet - 0.5);
     this.gfx = this.add.graphics().setDepth(DEPTH.gfx);
     this.cursorGfx = this.add.graphics().setDepth(DEPTH.cursor);
+    this.reloadIcon = this.add.image(0, 0, 'cyl-0').setDepth(DEPTH.numbers - 0.2).setVisible(false);
     this.input.mouse?.disableContextMenu();
     const kb = this.input.keyboard!;
     this.keys = kb.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,ESC,F,SHIFT,Q,E') as Record<string, Phaser.Input.Keyboard.Key>;
@@ -338,6 +348,7 @@ export class GameScene extends Phaser.Scene {
     const seed = this.run.seed + this.run.level * 7919;
     const d = generateDungeon(new Rng(seed), this.run.level, this.run.diff.traps);
     this.dungeon = d;
+    this.flow = new FlowField(d);
     this.bg?.destroy();
     this.bg = this.add.image(0, 0, buildLevel(this, kit, d, seed)).setOrigin(0).setDepth(DEPTH.bg);
     this.decals?.destroy();
@@ -905,6 +916,7 @@ export class GameScene extends Phaser.Scene {
       this.updateRoomState();
     }
     this.updateProjectiles(dt);
+    this.flow.update(this.player.x, this.player.y);
     this.updateEnemies(dt);
     updatePets(this, dt);
     this.updatePickups(dt);
@@ -1081,8 +1093,8 @@ export class GameScene extends Phaser.Scene {
     const run = this.run;
     if (this.mode !== 'play' || !run || run.weapons.length < 2) return;
     run.held = (run.held + 1) % run.weapons.length;
-    audio.select();
-    ui.toast(run.weapons[run.held].def.name, 700);
+    this.swapT = 0.2;
+    audio.swap();
   }
 
   useSkill() {
@@ -1118,7 +1130,10 @@ export class GameScene extends Phaser.Scene {
         if (w.reloadT! <= 0) {
           w.reloadT = 0;
           w.ammo = mag;
-          if (i === run.held) audio.reload(true);
+          if (i === run.held) {
+            audio.reload(true);
+            this.reloadDone();
+          }
         }
       }
       const active = i === run.held || dual;
@@ -2349,7 +2364,13 @@ export class GameScene extends Phaser.Scene {
         const swing = held.def.kind === 'slash' ? (p.punch - 0.5) * 2.4 * (left ? -1 : 1) : 0;
         p.gun.setTexture(`gun-${held.def.id}`).setOrigin(held.def.grip[0], held.def.grip[1]);
         p.gun.setPosition(Math.round(held.def.kind === 'slash' ? handX : gx), Math.round(held.def.kind === 'slash' ? handY : gy));
-        p.gun.setRotation(p.aim + swing).setFlipY(left).setDepth(Math.sin(p.aim) < -0.3 ? DEPTH.player - 0.1 : DEPTH.gun);
+        // Reloading tips the muzzle down; a fresh swap swings the gun up from the hip.
+        const reloading = !!held.def.mag && (held.reloadT ?? 0) > 0;
+        const tilt = reloading ? (left ? -0.75 : 0.75) : 0;
+        this.swapT = Math.max(0, this.swapT - dt);
+        const sw = this.swapT / 0.2;
+        const flourish = sw * 2.4 * (left ? -1 : 1);
+        p.gun.setRotation(p.aim + swing + tilt + flourish).setScale(1, 1 - sw * 0.7).setFlipY(left).setDepth(Math.sin(p.aim) < -0.3 ? DEPTH.player - 0.1 : DEPTH.gun);
       }
       const dual = p.skillT > 0 && run.weapons.length > 1;
       p.gun2.setVisible(dual && this.mode === 'play');
@@ -2439,18 +2460,7 @@ export class GameScene extends Phaser.Scene {
       }
     }
     const vg = this.gfx;
-    const heldGun = run?.weapons[run.held];
-    if (p && heldGun?.def.mag && (heldGun.reloadT ?? 0) > 0 && this.mode === 'play') {
-      const k = 1 - heldGun.reloadT! / Math.max(0.01, reloadTime(heldGun, run.mods.reload));
-      const bx = Math.round(p.x - 8);
-      const by = Math.round(p.y - 24);
-      vg.fillStyle(hexToNum(E.ink), 1);
-      vg.fillRect(bx - 1, by - 1, 18, 4);
-      vg.fillStyle(hexToNum(E.slateD), 1);
-      vg.fillRect(bx, by, 16, 2);
-      vg.fillStyle(hexToNum(E.white), 1);
-      vg.fillRect(bx, by, Math.round(16 * k), 2);
-    }
+    this.drawReload(dt);
     for (const v of this.visuals) {
       const k = 1 - v.t / v.dur;
       if (v.kind === 'slash') {
@@ -2476,6 +2486,64 @@ export class GameScene extends Phaser.Scene {
         this.strokePts(vg, v.pts);
       }
     }
+  }
+
+  /**
+   * Over the knight's head while reloading: a spinning revolver cylinder whose six chambers fill as the
+   * reload runs, each with a little bump. When it is done the cylinder pops and fades.
+   */
+  drawReload(dt: number) {
+    const run = this.run;
+    const p = this.player;
+    const icon = this.reloadIcon;
+    const held = run?.weapons[run.held];
+    const reloading = !!held?.def.mag && (held.reloadT ?? 0) > 0 && this.mode === 'play';
+    if (!reloading) {
+      if (icon.visible && !this.reloadPopping) icon.setVisible(false);
+      if (icon.visible) icon.setPosition(Math.round(p.x), Math.round(p.y - 29));
+      return;
+    }
+    const k = 1 - held!.reloadT! / Math.max(0.01, reloadTime(held!, run.mods.reload));
+    const n = Math.min(6, Math.floor(k * 7));
+    if (!icon.visible || this.reloadPopping) {
+      this.tweens.killTweensOf(icon);
+      this.reloadPopping = false;
+      this.reloadShown = -1;
+      icon.setVisible(true).setAlpha(1).setScale(0);
+      this.tweens.add({ targets: icon, scale: 1, duration: 140, ease: 'Back.easeOut' });
+    }
+    if (n !== this.reloadShown) {
+      // Each round in: the cylinder clicks round a chamber (60 degrees) with a little bump.
+      if (this.reloadShown >= 0 && n > this.reloadShown) {
+        icon.setScale(1.3).setRotation(-Math.PI / 3);
+        this.tweens.add({ targets: icon, scale: 1, rotation: 0, duration: 110, ease: 'Back.easeOut' });
+        audio.reload(true);
+      }
+      this.reloadShown = n;
+      icon.setTexture(`cyl-${n}`);
+    }
+    icon.setPosition(Math.round(p.x), Math.round(p.y - 29));
+    void dt;
+  }
+
+  reloadDone() {
+    const icon = this.reloadIcon;
+    if (!icon.visible) return;
+    this.reloadPopping = true;
+    this.tweens.killTweensOf(icon);
+    icon.setTexture('cyl-6').setRotation(0);
+    this.tweens.add({
+      targets: icon,
+      scale: 1.8,
+      alpha: 0,
+      duration: 220,
+      ease: 'Quad.easeOut',
+      onComplete: () => {
+        icon.setVisible(false).setAlpha(1).setScale(1);
+        this.reloadPopping = false;
+      },
+    });
+    this.fx.ring(icon.x, icon.y, 12, E.yellow, 220, 1);
   }
 
   /** Entrance tweens, driven per frame since the enemy loop repositions sprites every frame. */

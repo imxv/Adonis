@@ -152,6 +152,21 @@ export function buildCommonTextures(scene: Phaser.Scene) {
   saw.ellipse(7, 7, 2, 2, 'r').set(7, 7, 'R').set(4, 4, 'w');
   add(scene, 'saw', saw.render());
 
+  // Revolver cylinder shown over the knight's head while reloading: chambers fill one by one.
+  for (let n = 0; n <= 6; n++) {
+    const cyl = new Grid(13, 13);
+    cyl.ellipse(6, 6, 6, 6, 'D').ellipse(6, 6, 5, 5, 'G').ellipse(6, 6, 1.2, 1.2, 'D').set(6, 6, 'n');
+    for (let k = 0; k < 6; k++) {
+      const a = -Math.PI / 2 + (k / 6) * Math.PI * 2;
+      const cx = Math.round(6 + Math.cos(a) * 3.4);
+      const cy = Math.round(6 + Math.sin(a) * 3.4);
+      if (k < n) cyl.rect(cx - 1, cy - 1, 2, 2, 'y').set(cx - 1, cy - 1, 'Y');
+      else cyl.rect(cx - 1, cy - 1, 2, 2, 'e');
+    }
+    cyl.set(3, 2, 'w');
+    add(scene, `cyl-${n}`, cyl.render());
+  }
+
   // Pickups.
   const gemCols: Record<string, Ramp> = { 1: ramp(E.blue, E.cyan, E.blueD), 2: ramp(E.green, '#a8f07a', E.greenD), 3: ramp(E.red, E.pink, E.redD) };
   for (const [tier, r] of Object.entries(gemCols)) {

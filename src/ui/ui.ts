@@ -14,6 +14,7 @@ import type { SavedRun } from '../save';
 import type { CodexTab } from './codex';
 import { $, diamond, el, icon, px, pxBlock } from './pxhtml';
 import { MenuNav, confirmBox, menuRow, openBoard, openCodex, openHelp, openSettings, type Layer, type LayerHost } from './screens';
+import { WeaponCards, type GunView } from './weaponCards';
 
 /** The UI is laid out on the same 480x270 pixel grid as the game and zoomed with it. */
 export const UI_W = 480;
@@ -44,7 +45,7 @@ export interface HudData {
   xp: number;
   xpNext: number;
   xpLevel: number;
-  guns: { id: string; name: string; level: number; held: boolean; kind: string; ammo?: number; mag?: number; reload?: number }[];
+  guns: GunView[];
   skill: number;
   skillActive: boolean;
   spells: { id: string; level: number; evolved: boolean; fused: boolean }[];
@@ -64,16 +65,6 @@ const CELL_W = 9;
 const CELL_H = 7;
 const FLOOR_NAMES = ['一', '二', '三', '四'];
 
-const NO_MAG: Record<string, string> = { beam: '能量', chain: '能量', slash: '近战', boomerang: '回收' };
-
-/** Ammo as pixels: a pip per round for small magazines, a bar for big ones, a red bar while reloading. */
-function ammoHtml(g: HudData['guns'][number], width: number, mini = false) {
-  if (!g.mag) return mini ? '' : px(NO_MAG[g.kind] ?? '', DIM);
-  if (g.reload !== undefined) return `<div class="abar re" style="width:${width}px"><i style="width:${Math.round(g.reload * width)}px"></i></div>${mini ? '' : px('换弹', E.hot)}`;
-  const ammo = g.ammo ?? g.mag;
-  if (!mini && g.mag <= 16) return `<div class="pips">${Array.from({ length: g.mag }, (_, i) => `<i class="${i < ammo ? '' : 'e'}"></i>`).join('')}</div>`;
-  return `<div class="abar" style="width:${width}px"><i style="width:${Math.round((ammo / g.mag) * width)}px"></i></div>`;
-}
 
 export interface TitleActions {
   save: () => SavedRun | null;
@@ -143,6 +134,7 @@ class UI implements LayerHost {
       <div class="toast"></div>`;
     this.hud.style.opacity = '0';
     this.root.appendChild(this.hud);
+    this.cards = new WeaponCards($('.wbar', this.hud));
     window.addEventListener('keydown', (e) => {
       if (this.choiceKeys) return;
       const top = this.layers[this.layers.length - 1];
@@ -187,19 +179,7 @@ class UI implements LayerHost {
     bar('xp', d.xp, d.xpNext);
     this.set('[data-n=xp]', px(`LV${d.xpLevel}`, E.cyan, { small: true }));
 
-    // Bottom left: the gun in hand, the holstered one, and the dual-wield skill.
-    const held = d.guns.find((g) => g.held);
-    const off = d.guns.find((g) => !g.held);
-    const main = held
-      ? `<div class="wslot main panel"><div class="wic">${icon(`gun-${held.id}`, (ICON_SIZE[`gun-${held.id}`]?.[0] ?? 99) * 2 <= 40 ? 2 : 1)}</div><div class="wtx"><div class="wn">${px(held.name, E.white)}${held.level > 1 ? px(`Lv${held.level}`, E.yellow, { small: true }) : ''}</div>${ammoHtml(held, 64)}</div></div>`
-      : '';
-    const sub = off
-      ? `<div class="wslot sub panel">${icon(`gun-${off.id}`)}${ammoHtml(off, 30, true)}<span class="key">${px('Q', DIM, { small: true })}</span></div>`
-      : `<div class="wslot sub panel empty">${px('副武器', E.slate)}</div>`;
-    const skill = `<div class="slot panel skill ${d.skillActive ? 'on' : ''}">${px('双持', d.skillActive ? E.cyan : E.white)}<i class="cd" data-skill></i><span class="key">${px('E', DIM, { small: true })}</span></div>`;
-    this.set('.wbar', main + sub + skill);
-    const scd = $('[data-skill]', this.hud) as HTMLElement | null;
-    if (scd) scd.style.height = `${Math.round((1 - d.skill) * 16)}px`;
+    this.cards.update(d.guns, d.skill, d.skillActive);
 
     const spells = d.spells
       .map((s) => `<div class="sp panel ${s.fused ? 'fused' : s.evolved ? 'evo' : ''}">${icon(`spell-${s.id}`)}<span class="lv">${s.fused ? px('融', E.magenta) : px(s.evolved ? '★' : String(s.level), E.yellow, { small: !s.evolved })}</span></div>`)
@@ -277,6 +257,7 @@ class UI implements LayerHost {
   }
 
   private iconRows: Record<string, { el: HTMLImageElement; full: boolean; timer?: number }[]> = { hearts: [], shields: [] };
+  private cards!: WeaponCards;
 
   /**
    * Hearts and shields as icons, no numbers. A lost one flashes white and shakes as it goes dark;

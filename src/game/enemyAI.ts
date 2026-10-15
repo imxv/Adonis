@@ -1,6 +1,7 @@
 import { angleDiff, clamp } from '../core/math';
 import { raycast } from './dungeon';
 import type { Enemy } from './entities';
+import { lineClear } from './flow';
 import type { GameScene } from './GameScene';
 
 export const turnToward = (a: number, target: number, maxStep: number) => a + clamp(angleDiff(a, target), -maxStep, maxStep);
@@ -10,7 +11,10 @@ export function updateEnemyAI(s: GameScene, e: Enemy, dt: number, slow: number) 
   const dx = p.x - e.x;
   const dy = p.y - e.y;
   const d = Math.hypot(dx, dy) || 1;
-  const toP = Math.atan2(dy, dx);
+  // Straight at the player when nothing is in the way, otherwise around the cover.
+  const direct = Math.atan2(dy, dx);
+  const los = lineClear(s.dungeon, e.x, e.y, direct, d, e.r);
+  const toP = los ? direct : (s.flow.heading(e.x, e.y) ?? direct);
   e.t += dt * (slow || 0);
   if (slow === 0) {
     e.vx = e.vy = 0;
@@ -80,11 +84,11 @@ export function updateEnemyAI(s: GameScene, e: Enemy, dt: number, slow: number) 
     }
     case 'shooter': {
       e.facing = turnToward(e.facing, toP, 5 * dt);
-      const want = d > 170 ? 1 : d < 105 ? -1 : 0;
-      const strafe = e.id % 2 ? 1 : -1;
+      const want = !los || d > 170 ? 1 : d < 105 ? -1 : 0;
+      const strafe = los ? (e.id % 2 ? 1 : -1) : 0;
       e.vx = (Math.cos(toP) * want + Math.cos(toP + Math.PI / 2) * strafe * 0.5) * e.speed;
       e.vy = (Math.sin(toP) * want + Math.sin(toP + Math.PI / 2) * strafe * 0.5) * e.speed;
-      if (e.state === 'idle' && e.t > 1.8 + (e.id % 5) * 0.2 && d < 260) {
+      if (e.state === 'idle' && e.t > 1.8 + (e.id % 5) * 0.2 && d < 260 && los) {
         e.state = 'aim';
         e.t = 0;
       }

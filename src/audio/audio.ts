@@ -247,6 +247,17 @@ class AudioEngine {
     this.safe(() => this.sparkle.triggerAttackRelease(this.note(streak % 12, 2), 0.08, Tone.now(), 0.7));
   }
 
+  /** Swapping guns: a short swish and a catch. */
+  swap() {
+    this.safe(() => {
+      if (!this.gate('swap', 100)) return;
+      const t = this.at(this.whoosh);
+      this.sweep(this.whooshFilter, 1400, 3200, t, 0.08);
+      this.whoosh.triggerAttackRelease(0.07, t, 0.45);
+      this.pop.triggerAttackRelease('E5', 0.025, this.at(this.pop), 0.3);
+    });
+  }
+
   /** A soft mechanical click: the magazine out, or the slide racked back when it is done. */
   reload(done: boolean) {
     this.safe(() => {
