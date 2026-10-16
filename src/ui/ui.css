@@ -1405,6 +1405,10 @@ canvas.bt {
   margin-top: 1px;
 }
 
+.pk-card.hero .pk-face > * {
+  flex-shrink: 0;
+}
+
 .hero-perk .lines {
   align-items: center;
 }

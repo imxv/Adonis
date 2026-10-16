@@ -25,7 +25,7 @@ export const HEROES: Record<HeroId, HeroDef> = {
     title: '爱神所爱的猎人',
     desc: '死在野猪獠牙下的美少年，血落处开出银莲花。他一次次醒来。',
     weapon: 'bow',
-    perk: '猎人的脚步：移动速度 +10%，暴击率 +8%',
+    perk: '移速 +10%，暴击率 +8%',
     apply: (m) => {
       m.moveSpeed += 0.1;
       m.critChance += 0.08;
@@ -38,7 +38,7 @@ export const HEROES: Record<HeroId, HeroDef> = {
     title: '误入画中的旅人',
     desc: '一身铁甲闯进了这幅画，也想去看看那头野猪。',
     weapon: 'pistol',
-    perk: '重甲：护甲上限 +1',
+    perk: '护甲上限 +1',
     apply: (m) => {
       m.maxArmor += 1;
     },
