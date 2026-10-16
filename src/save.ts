@@ -49,6 +49,8 @@ export interface ScoreEntry {
   secs: number;
   diff: DifficultyId;
   date: number;
+  /** Best style rank reached (D to SS); missing on runs from before the beat game. */
+  rank?: string;
 }
 
 const RUN_KEY = 'adonis.run.v1';

@@ -58,6 +58,14 @@ supervisorctl status adonis-web adonis-updater
 
 自动更新仅负责应用版本。修改本目录下部署器本身后，需要按上述维护步骤更新开发机上的脚本，并定向重启对应进程。
 
+## 全服排行榜
+
+`serve.py` 同时提供排行榜接口 `/api/scores`：`GET` 返回前 50 名和总局数（带 `?pid=` 时标出该浏览器自己的成绩），`POST` 提交一局成绩。成绩存在 `--scores` 指定的 JSON 文件（默认 `/root/project/adonis-deploy/scores.json`），保留前 500 名，原子写入；同一来源 8 秒内只能提交一次，明显不可能的分数会被拒绝。
+
+游戏连不上接口时（本地开发、旧版 `serve.py`）会退回本机排行榜，不影响游戏。
+
+`serve.py` 改动不会随自动发布生效，需要按上面「首次安装 / 维护部署脚本」的步骤把新 `serve.py` 写到开发机，再执行 `supervisorctl restart adonis-web`。
+
 ## 检查部署器
 
 ```bash

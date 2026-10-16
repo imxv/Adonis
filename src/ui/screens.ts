@@ -1,10 +1,11 @@
 import { audio } from '../audio/audio';
 import { DIFFICULTIES, type DifficultyId } from '../data/difficulty';
 import { E } from '../pixel/palette';
-import { topScores, type ScoreEntry } from '../save';
+import { topScores } from '../save';
+import { fetchGlobal, playerName, setPlayerName, type BoardReply } from '../net/board';
 import { DEFAULT_SETTINGS, settings, type Settings } from '../settings';
 import type { CodexEntry, CodexTab, Pic } from './codex';
-import { diamond, el, img, px, pxBlock } from './pxhtml';
+import { diamond, el, icon, img, px, pxBlock } from './pxhtml';
 
 const GREY = E.grey;
 const DIM = E.greyM;
@@ -378,30 +379,134 @@ const fmtDate = (t: number) => {
   return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 };
 
+const STYLE_COLOR: Record<string, string> = { D: E.greyM, C: E.green, B: E.cyan, A: E.yellow, S: E.orange, SS: E.hot };
+const PODIUM = [
+  { place: 1, medal: 'crown', color: E.yellow, height: 30 },
+  { place: 2, medal: 'medal-2', color: E.grey, height: 22 },
+  { place: 3, medal: 'medal-3', color: E.clay, height: 16 },
+];
+
+interface BoardRow {
+  name: string;
+  score: number;
+  floor: number;
+  kills: number;
+  secs: number;
+  diff: DifficultyId;
+  victory: boolean;
+  rank?: string;
+  you: boolean;
+}
+
+const result = (r: BoardRow) => (r.victory ? px('通关', E.yellow) : px(`第${FLOOR_CN[r.floor - 1] ?? r.floor}层`, GREY));
+const FLOOR_CN = ['一', '二', '三', '四', '五', '六'];
+
+/** First, second and third on pedestals that rise up, first place crowned and glittering. */
+function podium(rows: BoardRow[]): string {
+  const order = [1, 0, 2];
+  return `<div class="podium">${order
+    .map((i) => {
+      const r = rows[i];
+      const p = PODIUM[i];
+      const sparkles = i === 0 ? [0, 1, 2, 3].map((k) => `<i class="spk s${k}">${icon('sparkle')}</i>`).join('') : '';
+      if (!r) return `<div class="pd pd${p.place} vacant" style="--d:${i * 120}ms"><div class="pd-name">${px('虚位以待', DIM)}</div><div class="pd-block" style="height:${p.height}px">${px(String(p.place), DIM, { small: true, scale: 2 })}</div></div>`;
+      return `<div class="pd pd${p.place} ${r.you ? 'you' : ''}" style="--d:${i * 120}ms">
+        <div class="pd-top">${sparkles}<div class="pd-medal">${icon(p.medal, 2)}</div><div class="pd-av">${icon('knight', 2)}</div></div>
+        <div class="pd-name">${px(r.name, r.you ? E.yellow : E.white)}</div>
+        <div class="pd-score">${px(String(r.score), p.color, { small: true, scale: i === 0 ? 2 : 1 })}</div>
+        <div class="pd-meta">${result(r)}${r.rank ? px(r.rank, STYLE_COLOR[r.rank] ?? GREY, { small: true }) : ''}</div>
+        <div class="pd-block" style="height:${p.height}px;--c:${p.color}">${px(String(p.place), E.ink, { small: true, scale: 2, outline: false })}</div>
+      </div>`;
+    })
+    .join('')}</div>`;
+}
+
+function listRows(rows: BoardRow[], from: number): string {
+  return rows
+    .map((r, k) => {
+      const i = from + k;
+      const cells = [
+        px(String(i + 1), GREY, { small: true }),
+        px(r.name, r.you ? E.yellow : E.white),
+        px(String(r.score), E.yellow, { small: true }),
+        result(r),
+        r.rank ? px(r.rank, STYLE_COLOR[r.rank] ?? GREY, { small: true }) : '',
+        px(String(r.kills), E.white, { small: true }),
+        px(fmtTime(r.secs), E.white, { small: true }),
+        px(DIFFICULTIES[r.diff]?.name ?? '', r.diff === 'hard' ? HOT : GREY),
+      ];
+      return `<div class="bd-row ${r.you ? 'me' : ''}" style="--d:${300 + k * 45}ms">${cells.map((c) => `<div>${c}</div>`).join('')}</div>`;
+    })
+    .join('');
+}
+
+/**
+ * The leaderboard: everyone's runs from the server (falling back to this browser's when it is out of reach),
+ * the top three on a podium, the rest below, your own runs picked out, and your name to sign them with.
+ */
 export function openBoard(host: LayerHost, highlight?: number) {
   const ov = frame('RANKING', '排行榜', 'board');
   const body = ov.querySelector('.fbody') as HTMLElement;
-  ov.querySelector('.fsub')!.innerHTML = px('本机记录 · 前十名', DIM);
-  const list: ScoreEntry[] = topScores().slice(0, 10);
-  const head = ['名次', '得分', '结果', '击杀', '等级', '用时', '难度', '日期'];
-  if (!list.length) body.innerHTML = `<div class="bd-empty">${px('还没有记录。去冒险吧，结束一局就会上榜。', GREY)}</div>`;
-  else
-    body.innerHTML = `<div class="bd-table"><div class="bd-row head">${head.map((h) => `<div>${px(h, DIM)}</div>`).join('')}</div>${list
-      .map((e, i) => {
-        const cells = [
-          px(String(i + 1), i === 0 ? E.yellow : i < 3 ? E.white : GREY, { small: true }),
-          px(String(e.score), E.yellow, { small: true }),
-          px(e.victory ? '通关' : `第${['一', '二', '三'][e.floor - 1] ?? e.floor}层`, e.victory ? E.yellow : GREY),
-          px(String(e.kills), E.white, { small: true }),
-          px(`Lv${e.lv}`, E.white, { small: true }),
-          px(fmtTime(e.secs), E.white, { small: true }),
-          px(DIFFICULTIES[e.diff]?.name ?? '', e.diff === 'hard' ? HOT : GREY),
-          px(fmtDate(e.date), DIM, { small: true }),
-        ];
-        return `<div class="bd-row ${e.date === highlight ? 'me' : ''}">${cells.map((c) => `<div>${c}</div>`).join('')}</div>`;
-      })
-      .join('')}</div><div class="bd-note">${pxBlock('得分 = 击杀×10 + 深入层数×1000 + 等级×50；通关再加 3000，越快加得越多；困难 ×1.3，简单 ×0.8。', DIM, 430)}</div>`;
-  openFrame(host, ov, () => {});
+  const sub = ov.querySelector('.fsub') as HTMLElement;
+  let tab = 0;
+  let global: BoardReply | null | undefined;
+  const local = (): BoardRow[] => topScores().map((e) => ({ ...e, name: playerName() || '我', you: e.date === highlight }));
+
+  const render = () => {
+    const online = tab === 0;
+    const rows: BoardRow[] = online ? (global?.top ?? []) : local();
+    const status = online
+      ? global === undefined
+        ? px('连接全服排行榜……', DIM)
+        : global === null
+          ? px('全服排行榜暂时连不上，先看看本机记录', HOT)
+          : px(`全服共 ${global.runs} 局${global.best ? ` · 你的最佳第 ${global.best} 名` : ''}`, GREY)
+      : px('这台电脑上的记录', GREY);
+    sub.innerHTML = status;
+    const tabs = `<div class="bd-tabs">${['全服', '本机'].map((t, i) => `<div class="cx-tab ${i === tab ? 'sel' : ''}" data-i="${i}">${px(t, E.white)}</div>`).join('')}<div class="bd-me">${px('署名', DIM)}<span class="nm">${px(playerName() || '未署名', playerName() ? E.yellow : DIM)}</span><span class="edit">${px('改名', E.white)}</span></div></div>`;
+    const empty = online && global === undefined ? '' : `<div class="bd-empty">${px(online ? '还没有人上榜。打完一局，你就是第一个。' : '还没有记录。去冒险吧，结束一局就会上榜。', GREY)}</div>`;
+    body.innerHTML = tabs + (rows.length ? podium(rows) + `<div class="bd-list">${listRows(rows.slice(3, 10), 3)}</div>` : empty);
+    body.querySelectorAll<HTMLElement>('.bd-tabs .cx-tab').forEach((t) =>
+      t.addEventListener('click', () => {
+        tab = Number(t.dataset.i);
+        audio.hover();
+        render();
+      }),
+    );
+    (body.querySelector('.bd-me .edit') as HTMLElement).addEventListener('click', () => rename());
+  };
+
+  // Typing a name: the field swallows its own keys, so the game and the menus never see them.
+  const rename = () => {
+    const slot = body.querySelector('.bd-me .nm') as HTMLElement;
+    slot.innerHTML = '<input class="pxinput" maxlength="12" spellcheck="false">';
+    const input = slot.querySelector('input') as HTMLInputElement;
+    input.value = playerName();
+    input.focus();
+    input.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Enter') {
+        setPlayerName(input.value);
+        audio.select();
+        render();
+      } else if (e.key === 'Escape') render();
+    });
+    input.addEventListener('blur', () => render());
+  };
+
+  render();
+  fetchGlobal().then((reply) => {
+    global = reply;
+    if (reply === null && tab === 0 && topScores().length) tab = 1;
+    render();
+  });
+  openFrame(host, ov, (e) => {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'a' || e.key === 'd') {
+      tab = 1 - tab;
+      audio.hover();
+      render();
+    }
+  });
 }
 
 // ---------------------------------------------------------------- confirm

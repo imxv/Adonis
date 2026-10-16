@@ -43,6 +43,8 @@ export class Rhythm {
   onBeat = false;
   streak = 0;
   style = 0;
+  /** The best style rank reached this run. */
+  peak = 0;
   private sinceGain = 9;
   /** A stand-in clock for when no music is playing, counted in frames so it keeps the game's own time. */
   private quietPos = 0;
@@ -64,6 +66,11 @@ export class Rhythm {
     this.sinceGain += dt;
     if (this.sinceGain > 1.5) this.style = Math.max(0, this.style - dt * (25 + this.rankIndex() * 18));
     this.tally.maxRank = Math.max(this.tally.maxRank, this.rankIndex());
+    this.peak = Math.max(this.peak, this.rankIndex());
+  }
+
+  peakRank(): Rank {
+    return RANKS[this.peak].id;
   }
 
   /** Beat position heard at a performance.now() time: the music's own clock, or the stand-in when it is silent. */
@@ -155,6 +162,7 @@ export class Rhythm {
   reset() {
     this.streak = 0;
     this.style = 0;
+    this.peak = 0;
     this.tally = freshTally();
   }
 }

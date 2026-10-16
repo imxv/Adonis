@@ -19,6 +19,7 @@ import { T, collide, generateDungeon, openSpot, randomFloorIn, raycast, roomAt, 
 import { updateEnemyAI } from './enemyAI';
 import { FlowField } from './flow';
 import { Rhythm, type Grade } from './rhythm';
+import { playerName, setPlayerName, submitGlobal, type RunEntry } from '../net/board';
 import {
   ELEMENT_COLOR,
   type Enemy,
@@ -300,8 +301,26 @@ export class GameScene extends Phaser.Scene {
     const date = Date.now();
     const base = { victory, floor: run.level + 1, kills: run.kills, lv: run.xpLevel, secs: Math.round(run.elapsed), diff: run.diff.id };
     const score = scoreOf(base, run.score);
-    const rank = addScore({ ...base, score, date });
+    const peak = this.rhythm.peakRank();
+    const rank = addScore({ ...base, score, date, rank: peak });
+    // The global board hears about it once the end screen is up.
+    const entry: RunEntry = { ...base, score, rank: peak, weapon: run.weapons[run.held]?.def.id ?? '' };
+    this.time.delayedCall(1700, () => this.submitOnline(entry));
     return { score, rank, date };
+  }
+
+  /** Send a finished run to the global board: at once if the player has signed a name, else once they type one. */
+  submitOnline(entry: RunEntry) {
+    const send = () => {
+      ui.endOnline('sending');
+      submitGlobal(entry).then((r) => ui.endOnline(r ? { rank: r.rank ?? 0, runs: r.runs } : 'offline'));
+    };
+    if (playerName()) send();
+    else
+      ui.askName((name) => {
+        setPlayerName(name);
+        send();
+      });
   }
 
   openPause() {

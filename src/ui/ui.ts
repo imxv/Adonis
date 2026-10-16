@@ -3,7 +3,7 @@ import { WEAPONS, STAT_MEANING, MAX_WEAPON_LEVEL } from '../data/weapons';
 import { FUSE_LEVEL, SPELLS, fusionOf, spellName, type FusionId } from '../data/spells';
 import { PETS } from '../data/enemies';
 import type { StyleKit } from '../styles/types';
-import type { Choice, RunState } from '../game/run';
+import { LEVELS, type Choice, type RunState } from '../game/run';
 import type { Dir } from '../game/dirs';
 import { ICONS, ICON_SIZE } from '../styles/textures';
 import { E } from '../pixel/palette';
@@ -312,6 +312,36 @@ class UI implements LayerHost {
         it.el.classList.add('lose');
         it.timer = window.setTimeout(() => (it.el.src = ICONS[empty]), 140);
       }
+    });
+  }
+
+  /** The global leaderboard's answer on the end screen: sending, a place, or out of reach. */
+  endOnline(state: 'sending' | 'offline' | { rank: number; runs: number }) {
+    const slot = this.root.querySelector('.endbox .netrank') as HTMLElement | null;
+    if (!slot) return;
+    if (state === 'sending') slot.innerHTML = px('正在登上全服排行榜……', DIM);
+    else if (state === 'offline') slot.innerHTML = px('全服排行榜暂时连不上，成绩已记在本机', DIM);
+    else {
+      const top = state.rank > 0 && state.rank <= 10;
+      slot.innerHTML = `${icon(state.rank === 1 ? 'crown' : top ? 'medal-2' : 'sparkle')}${px(state.rank === 1 ? '全服第 1 名！' : `全服第 ${state.rank} 名`, state.rank <= 3 ? E.yellow : E.white, { scale: top ? 2 : 1 })}${px(`共 ${state.runs} 局`, GREY)}`;
+      slot.classList.remove('pop');
+      void slot.offsetWidth;
+      slot.classList.add('pop');
+      if (top) audio.rankUp(state.rank === 1 ? 5 : 3);
+    }
+  }
+
+  /** First run on the global board: ask for a name to sign it with. Keys typed here never reach the game. */
+  askName(onName: (name: string) => void) {
+    const slot = this.root.querySelector('.endbox .netrank') as HTMLElement | null;
+    if (!slot) return;
+    slot.innerHTML = `${px('署名上全服榜', E.yellow)}<input class="pxinput" maxlength="12" spellcheck="false" placeholder="你的名字">${px('Enter', DIM, { small: true })}`;
+    const input = slot.querySelector('input') as HTMLInputElement;
+    input.focus();
+    input.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Enter') onName(input.value.trim() || '无名骑士');
+      else if (e.key === 'Escape') input.blur();
     });
   }
 
@@ -673,8 +703,9 @@ class UI implements LayerHost {
     ov.innerHTML = `<div class="box panel endbox">
       <div class="head"><span class="tagred">${px(victory ? 'CLEAR' : 'DEAD', E.white, { small: true, outline: false })}</span>${px(victory ? '这一次，他活了下来' : '阿多尼斯倒下了', victory ? E.yellow : ACCENT, { scale: 2 })}</div>
       ${px(victory ? '野猪倒下了，银莲花开满了地牢。' : '血落处开出银莲花，他会再次重生。', GREY)}
-      <div class="statgrid">${stat(`${run.level + 1}/3`, '层数')}${stat(String(run.kills), '击杀')}${stat(String(run.xpLevel), '等级')}${stat(fmtTime(run.elapsed), '用时')}</div>
+      <div class="statgrid">${stat(`${run.level + 1}/${LEVELS}`, '层数')}${stat(String(run.kills), '击杀')}${stat(String(run.xpLevel), '等级')}${stat(fmtTime(run.elapsed), '用时')}</div>
       <div class="score">${px(`得分 ${info.score}`, E.yellow)}${px(DIFFICULTIES[run.diff.id].name, GREY)}${rank}</div>
+      <div class="netrank"></div>
       <div class="dmg">${rows}</div>
       <div class="menu row2"></div></div>`;
     const items = [menuRow('再次重生', { key: 'R' }), menuRow('返回主页')];

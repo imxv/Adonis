@@ -198,6 +198,14 @@ export function buildCommonTextures(scene: Phaser.Scene) {
   icon('heart-empty', sprite(S.HEART).render({ roles: { 1: ['#3a2a38', '#2a1f2b', '#211824'] } }));
   icon('heart-flash', sprite(S.HEART).render({ roles: { 1: ['#ffffff', '#ffffff', '#ffffff'] } }));
 
+  // Leaderboard: a crown for first place, medals for second and third, a sparkle.
+  const crown = ['Y....Y....Y', 'YY..YYY..YY', 'YYYYYYYYYYY', 'YrYYYcYYYrY', 'YYYYYYYYYYY', 'yyyyyyyyyyy'];
+  icon('crown', Grid.ascii(crown).render({ colors: { Y: E.yellow, y: E.amber, r: E.red, c: E.cyan } }));
+  const medal = ['.rr.kk.', '..r.k..', '..ggg..', '.gwggg.', '.ggggg.', '.ggggG.', '..GGG..'];
+  icon('medal-2', Grid.ascii(medal).render({ colors: { r: E.red, k: E.blue, g: E.grey, w: E.white, G: E.greyM } }));
+  icon('medal-3', Grid.ascii(medal).render({ colors: { r: E.red, k: E.blue, g: E.clay, w: E.tan, G: E.rust } }));
+  icon('sparkle', Grid.ascii(['..w..', '..Y..', 'wY.Yw', '..Y..', '..w..']).render({ outline: false, colors: { w: E.white, Y: E.yellow } }));
+
   // Beat bar: the diamond the ticks meet on the beat, and a tick.
   const core = new Grid(11, 11);
   for (let y = 0; y < 11; y++) core.rect(5 - (5 - Math.abs(y - 5)), y, (5 - Math.abs(y - 5)) * 2 + 1, 1, 'y');
