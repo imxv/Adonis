@@ -25,10 +25,10 @@ npm run build      # 类型检查 + 打包到 dist/
 
 ## 代码结构
 
-- `src/pixel/`：像素美术。`palette.ts` 是 Endesga 32 调色板，`draw.ts` 是字符网格精灵渲染（自动明暗 + 描边）和像素字体栅格化，`sprites.ts` 是手绘精灵，`props.ts` 是宝箱、炸药桶、木箱、炸弹怪，`decor.ts` 是每种画风的三种立式障碍和墙面、地面装饰的绘制，`biomes.ts` 是 8 种画风的数据。
+- `src/pixel/`：像素美术。`palette.ts` 是 Endesga 32 调色板，`draw.ts` 是字符网格精灵渲染（自动明暗 + 描边）和像素字体栅格化，`sprites.ts` 是手绘精灵，`props.ts` 是宝箱、炸药桶、木箱、炸弹怪，`decor.ts` 是每种画风的三种立式障碍和墙面、地面装饰的绘制，`biomes.ts` 是画风数据，`bossArt.ts` 是 10 位守卫的四个姿态和二阶段形态，`david.ts` 是主页画里的大理石大卫、神庙残柱和露台。
 - `src/styles/textures.ts`：按画风数据现场生成所有贴图，包括整层地牢的底图 `buildLevel`。
 - `src/data/`：内容表，包括武器、法术、加成、敌人、宠物。新内容尽量只改数据，不改系统。
-- `src/game/`：玩法系统。`dungeon.ts` 生成元气骑士式地牢（异形房间 + 走廊 + 格子碰撞），`floor.ts` 是以撒式房间图，`GameScene.ts` 是主场景（镜头、锁门、波次、武器发射、伤害结算），`lighting.ts` 是光照层，`flow.ts` 是敌人绕障寻路用的距离场，`rhythm.ts` 是节奏玩法（拍子判定、连拍、风格评级、房间评分），另有 `boss.ts`、`enemyAI.ts`、`spells.ts`、`pets.ts`、`fx.ts`、`run.ts`。地块有四种：空、地面、墙、立式装饰（`PROP`，像墙一样阻挡，但画成地面上的精灵）。
+- `src/game/`：玩法系统。`dungeon.ts` 生成元气骑士式地牢（异形房间 + 走廊 + 格子碰撞），`floor.ts` 是以撒式房间图，`GameScene.ts` 是主场景（镜头、锁门、波次、武器发射、伤害结算），`lighting.ts` 是光照层，`flow.ts` 是敌人绕障寻路用的距离场，`rhythm.ts` 是节奏玩法（拍子判定、连拍、风格评级、房间评分），`boss.ts` 是守卫和野猪的行为（换位跳跃、技能队列、二阶段），`bossSkills.ts` 是各画风守卫的专属技能，`bossAnim.ts` 是 Boss 的肢体动画（姿态切换、步伐和悬浮、倾斜、挤压拉伸、蓄力与出招、残影、二阶段法阵、碎裂死亡），另有 `enemyAI.ts`、`spells.ts`、`elements.ts`（原神式元素反应）、`pets.ts`、`fx.ts`、`run.ts`。地块有四种：空、地面、墙、立式装饰（`PROP`，像墙一样阻挡，但画成地面上的精灵）。
 - `src/ui/`：DOM 叠加层，与画布同为 480×270 并按同一倍率缩放；所有文字都栅格化成像素图片。`ui.ts` 是 HUD、主菜单、暂停页、结算页和三选一面板；`screens.ts` 是图鉴、游戏说明、设置、排行榜和确认框；`codex.ts` 从数据表和贴图生成图鉴内容；`weaponCards.ts` 是左下角叠放的枪卡；`beatBar.ts` 是底部的节拍条；`pxhtml.ts` 是像素文字和图片的 HTML 工具。HUD 自成一个层叠上下文，任何 HUD 元素都不会盖住面板和菜单。全屏界面走 `ui` 的图层栈，最上层独占键盘。
 - `src/settings.ts`：玩家设置（本机保存，改动即时通知）；`src/save.ts`：本局存档和本机排行榜。
 - `src/audio/`：Tone.js 合成的音效和音乐。

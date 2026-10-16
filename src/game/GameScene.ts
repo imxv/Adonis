@@ -109,6 +109,9 @@ const FUSION_GLOW: Record<FusionId, [string, string]> = {
 const LEAN_X = 46;
 const LEAN_Y = 28;
 
+/** Weapons hit this much above their listed damage (see fireShot). */
+const WEAPON_POWER = 1.15;
+
 export class GameScene extends Phaser.Scene {
   run!: RunState;
   kit!: StyleKit;
@@ -924,7 +927,7 @@ export class GameScene extends Phaser.Scene {
     // Monsters toughen with the floor and with the knight's own growth, so a stack of level-ups never turns a room
     // into something the spells clear on their own.
     const growth = 1 + 0.015 * Math.max(0, this.run.xpLevel - 5);
-    const scaleHp = (1.5 + level * 0.95 + depth * 0.12) * growth * (mini ? 0.5 : 1) * this.run.diff.hp;
+    const scaleHp = (1.65 + level * 1.05 + depth * 0.12) * growth * (mini ? 0.5 : 1) * this.run.diff.hp;
     const affix: Affix | undefined = elite ? rng.pick(Object.keys(AFFIXES) as Affix[]) : undefined;
     // Elites take x4: with the sturdier base that is what they had before, so only the rank and file got tougher.
     const hp = def.hp * scaleHp * (elite ? 4 : 1) * (affix === 'tough' ? 1.4 : 1);
@@ -1527,7 +1530,9 @@ export class GameScene extends Phaser.Scene {
     const def = w.def;
     const extra = m.count + weaponLevelCount(w.level);
     const count = def.count + extra;
-    const dmg = def.damage * weaponLevelDamage(w.level) * this.damageMult();
+    // Weapons carry the fight: they hit 15% above their listed damage, while monsters got sturdier than that, so
+    // shooting clears a room about as fast as before and spells alone take twice as long.
+    const dmg = def.damage * WEAPON_POWER * weaponLevelDamage(w.level) * this.damageMult();
     const area = m.area;
     const pierce = def.pierce + m.pierce;
     const speed = def.speed * m.speed;
