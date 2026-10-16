@@ -36,6 +36,8 @@ export interface Proj {
   kind: ProjKind;
   x: number;
   y: number;
+  /** Seconds an enemy shot born inside a solid tile (a boss over a statue) may pass through walls. */
+  noclip?: number;
   px?: number;
   py?: number;
   vx: number;

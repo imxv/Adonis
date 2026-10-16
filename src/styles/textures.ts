@@ -477,6 +477,23 @@ export function buildKitTextures(scene: Phaser.Scene, kit: Biome) {
   ebb.ellipse(4.5, 4.5, 4.5, 4.5, 'd').ellipse(4.5, 4.5, 2.6, 2.6, 'w');
   add(scene, K('ebullet-big', kit), ebb.render({ colors: { d: kit.palette.danger } }));
 
+  // The guardian's own shot, shaped to its style but always in the danger colour with a white core, so a barrage
+  // still reads on any floor: leaves, ice shards, sand, fireballs, gears, bats, petals, feathers, bubbles, neon.
+  const BOSS_SHOT: Record<string, string[]> = {
+    forest: ['...dd..', '..dwwd.', '.dwwwd.', 'dwwwd..', 'dwwd...', '.dd....', 'd......'],
+    glacier: ['...d...', '.d.d.d.', '..dwd..', 'ddwwwdd', '..dwd..', '.d.d.d.', '...d...'],
+    desert: ['...d...', '..dwd..', '.dwwwd.', 'dwwwwwd', '.dwwwd.', '..dwd..', '...d...'],
+    volcano: ['....dd.', '..ddwwd', '.dwwwwd', 'dwwwwd.', 'dwwwd..', '.ddd...', '.......'],
+    factory: ['.d.d.d.', 'ddwwwdd', '.dwddwd', 'dwd.dwd', '.dwddwd', 'ddwwwdd', '.d.d.d.'],
+    castle: ['d.....d', 'dd.d.dd', 'dwdwdwd', 'dwwwwwd', '.dwwwd.', '..d.d..', '.......'],
+    garden: ['..ddd..', '.dwwwd.', 'dwwwwwd', 'dwwwwwd', '.dwwwd.', '..dwd..', '...d...'],
+    palace: ['.....dd', '....dwd', '...dwd.', '..dwd..', '.dwd...', 'dwd....', 'dd.....'],
+    reef: ['..ddd..', '.dw..d.', 'dw....d', 'd.....d', 'd....wd', '.d..wd.', '..ddd..'],
+    neon: ['...d...', '..dwd..', '.dwwwd.', 'dww.wwd', '.dwwwd.', '..dwd..', '...d...'],
+  };
+  const shot = BOSS_SHOT[kit.id];
+  if (shot) add(scene, K('ebullet-boss', kit), Grid.ascii(shot).render({ colors: { d: kit.palette.danger } }));
+
   decoArt(kit.id).forEach((d, i) => add(scene, K(`deco-${i}`, kit), d.g.render({ colors: d.colors })));
   // The breakable prop and the explosive one, in this style's dress.
   const tp = themeProps(kit.id);

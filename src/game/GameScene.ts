@@ -161,6 +161,8 @@ export class GameScene extends Phaser.Scene {
   hitstop = 0;
   slowT = 0;
   slowScale = 1;
+  /** While a guardian is acting, the texture its small shots take (its style's own shape). */
+  bossShot?: string;
   /** Bullet time: time sinks to `low` fast, holds, then eases back to full speed. */
   bt?: { t: number; low: number; hold: number; out: number };
   /** Somewhere the camera leans toward for a moment (a fallen boss). */
@@ -1803,14 +1805,20 @@ export class GameScene extends Phaser.Scene {
 
   spawnProj(kind: ProjKind, x: number, y: number, a: number, speed: number, life: number, r: number, dmg: number, pierce: number, knock: number, src: string, tex?: string): Proj {
     const enemy = kind === 'ebullet' || kind === 'ebig';
-    const tkey: Record<ProjKind, string> = { bolt: 'b-bolt', pellet: 'b-pellet', blade: 'b-blade', shell: 'b-shell', shard: 'b-shard', orb: 'b-orb', axe: 'b-axe', rocket: 'b-rocket', flame: 'b-flame', ebullet: K('ebullet', this.kit), ebig: K('ebullet-big', this.kit) };
-    const sprite = this.add.image(x, y, tex ?? tkey[kind]).setDepth(enemy ? DEPTH.ebullet : DEPTH.proj).setRotation(kind === 'bolt' || kind === 'rocket' ? a : 0);
+    const tkey: Record<ProjKind, string> = { bolt: 'b-bolt', pellet: 'b-pellet', blade: 'b-blade', shell: 'b-shell', shard: 'b-shard', orb: 'b-orb', axe: 'b-axe', rocket: 'b-rocket', flame: 'b-flame', ebullet: this.bossShot ?? K('ebullet', this.kit), ebig: K('ebullet-big', this.kit) };
+    // A guardian's shots are drawn pointing the way they fly (leaves, feathers, fireballs).
+    const turn = kind === 'bolt' || kind === 'rocket' || (kind === 'ebullet' && !!this.bossShot);
+    // Leaves, fireballs and feathers are drawn heading up and to the right.
+    const tilt = kind === 'ebullet' && this.bossShot && ['forest', 'volcano', 'palace'].includes(this.kit.id) ? Math.PI / 4 : 0;
+    const sprite = this.add.image(x, y, tex ?? tkey[kind]).setDepth(enemy ? DEPTH.ebullet : DEPTH.proj).setRotation(turn ? a + tilt : 0);
     const base: Record<ProjKind, number> = { bolt: 3, pellet: 2.5, blade: 5, shell: 3, shard: 2, orb: 3, axe: 4, rocket: 4, flame: 4, ebullet: 3, ebig: 5 };
     sprite.setScale(Math.max(0.6, r / base[kind]));
     if (kind === 'flame') sprite.setScale(0.6).setRotation(rand(0, TAU));
     // Player shots sweep from the body centre, so point-blank enemies still get hit.
     const [px, py] = enemy ? [x, y] : [this.player.x, this.player.y - 4];
     const p: Proj = { kind, x, y, px, py, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, r, dmg, pierce, life, life0: life, knock, src, sprite, hit: new Set(), dead: false };
+    // A floating guardian can hang over a statue or pillar; its shots must get out of the stone before walls count.
+    if (enemy && solidAt(this.dungeon, x, y)) p.noclip = 0.35;
     (enemy ? this.eproj : this.pproj).push(p);
     return p;
   }
@@ -2063,7 +2071,8 @@ export class GameScene extends Phaser.Scene {
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       p.life -= dt;
-      if (p.life <= 0 || solidAt(d, p.x, p.y)) {
+      if (p.noclip !== undefined) p.noclip -= dt;
+      if (p.life <= 0 || ((p.noclip ?? 0) <= 0 && solidAt(d, p.x, p.y))) {
         if (p.life > 0) this.fx.sparks(p.x - p.vx * dt, p.y - p.vy * dt, 2, 'white');
         this.killProj(p, true);
         continue;
@@ -2508,8 +2517,13 @@ export class GameScene extends Phaser.Scene {
       s.chill -= dt;
       if (s.frozen > 0) s.frozen -= dt;
       const slowMul = s.frozen > 0 || s.stun > 0 ? 0 : s.chill > 0 ? 0.75 : 1;
-      if (e.boss) updateBoss(this, e, dt, slowMul);
-      else updateEnemyAI(this, e, dt, slowMul);
+      if (e.boss) {
+        const shot = K('ebullet-boss', this.kit);
+        this.bossShot = e.kind === 'guardian' && this.textures.exists(shot) ? shot : undefined;
+        updateBoss(this, e, dt, slowMul);
+        this.bossShot = undefined;
+      }
+      if (!e.boss) updateEnemyAI(this, e, dt, slowMul);
       if (e.dead) continue;
       const kd = Math.exp(-dt * 10);
       e.kx *= kd;
