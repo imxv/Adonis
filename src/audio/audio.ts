@@ -1,6 +1,7 @@
 import * as Tone from 'tone';
 import type { StyleKit } from '../styles/types';
 import type { Delivery } from '../data/weapons';
+import type { SpawnStyle } from '../data/enemies';
 
 /* Soft, modern synthesis only: sine / triangle / FM / filtered noise.
    No square waves, no 8-bit arpeggios. Everything goes through a compressor and limiter. */
@@ -548,6 +549,67 @@ class AudioEngine {
       const t = Tone.now();
       this.sparkle.triggerAttackRelease(this.note(perfect ? 7 : 4, 2), 0.09, t, perfect ? 0.75 : 0.45);
       if (perfect) this.bell.triggerAttackRelease(this.note(9, 1), 0.2, t + 0.01, 0.35);
+    });
+  }
+
+  /**
+   * A monster arrives; each way of arriving has its own sound. Many arrive at once in a wave, so each sound
+   * is gated: the first of a kind plays and the rest of that instant ride on it.
+   */
+  spawn(style: SpawnStyle) {
+    if (!this.gate(`spawn-${style}`, 110)) return;
+    this.safe(() => {
+      const t = Tone.now();
+      switch (style) {
+        case 'ooze': {
+          this.pop.triggerAttackRelease(this.note(0, 0), 0.12, this.at(this.pop), 0.5);
+          const n = this.at(this.hitNoise);
+          this.hitNoise.triggerAttackRelease(0.08, n, 0.35);
+          break;
+        }
+        case 'swoop': {
+          const n = this.at(this.whoosh);
+          this.sweep(this.whooshFilter, 2600, 500, n, 0.22);
+          this.whoosh.triggerAttackRelease(0.22, n, 0.55);
+          break;
+        }
+        case 'burrow':
+          this.thump.triggerAttackRelease('C2', 0.16, this.at(this.thump), 0.6);
+          this.hitNoise.triggerAttackRelease(0.12, this.at(this.hitNoise), 0.45);
+          break;
+        case 'smoke': {
+          const n = this.at(this.whoosh);
+          this.sweep(this.whooshFilter, 600, 3800, n, 0.14);
+          this.whoosh.triggerAttackRelease(0.14, n, 0.6);
+          break;
+        }
+        case 'bones':
+          [0, 0.06, 0.11].forEach((d, i) => this.sparkle.triggerAttackRelease(this.note(9 - i, 2), 0.03, t + d, 0.4));
+          break;
+        case 'mist':
+          this.bell.triggerAttackRelease(this.note(2, 0), 0.6, t, 0.25);
+          this.bell.triggerAttackRelease(this.note(1, 0) * 1.01, 0.6, t + 0.08, 0.2);
+          break;
+        case 'slam':
+          this.sub.triggerAttackRelease('A1', 0.25, this.at(this.sub), 0.7);
+          this.bell.triggerAttackRelease(this.note(0, 0) * 1.41, 0.12, t, 0.3);
+          break;
+        case 'beam':
+          [0, 4, 7].forEach((d, i) => this.bell.triggerAttackRelease(this.note(d, 1), 0.5, t + i * 0.03, 0.3));
+          break;
+        case 'bubble':
+          [0, 0.05, 0.1].forEach((d, i) => this.sparkle.triggerAttackRelease(this.note(4 + i * 2, 1), 0.04, t + d, 0.35));
+          break;
+        case 'roll': {
+          const n = this.at(this.whoosh);
+          this.sweep(this.whooshFilter, 5000, 3000, n, 0.25);
+          this.whoosh.triggerAttackRelease(0.25, n, 0.3);
+          break;
+        }
+        default:
+          this.sparkle.triggerAttackRelease(this.note(7, 1), 0.1, t, 0.35);
+          this.sparkle.triggerAttackRelease(this.note(9, 1), 0.1, t + 0.05, 0.3);
+      }
     });
   }
 

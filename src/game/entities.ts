@@ -1,6 +1,6 @@
 import type Phaser from 'phaser';
 import type { Element } from '../core/stats';
-import type { Affix, BossKind, EnemyKind, Pets } from '../data/enemies';
+import type { Affix, BossKind, EnemyKind, Pets, SpawnStyle } from '../data/enemies';
 
 export type Img = Phaser.GameObjects.Image;
 
@@ -115,7 +115,7 @@ export interface Enemy {
   mini?: boolean;
   hurry?: boolean;
   /** Entrance after a summon: grows out of the circle, drops in, or steps out of a rift. */
-  enter?: { kind: 'rise' | 'drop' | 'emerge'; t: number; landed?: boolean };
+  enter?: { kind: 'rise' | 'drop' | 'emerge' | SpawnStyle; t: number; landed?: boolean; ox?: number };
 }
 
 export interface BossState {
@@ -218,6 +218,9 @@ export interface Telegraph {
   tier?: number;
   /** Lightning strikes already thrown down by an elite summon. */
   strikes?: number;
+  /** Summons: how the monster will arrive, and its colour for the puddle it oozes out of. */
+  style?: SpawnStyle;
+  color?: number;
 }
 
 export interface Visual {

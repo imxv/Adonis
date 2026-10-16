@@ -3,7 +3,7 @@ import { TAU, angleDiff, clamp, dist, dist2, hexToNum, lerp, segCircle } from '.
 import { Rng, rand } from '../core/rng';
 import type { Element } from '../core/stats';
 import { audio } from '../audio/audio';
-import { ENEMIES, AFFIXES, PETS, type Affix, type EnemyKind } from '../data/enemies';
+import { ENEMIES, AFFIXES, PETS, SPAWN_STYLE, type Affix, type EnemyKind, type SpawnStyle } from '../data/enemies';
 import { SPELLS, SPELL_ORDER } from '../data/spells';
 import { UPGRADE_BY_ID } from '../data/upgrades';
 import { WEAPON_ORDER, magSize, reloadTime, weaponLevelCount, weaponLevelDamage, type MeleeMove, type MoveKind, type WeaponInstance } from '../data/weapons';
@@ -785,6 +785,8 @@ export class GameScene extends Phaser.Scene {
     if (solidAt(this.dungeon, x, y)) [x, y] = openSpot(this.dungeon, x, y);
     this.pendingSpawns++;
     const tier = elite ? 4 : SPAWN_TIER[kind];
+    const style = elite ? undefined : SPAWN_STYLE[kind];
+    const color = hexToNum(kind === 'wanderer' ? this.kit.px.slime : kind === 'magma' ? E.orange : this.kit.palette.danger);
     this.telegraphs.push({
       kind: 'spawn',
       x,
@@ -793,18 +795,49 @@ export class GameScene extends Phaser.Scene {
       t: 0,
       dur: delay * [0.9, 1.05, 1.3, 1.6][tier - 1],
       tier,
+      style,
+      color,
       onDone: () => {
         this.pendingSpawns--;
         if (this.mode === 'dead' || this.mode === 'end' || !this.active) return;
         const e = this.spawnEnemy(kind, x, y, elite, mini);
-        this.arrive(e, tier);
+        this.arrive(e, tier, style);
       },
     });
   }
 
-  /** The moment a summoned enemy appears. */
-  arrive(e: Enemy, tier: number) {
+  /** The moment a summoned enemy appears: each kind arrives its own way, with its own sound. */
+  arrive(e: Enemy, tier: number, style?: SpawnStyle) {
     const danger = this.kit.palette.danger;
+    if (style && style !== 'portal') {
+      e.enter = { kind: style, t: 0 };
+      audio.spawn(style);
+      switch (style) {
+        case 'ooze':
+          this.fx.dust(e.x, e.y, 3);
+          break;
+        case 'burrow':
+          this.fx.dust(e.x, e.y, 9);
+          this.fx.ring(e.x, e.y, 12, E.tan, 200, 1);
+          break;
+        case 'smoke':
+          this.fx.dust(e.x, e.y - 4, 14);
+          this.fx.ring(e.x, e.y - 4, 16, E.white, 220, 1);
+          break;
+        case 'bones':
+          this.fx.sparks(e.x, e.y - 6, 8, 'white');
+          break;
+        case 'beam':
+          this.light.flash(e.x, e.y - 6, 70, E.yellow, 0.35);
+          this.fx.sparks(e.x, e.y - 6, 10, 'gold');
+          break;
+        case 'roll':
+          e.enter.ox = Math.random() < 0.5 ? -42 : 42;
+          break;
+      }
+      return;
+    }
+    if (style === 'portal') audio.spawn('portal');
     if (tier === 1) {
       e.enter = { kind: 'rise', t: 0 };
       this.fx.dust(e.x, e.y, 3);
@@ -3077,37 +3110,182 @@ export class GameScene extends Phaser.Scene {
   entrance(a: Enemy, sp: Img, dt: number) {
     const en = a.enter!;
     en.t += dt;
-    const DUR = { rise: 0.2, drop: 0.24, emerge: 0.4 };
-    const k = Math.min(1, en.t / DUR[en.kind]);
-    if (en.kind === 'rise') {
-      // Grows up out of the circle, overshooting a little.
-      const s = k < 0.7 ? (k / 0.7) * 1.15 : 1.15 - ((k - 0.7) / 0.3) * 0.15;
-      sp.setScale(a.scale * (1 - (1 - k) * 0.3), a.scale * s);
-    } else if (en.kind === 'drop') {
-      // Falls from above and squashes on landing.
-      sp.y -= Math.round((1 - k) * (1 - k) * 48);
-      sp.setAlpha(Math.min(1, k * 4));
-      if (k >= 1 && !en.landed) {
-        en.landed = true;
-        this.fx.dust(a.x, a.y, 6);
-        this.fx.shake(0.04);
+    const DUR: Record<string, number> = { rise: 0.2, drop: 0.24, emerge: 0.4, ooze: 0.32, swoop: 0.3, burrow: 0.3, smoke: 0.14, bones: 0.22, mist: 0.55, slam: 0.22, beam: 0.36, bubble: 0.4, roll: 0.3 };
+    const dur = DUR[en.kind] ?? 0.3;
+    const k = Math.min(1, en.t / dur);
+    const s = a.scale;
+    switch (en.kind) {
+      case 'rise': {
+        // Grows up out of the circle, overshooting a little.
+        const h = k < 0.7 ? (k / 0.7) * 1.15 : 1.15 - ((k - 0.7) / 0.3) * 0.15;
+        sp.setScale(s * (1 - (1 - k) * 0.3), s * h);
+        break;
       }
-      if (k >= 1) sp.setScale(a.scale * 1.25, a.scale * 0.75);
-    } else {
-      // Steps out of the rift as a black silhouette, then takes its colours.
-      sp.setScale(a.scale * (0.6 + 0.4 * k));
-      if (k < 0.65) sp.setTintFill(hexToNum(E.ink));
-      sp.setAlpha(Math.min(1, 0.3 + k));
+      case 'drop':
+      case 'slam': {
+        // Falls from above and squashes on landing; heavy ones shake the floor.
+        const heavy = en.kind === 'slam';
+        sp.y -= Math.round((1 - k) * (1 - k) * (heavy ? 90 : 48));
+        sp.setAlpha(Math.min(1, k * 4));
+        if (k >= 1 && !en.landed) {
+          en.landed = true;
+          this.fx.dust(a.x, a.y, heavy ? 12 : 6);
+          this.fx.shake(heavy ? 0.12 : 0.04);
+          if (heavy) this.fx.ring(a.x, a.y, 26, E.white, 260, 2);
+        }
+        if (k >= 1) sp.setScale(s * 1.25, s * 0.75);
+        break;
+      }
+      case 'ooze': {
+        // Bubbles up out of its puddle and wobbles into shape.
+        const w = Math.sin(k * Math.PI * 3) * (1 - k) * 0.25;
+        sp.setScale(s * (1.4 - 0.4 * k + w), s * (0.2 + 0.8 * k - w));
+        break;
+      }
+      case 'swoop': {
+        // Dives in from high up and to the side.
+        const q = 1 - (1 - k) * (1 - k);
+        sp.x += Math.round((1 - q) * 30 * (a.id % 2 ? 1 : -1));
+        sp.y -= Math.round((1 - q) * 70);
+        sp.setAlpha(Math.min(1, k * 3));
+        break;
+      }
+      case 'burrow': {
+        // Bursts up out of the ground in a little hop.
+        sp.y -= Math.round(Math.sin(k * Math.PI) * 10);
+        sp.setScale(s * (0.8 + 0.2 * k), s * Math.min(1.15, 0.3 + k));
+        break;
+      }
+      case 'smoke':
+        sp.setAlpha(k).setScale(s * (1.3 - 0.3 * k));
+        break;
+      case 'bones':
+        // The bones snap together: a white flash, then its colours.
+        if (k < 0.5) sp.setTintFill(0xffffff);
+        sp.setScale(s * (1.2 - 0.2 * k));
+        break;
+      case 'mist':
+        sp.setAlpha(0.9 * k);
+        sp.y -= Math.round((1 - k) * 8);
+        break;
+      case 'beam':
+        if (k < 0.6) sp.setTintFill(0xffffff);
+        sp.setAlpha(Math.min(1, k * 2)).setScale(s * (1.25 - 0.25 * k));
+        break;
+      case 'bubble': {
+        // Floats up from below, bobbing.
+        sp.y += Math.round((1 - k) * 12);
+        sp.x += Math.round(Math.sin(k * 9) * 2 * (1 - k));
+        sp.setScale(s * (0.6 + 0.4 * k)).setAlpha(Math.min(1, k * 2.5));
+        break;
+      }
+      case 'roll': {
+        // Rolls in from the side, fuse fizzing.
+        const q = 1 - (1 - k) * (1 - k);
+        sp.x += Math.round((en.ox ?? 0) * (1 - q));
+        sp.setRotation((1 - q) * (en.ox ?? 0) * -0.3);
+        if (Math.random() < 0.5) this.fx.sparks(sp.x, sp.y - 8, 1, 'gold');
+        break;
+      }
+      default:
+        // Steps out of the rift as a black silhouette, then takes its colours.
+        sp.setScale(s * (0.6 + 0.4 * k));
+        if (k < 0.65) sp.setTintFill(hexToNum(E.ink));
+        sp.setAlpha(Math.min(1, 0.3 + k));
     }
-    const settle = en.kind === 'drop' ? 0.12 : 0;
-    if (en.t >= DUR[en.kind] + settle) {
+    const settle = en.kind === 'drop' || en.kind === 'slam' ? 0.12 : 0;
+    if (en.t >= dur + settle) {
       a.enter = undefined;
-      sp.setScale(a.scale).setAlpha(1);
+      sp.setScale(s).setAlpha(a.kind === 'ghost' ? 0.9 : 1).setRotation(0);
+    }
+  }
+
+  /** What shows on the floor before a monster arrives: a puddle, cracks, a shadow, smoke, bones flying in... */
+  drawSpawnOmen(g: Phaser.GameObjects.Graphics, t: Telegraph, k: number) {
+    const vg = this.gfx;
+    const { x, y } = t;
+    const col = t.color ?? 0xffffff;
+    switch (t.style) {
+      case 'ooze':
+        g.fillStyle(col, 0.55);
+        g.fillEllipse(x, y, 4 + 18 * k, 2 + 7 * k);
+        g.fillStyle(0xffffff, 0.3);
+        g.fillEllipse(x - 3 * k, y - 1, 4 * k, 1.5 * k);
+        for (let i = 0; i < 3; i++) {
+          const q = (this.time0 * 2 + i * 0.37) % 1;
+          g.fillStyle(col, 0.8 * (1 - q));
+          g.fillCircle(x + Math.sin(i * 2.1) * 6 * k, y - q * 6, 1 + (1 - q));
+        }
+        break;
+      case 'swoop':
+      case 'slam':
+        // Its shadow grows as it comes down; something heavy gets a target ring too.
+        g.fillStyle(0x181425, 0.2 + 0.45 * k);
+        g.fillEllipse(x, y + 1, 6 + 14 * k, 3 + 5 * k);
+        if (t.style === 'slam') {
+          const r = 20 * (1 - k) + 7;
+          g.lineStyle(1, hexToNum(this.kit.palette.danger), 0.8);
+          g.strokeEllipse(x, y, r * 2, r * 1.2);
+          for (const a of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) g.lineBetween(x + Math.cos(a) * r, y + Math.sin(a) * r * 0.6, x + Math.cos(a) * (r + 4), y + Math.sin(a) * (r + 4) * 0.6);
+        }
+        break;
+      case 'burrow':
+        // The ground cracks and heaves.
+        g.fillStyle(0x3e2731, 0.55);
+        g.fillEllipse(x, y, 6 + 8 * k, 3 + 3 * k);
+        g.lineStyle(1, 0x181425, 0.75);
+        for (let i = 0; i < 5; i++) {
+          const a = i * 1.26 + 0.4;
+          const len = 3 + 10 * k;
+          g.lineBetween(x, y, x + Math.cos(a) * len, y + Math.sin(a) * len * 0.5);
+        }
+        if (Math.random() < 0.25) this.fx.dust(x + rand(-5, 5), y, 1);
+        break;
+      case 'smoke':
+        for (let i = 0; i < 7; i++) {
+          const a = this.time0 * 4 + i * 0.9;
+          const rr = 12 * (1 - k) + 3;
+          vg.fillStyle(0xc0cbdc, 0.3 + 0.3 * k);
+          vg.fillCircle(x + Math.cos(a) * rr, y - 6 + Math.sin(a) * rr * 0.5, 2 + k * 2);
+        }
+        break;
+      case 'bones':
+        for (let i = 0; i < 7; i++) {
+          const a = i * 0.9 + 0.3;
+          const rr = 28 * (1 - k);
+          vg.fillStyle(0xead4aa, 0.9);
+          vg.fillRect(Math.round(x + Math.cos(a) * rr) - 1, Math.round(y - 6 + Math.sin(a) * rr * 0.6), 3, 1);
+          vg.fillRect(Math.round(x + Math.cos(a) * rr) - 2, Math.round(y - 7 + Math.sin(a) * rr * 0.6), 1, 3);
+        }
+        break;
+      case 'mist':
+        for (let i = 0; i < 6; i++) {
+          const q = (this.time0 * 0.8 + i * 0.17) % 1;
+          vg.fillStyle(0xffffff, 0.22 * (1 - q) * (0.5 + k));
+          vg.fillEllipse(x + Math.sin(i * 1.7 + this.time0 * 2) * 7, y - q * 24, 6, 2);
+        }
+        break;
+      case 'beam': {
+        const h = 130 * Math.min(1, k * 1.4);
+        vg.fillStyle(0xfee761, 0.16 + 0.3 * k);
+        vg.fillRect(x - 5, y - 130, 10, h);
+        vg.fillStyle(0xffffff, 0.35 + 0.45 * k);
+        vg.fillRect(x - 1, y - 130, 2, h);
+        break;
+      }
+      case 'bubble':
+        for (let i = 0; i < 6; i++) {
+          const q = (this.time0 * 1.5 + i * 0.19) % 1;
+          vg.lineStyle(1, 0xffffff, 0.7 * (1 - q));
+          vg.strokeCircle(x + Math.sin(i * 2.3) * 7, y - q * 20, 1.5 + q);
+        }
+        break;
     }
   }
 
   /** Summoning circles: rune ring, light pillar, dark rift, elite lightning, boss sigil. */
   drawSummon(g: Phaser.GameObjects.Graphics, t: Telegraph, k: number, danger: number) {
+    if (t.style) this.drawSpawnOmen(g, t, k);
     const tier = t.tier ?? 1;
     const r = t.r ?? 8;
     const spin = this.time0 * (tier >= 5 ? 1.2 : 3);

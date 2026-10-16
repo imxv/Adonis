@@ -1,6 +1,29 @@
 export type EnemyKind = 'wanderer' | 'bat' | 'charger' | 'shooter' | 'bomber' | 'shield' | 'brute' | 'ghost' | 'angel' | 'turret' | 'ninja' | 'jelly' | 'drone' | 'yeti' | 'scorpion' | 'magma' | 'sporeling';
 export type BossKind = 'guardian' | 'boar';
 
+/** How a monster arrives: what shows on the floor first, how it enters and what it sounds like. */
+export type SpawnStyle = 'ooze' | 'swoop' | 'burrow' | 'portal' | 'smoke' | 'bones' | 'mist' | 'slam' | 'beam' | 'bubble' | 'roll';
+
+export const SPAWN_STYLE: Record<EnemyKind, SpawnStyle> = {
+  wanderer: 'ooze',
+  magma: 'ooze',
+  bat: 'swoop',
+  drone: 'swoop',
+  charger: 'burrow',
+  scorpion: 'burrow',
+  sporeling: 'burrow',
+  shooter: 'portal',
+  ninja: 'smoke',
+  shield: 'bones',
+  ghost: 'mist',
+  turret: 'slam',
+  brute: 'slam',
+  yeti: 'slam',
+  angel: 'beam',
+  jelly: 'bubble',
+  bomber: 'roll',
+};
+
 export interface EnemyDef {
   kind: EnemyKind;
   name: string;
