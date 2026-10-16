@@ -1229,8 +1229,8 @@ canvas.bt {
 }
 
 .pt-moon {
-  left: 148px;
-  top: 6px;
+  left: 160px;
+  top: 16px;
   animation: moonPulse 4s steps(4) infinite alternate;
 }
 
@@ -1263,13 +1263,13 @@ canvas.bt {
 }
 
 .pt-ruins {
-  left: -10px;
-  bottom: 18px;
+  left: -6px;
+  bottom: 12px;
 }
 
 .pt-cliff {
-  left: -10px;
-  bottom: -2px;
+  left: 0;
+  bottom: -6px;
 }
 
 .pt-petals {
@@ -1288,107 +1288,51 @@ canvas.bt {
   100% { transform: translate(-60px, 140px); opacity: 0.2; }
 }
 
-.pt-knight {
-  left: 34px;
-  bottom: 20px;
+.pt-meander {
+  margin-top: 6px;
+  line-height: 0;
 }
 
-.pt-knight .f {
+/* The marble David: moonlight runs across him every few seconds, and at once when the mouse finds him. */
+.pt-david {
+  left: 150px;
+  bottom: 0;
+}
+
+.pt-david img {
   display: block;
 }
 
-.pt-knight .f.b {
+.pt-david .shine {
   position: absolute;
-  left: 0;
-  top: 0;
-  animation: frameB 0.9s steps(1) infinite;
+  inset: 0;
+  mask-size: 100% 100%;
+  -webkit-mask-size: 100% 100%;
+  background: linear-gradient(100deg, transparent 0 42%, rgba(255, 255, 255, 0.5) 42% 50%, rgba(254, 231, 97, 0.35) 50% 54%, transparent 54% 100%);
+  background-size: 300% 100%;
+  background-repeat: no-repeat;
+  background-position: 120% 0;
+  animation: marbleShine 7s steps(16) 1.5s infinite;
 }
 
-@keyframes frameB {
-  0%, 49% { opacity: 0; }
-  50%, 100% { opacity: 1; }
+@keyframes marbleShine {
+  0% { background-position: 120% 0; }
+  22%, 100% { background-position: -20% 0; }
 }
 
-.pt-knight .glint {
+.pt-david.gleam .shine {
+  animation: marbleShine 3.2s steps(16) 1;
+}
+
+.pt-david .glint {
   position: absolute;
-  right: -6px;
-  top: 2px;
+  left: 25px;
+  top: 3px;
   opacity: 0;
 }
 
-.pt-knight.hop {
-  animation: hop 0.5s steps(6);
-}
-
-.pt-knight.hop .glint {
-  animation: twinkle 0.5s steps(4);
-}
-
-@keyframes hop {
-  0%, 100% { transform: none; }
-  40% { transform: translateY(-9px); }
-  70% { transform: translateY(-3px); }
-}
-
-.pt-vs {
-  left: 100px;
-  bottom: 44px;
-}
-
-.pt-boar {
-  right: 10px;
-  bottom: 18px;
-}
-
-/* The boar faces the knight, so it is mirrored; its eye and breath follow. */
-.pt-boar > img {
-  transform: scaleX(-1);
-}
-
-.pt-boar .eye {
-  position: absolute;
-  left: 18px;
-  top: 26px;
-  width: 4px;
-  height: 2px;
-  background: #ff0044;
-  animation: blink 2.6s steps(1) infinite;
-}
-
-.pt-boar .steam {
-  position: absolute;
-  left: 2px;
-  top: 30px;
-  width: 4px;
-  height: 2px;
-  background: rgba(255, 255, 255, 0.6);
-  opacity: 0;
-}
-
-.pt-boar.angry {
-  animation: shake 0.4s steps(6);
-}
-
-.pt-boar.angry .eye {
-  animation: none;
-  box-shadow: 0 0 0 1px #ff0044, 0 0 4px 2px rgba(255, 0, 68, 0.6);
-}
-
-.pt-boar.angry .steam {
-  animation: steam 0.6s steps(6);
-}
-
-@keyframes shake {
-  0%, 100% { transform: none; }
-  20% { transform: translateX(-2px); }
-  40% { transform: translateX(2px); }
-  60% { transform: translateX(-1px); }
-  80% { transform: translateX(1px); }
-}
-
-@keyframes steam {
-  0% { opacity: 1; transform: translate(0, 0) scale(1); }
-  100% { opacity: 0; transform: translate(-10px, -6px) scale(3); }
+.pt-david.gleam .glint {
+  animation: twinkle 0.6s steps(4);
 }
 
 .pt-pop {

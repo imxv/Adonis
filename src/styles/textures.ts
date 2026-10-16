@@ -8,6 +8,7 @@ import * as MS from '../pixel/monsters';
 import { UPGRADE_ICONS } from '../pixel/upgradeIcons';
 import { themeProps } from '../pixel/themeProps';
 import { POSES, guardianArt } from '../pixel/bossArt';
+import { DAVID_COLORS, david, temple, terrace } from '../pixel/david';
 import type { Biome } from '../pixel/biomes';
 import { FLOOR, PROP, T, VOID, WALL, tileAt, type Dungeon } from '../game/dungeon';
 import { decoArt, paintFloor, paintWall } from '../pixel/decor';
@@ -288,6 +289,17 @@ export function buildCommonTextures(scene: Phaser.Scene) {
   }
   icon('cliff', cliff.render({ outline: false, margin: 0, colors: { k: E.ink, h: '#3a2a38', g: E.greenDD } }));
   icon('knight-b', scene.textures.get('knight-b').getSourceImage() as HTMLCanvasElement);
+  // The title painting's Greek night: a marble David on his plinth, temple ruins, a terrace of worn slabs.
+  icon('david', david().render({ colors: DAVID_COLORS }));
+  const night = { h: '#2b2238', k: '#1d1a2b', e: '#3a3550', l: E.greenD, L: E.greenDD };
+  icon('temple', temple().render({ outline: false, margin: 0, colors: night }));
+  icon('terrace', terrace().render({ outline: false, margin: 0, colors: night }));
+  // A Greek key band for under the painting.
+  const unit = ['#####.', '....#.', '##..#.', '#...#.', '#####.'];
+  const band = new Grid(228, 9);
+  band.rect(0, 0, 228, 9, 'k').rect(0, 1, 228, 1, 'y').rect(0, 7, 228, 1, 'y');
+  for (let x = 0; x < 228; x++) for (let y = 0; y < 5; y++) if (unit[y][x % 6] === '#') band.set(x, y + 2 - (y === 4 ? 0 : 0), 'y');
+  icon('meander', band.render({ outline: false, margin: 0, colors: { k: '#1d1a2b', y: E.amber } }));
   icon('petal', Grid.ascii(['.rr', 'rRr', 'rr.']).render({ outline: false }));
 
   // Leaderboard: a crown for first place, medals for second and third, a sparkle.

@@ -1,5 +1,6 @@
 import { audio } from '../audio/audio';
 import { E } from '../pixel/palette';
+import { ICONS } from '../styles/textures';
 import { icon, px } from './pxhtml';
 
 /** What the painting's caption says for each title menu item. */
@@ -13,12 +14,13 @@ const CAPTIONS = [
 ];
 
 /** Layers and how far each drifts with the mouse, back to front. */
-const DEPTHS: Record<string, number> = { 'pt-stars': 1, 'pt-moon': 2, 'pt-ruins': 4, 'pt-petals': 6, 'pt-cliff': 7, 'pt-knight': 8, 'pt-boar': 8, 'pt-vs': 8 };
+const DEPTHS: Record<string, number> = { 'pt-stars': 1, 'pt-moon': 3, 'pt-ruins': 4, 'pt-petals': 6, 'pt-cliff': 7, 'pt-david': 5 };
 
 /**
- * The title painting: a framed night where an anemone hangs as the moon over a ruined keep and the knight faces
- * the boar on a cliff while petals drift down. The layers drift with the mouse; the knight, the boar and the sky
- * answer hover and clicks; the caption under the frame follows the menu.
+ * The title painting: a Greek night. A marble David stands on his plinth among temple ruins, the anemone (the flower
+ * of Adonis's blood) hangs behind his head as the moon, petals drift down. Moonlight runs over the marble now and
+ * then, and whenever the mouse finds him; the layers drift with the mouse; a click scatters petals; the caption under
+ * the frame follows the menu.
  */
 export class TitlePainting {
   readonly el: HTMLElement;
@@ -40,28 +42,28 @@ export class TitlePainting {
         <div class="pt-sky"></div>
         <div class="pt-stars">${stars}</div>
         <div class="pt-moon"><div class="halo"></div>${icon('emblem')}</div>
-        <div class="pt-ruins">${icon('ruins')}</div>
+        <div class="pt-ruins">${icon('temple')}</div>
         <div class="pt-petals">${petals}</div>
-        <div class="pt-cliff">${icon('cliff')}</div>
-        <div class="pt-knight"><span class="f a">${icon('knight', 3)}</span><span class="f b">${icon('knight-b', 3)}</span><i class="glint">${icon('sparkle')}</i></div>
-        <div class="pt-vs">${px('VS', E.slate, { small: true })}</div>
-        <div class="pt-boar">${icon('boar', 2)}<i class="eye"></i><i class="steam"></i></div>
+        <div class="pt-cliff">${icon('terrace')}</div>
+        <div class="pt-david">${icon('david')}<i class="shine"></i><i class="glint">${icon('sparkle')}</i></div>
       </div>
       <div class="pt-frame"></div>
+      <div class="pt-meander">${icon('meander')}</div>
       <div class="pt-caption"></div>`;
     this.canvas = this.el.querySelector('.pt-canvas') as HTMLElement;
     this.caption = this.el.querySelector('.pt-caption') as HTMLElement;
     for (const [cls, depth] of Object.entries(DEPTHS)) this.layers.push([this.canvas.querySelector(`.${cls}`) as HTMLElement, depth]);
 
-    const knight = this.canvas.querySelector('.pt-knight') as HTMLElement;
-    const boar = this.canvas.querySelector('.pt-boar') as HTMLElement;
-    knight.addEventListener('mouseenter', () => {
-      this.replay(knight, 'hop');
+    // The moonlight that runs over the statue is cut to the statue's own shape.
+    const statue = this.canvas.querySelector('.pt-david') as HTMLElement;
+    const shine = statue.querySelector('.shine') as HTMLElement;
+    const mask = `url(${ICONS.david})`;
+    shine.style.maskImage = mask;
+    shine.style.webkitMaskImage = mask;
+    statue.addEventListener('mouseenter', () => {
+      this.replay(statue, 'gleam');
+      this.replay(this.canvas.querySelector('.pt-moon') as HTMLElement, 'pulse');
       audio.swap();
-    });
-    boar.addEventListener('mouseenter', () => {
-      this.replay(boar, 'angry');
-      audio.spawn('burrow');
     });
     this.canvas.addEventListener('click', (e) => this.burst(e));
   }
