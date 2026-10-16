@@ -267,6 +267,7 @@ export function animateBoss(s: GameScene, e: Enemy, dt: number) {
   } else {
     let g: Pose;
     if (gathering) g = 'cast';
+    else if (b.leap) g = b.leap.glide ? 'strike' : 'cast';
     else if (look.strike > 0 || DASHES.has(b.pattern)) g = 'strike';
     else if (b.pattern || b.armLive > 0 || b.armWarn > 0) g = 'cast';
     else g = Math.floor(t * 1.7) % 2 ? 'breath' : 'idle';
@@ -299,12 +300,13 @@ export function animateBoss(s: GameScene, e: Enemy, dt: number) {
   // Shake in place while a charge is being wound up.
   const jitter = e.kind === 'boar' && e.state === 'windup' ? Math.round(Math.sin(e.t2 * 80) * 2) : gathering ? Math.round(rand(-1, 1) * look.sq * 6) : 0;
   sp.setPosition(Math.round(e.x + jitter), Math.round(e.y - (b.air ?? 0) - lift - bob));
-  e.shadow.setScale(4 * (1 - Math.min(0.5, (lift + bob) / 120)), 3 * (1 - Math.min(0.5, (lift + bob) / 120)));
+  const up = lift + bob + (e.kind === 'guardian' ? (b.air ?? 0) : 0);
+  e.shadow.setScale(4 * (1 - Math.min(0.5, up / 120)), 3 * (1 - Math.min(0.5, up / 120)));
   e.shadow.setAlpha(1 - Math.min(0.6, lift / 200));
 
   // Fast moves leave afterimages.
   look.ghostT -= dt;
-  if ((speed > 150 || DASHES.has(b.pattern) && look.strike <= 0) && look.ghostT <= 0 && speed > 40) {
+  if ((speed > 150 || (DASHES.has(b.pattern) && look.strike <= 0) || b.leap?.glide) && look.ghostT <= 0 && speed > 40) {
     look.ghostT = 0.035;
     ghost(s, sp, look.accent);
   }

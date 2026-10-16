@@ -171,6 +171,9 @@ export interface BossState {
   name: string;
   /** Seconds left gathering the move in `pattern` before it is let go. */
   windup?: number;
+  /** A jump (or, for floating guardians, a glide) to a new spot between moves. */
+  leap?: { x0: number; y0: number; x1: number; y1: number; t: number; dur: number; glide: boolean };
+  leapT?: number;
   /** Body language: poses, stride, lean, afterimages (see bossAnim). */
   look?: BossLook;
 }

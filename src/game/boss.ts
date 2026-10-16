@@ -176,6 +176,17 @@ function guardian(s: GameScene, e: Enemy, b: BossState, dt: number) {
     e.vy = Math.max(-80, Math.min(80, (ty - e.y) * k)) * hold;
   }
 
+  // Between moves it changes ground: a leap with a slam (a glide for the floating ones) instead of a slow drift.
+  if (b.leap) {
+    leapStep(s, e, b, dt);
+    return;
+  }
+  b.leapT = (b.leapT ?? 2.5) - dt;
+  if (b.leapT <= 0 && !b.pattern && b.armLive <= 0 && b.armWarn <= 0 && b.cooldown > 0.3 && b.invuln <= 0) {
+    startLeap(s, e, b);
+    return;
+  }
+
   // Rotating arms: warn, then live.
   if (b.armWarn > 0) {
     b.armWarn -= dt;
@@ -270,6 +281,53 @@ function guardian(s: GameScene, e: Enemy, b: BossState, dt: number) {
       break;
     }
   }
+}
+
+function startLeap(s: GameScene, e: Enemy, b: BossState) {
+  const p = s.player;
+  const R = s.roomRect();
+  const glide = !!b.look?.float;
+  // Somewhere near the knight, but not on top of it, and inside the room.
+  const a = Math.atan2(e.y - p.y, e.x - p.x) + rand(-1.2, 1.2);
+  const d = glide ? rand(80, 120) : rand(30, 70);
+  const x1 = clamp(p.x + Math.cos(a) * d, R.x0 + 40, R.x1 - 40);
+  const y1 = clamp(p.y + Math.sin(a) * d * 0.8, R.y0 + 50, R.y1 - 36);
+  const dur = glide ? 0.45 : b.phase === 2 ? 0.6 : 0.75;
+  b.leap = { x0: e.x, y0: e.y, x1, y1, t: 0, dur, glide };
+  b.leapT = b.phase === 2 ? rand(2.2, 3.2) : rand(3, 4.5);
+  e.vx = e.vy = 0;
+  if (glide) {
+    audio.dash();
+  } else {
+    // The shadow of where it will come down, so standing there is a choice.
+    s.telegraphs.push({ kind: 'circle', x: x1, y: y1, r: 28, t: 0, dur });
+    s.fx.dust(e.x, e.y, 8);
+    if (b.look) b.look.sq = 0.3;
+  }
+}
+
+function leapStep(s: GameScene, e: Enemy, b: BossState, dt: number) {
+  const L = b.leap!;
+  L.t += dt;
+  const k = Math.min(1, L.t / L.dur);
+  const ease = L.glide ? k * k * (3 - 2 * k) : k;
+  e.x = L.x0 + (L.x1 - L.x0) * ease;
+  e.y = L.y0 + (L.y1 - L.y0) * ease;
+  e.vx = e.vy = 0;
+  b.air = L.glide ? 0 : Math.sin(Math.PI * k) * 48;
+  if (k < 1) return;
+  b.leap = undefined;
+  b.air = 0;
+  if (L.glide) return;
+  // The landing.
+  const p = s.player;
+  if (b.look) b.look.sq = 0.36;
+  s.fx.ring(e.x, e.y, 46, b.look?.accent ?? E.white, 340, 3);
+  s.fx.dust(e.x, e.y, 16);
+  s.fx.shake(0.4);
+  s.light.flash(e.x, e.y - 10, 80, b.look?.accent ?? E.white, 0.2);
+  audio.explode(false);
+  if (s.mode === 'play' && dist(p.x, p.y, e.x, e.y) < 28 + p.r) s.hurtPlayer(1, e.x, e.y);
 }
 
 function boar(s: GameScene, e: Enemy, b: BossState, dt: number) {
