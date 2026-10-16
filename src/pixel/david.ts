@@ -128,11 +128,11 @@ export function david(): Grid {
   return g;
 }
 
-/** Temple ruins on the skyline: a broken colonnade with part of its entablature and pediment. 150 x 74. */
-export function temple(): Grid {
-  const g = new Grid(150, 74);
+/** Temple ruins on the skyline: a broken colonnade with part of its entablature and pediment, hills to `w`. */
+export function temple(w = 150): Grid {
+  const g = new Grid(w, 74);
   // Hills behind.
-  for (let x = 0; x < 150; x++) {
+  for (let x = 0; x < w; x++) {
     const h = 52 + Math.round(Math.sin(x * 0.05) * 4 + Math.sin(x * 0.17) * 2);
     g.rect(x, h, 1, 74 - h, 'h');
   }
@@ -160,14 +160,14 @@ export function temple(): Grid {
   return g;
 }
 
-/** The terrace the statue stands on: worn marble slabs, a fallen capital, a laurel sprig. 220 x 22. */
-export function terrace(): Grid {
-  const g = new Grid(220, 22);
-  g.rect(0, 6, 220, 16, 'k');
-  g.rect(0, 6, 220, 1, 'e');
-  for (let x = 0; x < 220; x += 26) g.rect(x, 7, 1, 15, 'h');
-  for (let x = 13; x < 220; x += 26) g.rect(x, 14, 1, 8, 'h');
-  g.rect(0, 13, 220, 1, 'h');
+/** The terrace the statue stands on: worn marble slabs, a fallen capital, a laurel sprig. `w` x 22. */
+export function terrace(w = 220): Grid {
+  const g = new Grid(w, 22);
+  g.rect(0, 6, w, 16, 'k');
+  g.rect(0, 6, w, 1, 'e');
+  for (let x = 0; x < w; x += 26) g.rect(x, 7, 1, 15, 'h');
+  for (let x = 13; x < w; x += 26) g.rect(x, 14, 1, 8, 'h');
+  g.rect(0, 13, w, 1, 'h');
   // A fallen Ionic capital with its scrolls.
   g.rect(36, 0, 20, 6, 'k').rect(36, 0, 20, 1, 'e').ellipse(36, 3, 3, 3, 'k').ellipse(56, 3, 3, 3, 'k').set(36, 3, 'e').set(56, 3, 'e');
   // A laurel sprig.

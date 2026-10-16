@@ -1093,7 +1093,7 @@ canvas.bt {
   flex-direction: row;
   justify-content: space-between;
   align-items: stretch;
-  padding: 26px 22px 18px 26px;
+  padding: 18px 22px 14px 26px;
   transition: opacity 0.25s steps(4);
 }
 
@@ -1119,6 +1119,7 @@ canvas.bt {
 
 .title .logo {
   position: relative;
+  flex-shrink: 0;
   width: 192px;
   height: 32px;
   margin-bottom: 4px;
@@ -1155,13 +1156,13 @@ canvas.bt {
 }
 
 .title .sub {
-  margin-bottom: 14px;
+  margin-bottom: 8px;
 }
 
 .title .menu {
   margin-top: 0;
   align-items: stretch;
-  gap: 3px;
+  gap: 2px;
   min-width: 132px;
 }
 
@@ -1177,32 +1178,43 @@ canvas.bt {
   gap: 2px;
 }
 
-/* ---- the title painting: a framed night, layered for parallax */
+/* ---- the title painting: a Greek night behind the whole menu, drawn at half size and doubled, layered for parallax */
 
-.painting {
+.title .painting {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.title .tl-left,
+.title .tl-right,
+.title .ver {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  z-index: 1;
 }
 
 .pt-canvas {
-  position: relative;
-  width: 220px;
-  height: 128px;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 240px;
+  height: 135px;
   overflow: hidden;
+  transform: scale(2);
+  transform-origin: 0 0;
   cursor: pointer;
   pointer-events: auto;
 }
 
-.pt-frame {
+/* Dusk falls over the left of the picture in hard bands, so the menu reads; the foot darkens for the caption. */
+.pt-fade {
   position: absolute;
-  left: -4px;
-  top: -4px;
-  width: 228px;
-  height: 136px;
+  inset: 0;
   pointer-events: none;
-  box-shadow: inset 0 0 0 1px #000, inset 0 0 0 2px #feae34, inset 0 0 0 3px #fee761, inset 0 0 0 4px #b86f50, 0 0 0 1px #000;
+  background:
+    linear-gradient(90deg, rgba(7, 6, 11, 0.94) 0 28%, rgba(7, 6, 11, 0.82) 28% 33%, rgba(7, 6, 11, 0.66) 33% 38%, rgba(7, 6, 11, 0.48) 38% 43%, rgba(7, 6, 11, 0.3) 43% 48%, rgba(7, 6, 11, 0.14) 48% 53%, transparent 53%),
+    linear-gradient(0deg, rgba(7, 6, 11, 0.75) 0 7%, rgba(7, 6, 11, 0.45) 7% 12%, rgba(7, 6, 11, 0.2) 12% 16%, transparent 16%),
+    linear-gradient(180deg, rgba(7, 6, 11, 0.5) 0 4%, transparent 4%);
 }
 
 .pt-canvas > div,
@@ -1213,7 +1225,7 @@ canvas.bt {
 /* Banded night: hard steps instead of a smooth gradient, like the rest of the pixel art. */
 .pt-sky {
   inset: 0;
-  background: linear-gradient(#0b0a12 0 22%, #181425 22% 40%, #262b44 40% 55%, #3e2731 55% 68%, #68386c 68% 78%, #a22633 78% 100%);
+  background: linear-gradient(#0b0a12 0 24%, #181425 24% 42%, #262b44 42% 56%, #3e2731 56% 68%, #68386c 68% 78%, #a22633 78% 100%);
 }
 
 .pt-stars {
@@ -1229,8 +1241,8 @@ canvas.bt {
 }
 
 .pt-moon {
-  left: 160px;
-  top: 16px;
+  left: 178px;
+  top: 17px;
   animation: moonPulse 4s steps(4) infinite alternate;
 }
 
@@ -1263,13 +1275,13 @@ canvas.bt {
 }
 
 .pt-ruins {
-  left: -6px;
-  bottom: 12px;
+  left: 70px;
+  bottom: 14px;
 }
 
 .pt-cliff {
   left: 0;
-  bottom: -6px;
+  bottom: -4px;
 }
 
 .pt-petals {
@@ -1289,14 +1301,25 @@ canvas.bt {
 }
 
 .pt-meander {
-  margin-top: 6px;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
   line-height: 0;
+  pointer-events: none;
+}
+
+/* The caption follows the menu, right under it. */
+.title .pt-caption {
+  margin-top: 6px;
+  max-width: 196px;
+  pointer-events: none;
 }
 
 /* The marble David: moonlight runs across him every few seconds, and at once when the mouse finds him. */
 .pt-david {
-  left: 150px;
-  bottom: 0;
+  left: 168px;
+  bottom: 6px;
 }
 
 .pt-david img {
@@ -1358,7 +1381,23 @@ canvas.bt {
 .title .ver {
   position: absolute;
   right: 4px;
-  bottom: 3px;
+  bottom: 12px;
+}
+
+/* The tagline sits in the night sky at the top right, above the moon. */
+.title .tl-right {
+  position: absolute;
+  top: 8px;
+  right: 18px;
+  flex: none;
+  padding: 0;
+  align-items: flex-end;
+}
+
+.title .tl-story {
+  margin-top: 0;
+  align-items: flex-end;
+  gap: 1px;
 }
 
 .menu {

@@ -117,7 +117,7 @@ export function react(s: GameScene, e: Enemy, el: Element, hit: number): number 
   if (pair('fire', 'shock')) {
     consume();
     say(s, e, '超载', 'fire');
-    s.explode(e.x, e.y, 34, hit * 0.9 * pow, { src: '超载', knock: 240, small: true, element: 'fire', noReact: true });
+    s.explode(e.x, e.y, 34, hit * 0.9 * pow, { src: '超载', knock: 240, small: true, element: 'fire', noReact: true, volume: 0.45 });
     return mult;
   }
   if (pair('ice', 'shock')) {
@@ -241,7 +241,7 @@ function wakeCores(s: GameScene, x: number, y: number, el: Element) {
       }
     } else {
       s.fx.callout(c.x, c.y - 14, '烈绽放', col('fire'));
-      s.explode(c.x, c.y, 52, c.dmg * 1.5, { src: '烈绽放', knock: 160, element: 'fire', noReact: true });
+      s.explode(c.x, c.y, 52, c.dmg * 1.5, { src: '烈绽放', knock: 160, element: 'fire', noReact: true, volume: 0.4 });
     }
   }
 }

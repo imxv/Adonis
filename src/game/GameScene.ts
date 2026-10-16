@@ -40,7 +40,7 @@ import { DEPTH, Fx } from './fx';
 import { ELEMENTS, SHIELD_COUNTER, STYLE_ELEMENT, clearCores, markAura, react, shatter, tintShield, updateCores, type Core } from './elements';
 import { Lighting } from './lighting';
 import { syncPets, updatePets } from './pets';
-import { LEVELS, applyChoice, applyFusion, evolutionsReady, fusionsReady, newRun, restoreRun, rollChoices, snapshotRun, spellTaken, xpForLevel, type Choice, type RunState } from './run';
+import { LEVELS, applyChoice, applyFusion, choiceValid, evolutionsReady, fusionsReady, newRun, restoreRun, rollChoices, snapshotRun, spellTaken, xpForLevel, type Choice, type RunState } from './run';
 import type { FusionId } from '../data/spells';
 import { addScore, clearRun, loadRun, saveRun, scoreOf, type SavedRun } from '../save';
 import { buildCodex } from '../ui/codex';
@@ -1907,7 +1907,7 @@ export class GameScene extends Phaser.Scene {
 
   /** Rockets blow up on whatever stops them. */
   private detonate(p: Proj, x = p.x, y = p.y) {
-    this.explode(x, y, p.blast ?? 24, p.dmg, { src: p.src, knock: p.knock });
+    this.explode(x, y, p.blast ?? 24, p.dmg, { src: p.src, knock: p.knock, volume: 0.8 });
     this.killProj(p, true);
   }
 
@@ -2118,7 +2118,7 @@ export class GameScene extends Phaser.Scene {
     p.shadow?.setPosition(p.x, p.y);
     if (t >= 1) {
       this.killProj(p, true);
-      this.explode(p.x, p.y, p.blast!, p.dmg, { src: p.src, knock: p.knock, element: p.element });
+      this.explode(p.x, p.y, p.blast!, p.dmg, { src: p.src, knock: p.knock, element: p.element, volume: 0.8 });
       if (p.embers! > 0) this.hazards.push({ kind: 'ember', x: p.x, y: p.y, r: p.blast! * 0.75, t: 1.2 + p.embers! * 0.7, tick: 0, dmg: p.dmg * 0.16 });
     }
   }
@@ -2276,7 +2276,7 @@ export class GameScene extends Phaser.Scene {
         e.ky += ((o.ky ?? 0) / l) * o.knock * res;
       }
       if (!o.quiet || crit) {
-        audio.hit(crit);
+        audio.hit(crit, !!o.heavy);
         this.fx.sparks(e.x, e.y - 4, crit ? 6 : 2, crit ? 'gold' : element ?? 'white');
       }
       if (crit) {
@@ -2286,7 +2286,7 @@ export class GameScene extends Phaser.Scene {
     }
     if (!o.quiet || crit) this.fx.number(e.x, e.y - e.r * 2 - 4, dmg, { crit, small: o.dot, color: o.color ?? (element ? ELEMENT_COLOR[element] : undefined) });
     if (!o.dot && !o.noElement) {
-      if (m.explodeOnHit > 0 && Math.random() < m.explodeOnHit) this.explode(e.x, e.y, 26, dmg * 0.6, { src: '余烬爆裂', small: true, element: 'fire' });
+      if (m.explodeOnHit > 0 && Math.random() < m.explodeOnHit) this.explode(e.x, e.y, 26, dmg * 0.6, { src: '余烬爆裂', small: true, element: 'fire', volume: 0.35 });
       if (crit && m.splitOnCrit > 0) {
         for (let i = 0; i < m.splitOnCrit; i++) this.spawnProj('shard', e.x, e.y, rand(0, TAU), 260, 0.4, 2, dmg * 0.35, 0, 20, '裂变').hit.add(e);
       }
@@ -2349,11 +2349,14 @@ export class GameScene extends Phaser.Scene {
       this.dropHeart(e.x + 8, e.y);
     } else if (Math.random() < 0.015) this.dropHeart(e.x, e.y);
     if (run.mods.healOnKill > 0 && Math.random() < run.mods.healOnKill) this.heal(1, e.x, e.y);
-    if (run.mods.explodeOnKill > 0) this.explode(e.x, e.y, 30, e.maxHp * run.mods.explodeOnKill, { src: '连锁殉爆', small: true });
-    if (e.kind === 'bomber') this.explode(e.x, e.y, 36, 18, { src: '炸弹怪', hurtsPlayer: 1 });
+    if (run.mods.explodeOnKill > 0) this.explode(e.x, e.y, 30, e.maxHp * run.mods.explodeOnKill, { src: '连锁殉爆', small: true, volume: 0.35 });
+    if (e.kind === 'bomber') this.explode(e.x, e.y, 36, 18, { src: '炸弹怪', hurtsPlayer: 1, volume: 0.6 });
     this.spreadPoison(e);
     if (e.affix === 'split' && !e.mini) for (let i = 0; i < 2; i++) this.spawnEnemy(e.kind as EnemyKind, e.x + rand(-8, 8), e.y + rand(-8, 8), false, true);
     if (e.affix === 'burst') for (let i = 0; i < 10; i++) this.spawnEnemyBullet(e.x, e.y, (i / 10) * TAU, 80);
+    // The element mark over its head goes with it.
+    e.auraImg?.destroy();
+    e.auraImg = undefined;
     if (e.boss) {
       bossDeath(this, e);
       return;
@@ -2380,7 +2383,7 @@ export class GameScene extends Phaser.Scene {
     this.decals?.stamp(`splat-${Math.floor(rand(0, 4))}`, undefined, Math.round(e.x), Math.round(e.y + 1), { angle: Math.floor(rand(0, 4)) * 90, scale, alpha, tint: hexToNum(col) });
   }
 
-  explode(x: number, y: number, r: number, dmg: number, o: { src: string; hurtsPlayer?: number; knock?: number; small?: boolean; element?: Element; noReact?: boolean }) {
+  explode(x: number, y: number, r: number, dmg: number, o: { src: string; hurtsPlayer?: number; knock?: number; small?: boolean; element?: Element; noReact?: boolean; volume?: number }) {
     for (const e of this.enemies) {
       if (e.dead) continue;
       if (dist2(x, y, e.x, e.y) < (r + e.r) ** 2) this.damageEnemy(e, dmg, { src: o.src, kx: e.x - x, ky: e.y - y, knock: o.knock ?? 100, ignoreShield: true, noElement: o.small, element: o.element, noReact: o.noReact, heavy: true });
@@ -2395,7 +2398,7 @@ export class GameScene extends Phaser.Scene {
     this.fx.dust(x, y, o.small ? 3 : 8);
     this.fx.shake(o.small ? 0.06 : 0.2);
     this.light.flash(x, y, r * 3, E.orange);
-    audio.explode(!o.small && r > 30);
+    audio.explode(!o.small && r > 30 && (o.volume ?? 1) > 0.7, o.volume ?? 1);
   }
 
   /** Breakable props in a circle take a hit: crates splinter, kegs go up. */
@@ -2411,7 +2414,7 @@ export class GameScene extends Phaser.Scene {
     if (o.hp <= 0) {
       o.dead = true;
       o.sprite.destroy();
-      if (o.kind === 'barrel') this.explode(o.x, o.y, 44, 30, { src: '爆炸桶', hurtsPlayer: 2, knock: 160 });
+      if (o.kind === 'barrel') this.explode(o.x, o.y, 44, 30, { src: '爆炸桶', hurtsPlayer: 2, knock: 160, volume: 0.5 });
       else {
         this.fx.burst(o.x, o.y, 8);
         this.fx.dust(o.x, o.y, 6);
@@ -2739,8 +2742,7 @@ export class GameScene extends Phaser.Scene {
       const ups = run.spells.filter((s) => s.level < 5 && !SPELLS[s.id].fusion).map((s) => ({ type: 'spell-up', id: s.id }) as Choice);
       c = ups.length && run.rng.chance(0.6) ? run.rng.pick(ups) : rollChoices(run, 'rare')[0];
     }
-    this.takeChoice(c);
-    ui.chestReward(c, run);
+    ui.chestReward(this.takeChoice(c), run);
   }
 
   /** Treasure room: three items on pedestals; take one and the others crumble. */
@@ -2797,8 +2799,7 @@ export class GameScene extends Phaser.Scene {
       p.item.setY(Math.round(p.y - 9 + Math.sin(this.time0 * 3 + p.x) * 2));
       p.glow.setY(p.item.y);
       if (dist2(p.x, p.y, pl.x, pl.y) < 12 * 12) {
-        this.takeChoice(p.choice);
-        ui.chestReward(p.choice, this.run);
+        ui.chestReward(this.takeChoice(p.choice), this.run);
         this.fx.ring(p.x, p.y - 8, 40, E.yellow, 400);
         this.fx.sparks(p.x, p.y - 8, 16, 'gold');
         audio.levelUp();
@@ -2902,7 +2903,9 @@ export class GameScene extends Phaser.Scene {
     );
   }
 
-  takeChoice(c: Choice) {
+  /** Apply a choice; one that has gone stale (see choiceValid) is swapped for a fresh rare pick. Returns what was given. */
+  takeChoice(c: Choice): Choice {
+    if (!choiceValid(this.run, c)) c = rollChoices(this.run, 'rare')[0];
     applyChoice(this.run, c);
     this.time.delayedCall(0, () => this.saveProgress());
     if (c.type === 'spell-new' || c.type === 'spell-up') this.time.delayedCall(350, () => this.checkFusions());
@@ -2914,6 +2917,7 @@ export class GameScene extends Phaser.Scene {
       this.fx.ring(this.player.x, this.player.y, 120, E.yellow, 600, 3);
       ui.toast(`进化：${SPELLS[c.id].evolved?.name ?? SPELLS[c.id].name}`, 1600);
     } else if (c.type === 'upgrade') ui.toast(UPGRADE_BY_ID[c.def.id].name, 800);
+    return c;
   }
 
   checkFusions() {
@@ -3050,7 +3054,7 @@ export class GameScene extends Phaser.Scene {
         this.hurtProps(h.x, h.y, h.r, h.dmg);
       }
       if (h.t <= 0 && h.kind === 'vortex' && h.burst) {
-        this.explode(h.x, h.y, h.r * 0.8, h.burst, { src: h.src ?? '黑洞', knock: 160 });
+        this.explode(h.x, h.y, h.r * 0.8, h.burst, { src: h.src ?? '黑洞', knock: 160, volume: 0.45 });
         this.fx.ring(h.x, h.y, h.r, E.magenta, 360, 3);
       }
     }

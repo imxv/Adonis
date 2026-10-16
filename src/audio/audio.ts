@@ -20,6 +20,9 @@ class AudioEngine {
   private thump!: Tone.MembraneSynth;
   private hitNoise!: Tone.NoiseSynth;
   private hitFilter!: Tone.Filter;
+  /** The crack at the front of a hit: a few milliseconds of bright noise. */
+  private snap!: Tone.NoiseSynth;
+  private snapFilter!: Tone.Filter;
   private bell!: Tone.PolySynth;
   private sparkle!: Tone.PolySynth;
   private boomNoise!: Tone.NoiseSynth;
@@ -79,7 +82,10 @@ class AudioEngine {
     this.pop.volume.value = -20;
     this.thump = new Tone.MembraneSynth({ pitchDecay: 0.04, octaves: 4, envelope: { attack: 0.001, decay: 0.16, sustain: 0, release: 0.05 } }).connect(this.sfx);
     this.thump.volume.value = -14;
-    this.hitFilter = new Tone.Filter(2200, 'lowpass').connect(this.sfx);
+    this.hitFilter = new Tone.Filter(3400, 'lowpass').connect(this.sfx);
+    this.snapFilter = new Tone.Filter({ frequency: 3800, type: 'highpass', rolloff: -12 }).connect(this.sfx);
+    this.snap = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.0005, decay: 0.022, sustain: 0, release: 0.008 } }).connect(this.snapFilter);
+    this.snap.volume.value = -13;
     this.hitNoise = new Tone.NoiseSynth({ noise: { type: 'pink' }, envelope: { attack: 0.001, decay: 0.06, sustain: 0, release: 0.02 } }).connect(this.hitFilter);
     this.hitNoise.volume.value = -16;
     this.bell = new Tone.PolySynth({
@@ -273,11 +279,18 @@ class AudioEngine {
     });
   }
 
-  hit(crit: boolean) {
+  /**
+   * A hit lands: a bright crack up front (its pitch wanders a little so a burst of hits never sounds like a machine),
+   * a short body under it, and a punch that drops in pitch. Heavy blows punch deeper; crits ring.
+   */
+  hit(crit: boolean, heavy = false) {
     if (!this.gate('hit', 28)) return;
     this.safe(() => {
-      this.hitNoise.triggerAttackRelease(0.04, this.at(this.hitNoise), crit ? 0.9 : 0.5);
-      this.thump.triggerAttackRelease(crit ? 'E2' : 'A2', 0.05, this.at(this.thump), crit ? 0.8 : 0.4);
+      const t = this.at(this.snap);
+      this.snapFilter.frequency.setValueAtTime(3000 + Math.random() * 2200, t);
+      this.snap.triggerAttackRelease(0.02, t, crit ? 1 : 0.8);
+      this.hitNoise.triggerAttackRelease(0.035, this.at(this.hitNoise), crit ? 0.9 : 0.6);
+      this.thump.triggerAttackRelease(heavy ? 'G2' : crit ? 'E3' : 'C3', 0.06, this.at(this.thump), heavy ? 0.85 : crit ? 0.8 : 0.55);
       if (crit && this.gate('crit', 70)) this.bell.triggerAttackRelease(this.note(7 + Math.floor(Math.random() * 3), 1), 0.12, Tone.now(), 0.55);
     });
   }
@@ -292,13 +305,16 @@ class AudioEngine {
     this.safe(() => this.pop.triggerAttackRelease(this.note(Math.min(combo, 14), 1), 0.08, this.at(this.pop), 0.9));
   }
 
-  explode(big = false) {
+  /** An explosion; `level` (0-1) turns down the ones that come often, like meteors, kegs and reactions. */
+  explode(big = false, level = 1) {
     if (!this.gate('boom', 60)) return;
     this.safe(() => {
       const t = this.at(this.boomNoise);
-      this.sweep(this.boomFilter, big ? 3200 : 2400, 160, t, big ? 0.7 : 0.4);
-      this.boomNoise.triggerAttackRelease(big ? 0.7 : 0.38, t, big ? 1 : 0.75);
-      this.sub.triggerAttackRelease(big ? 'C1' : 'G1', big ? 0.6 : 0.35, this.at(this.sub), big ? 1 : 0.8);
+      // Quieter ones are darker too, so they sit under the fight instead of on top of it.
+      const bright = 0.45 + 0.55 * level;
+      this.sweep(this.boomFilter, (big ? 3200 : 2400) * bright, 160, t, big ? 0.7 : 0.4);
+      this.boomNoise.triggerAttackRelease(big ? 0.7 : 0.38, t, (big ? 1 : 0.75) * level);
+      this.sub.triggerAttackRelease(big ? 'C1' : 'G1', big ? 0.6 : 0.35, this.at(this.sub), (big ? 1 : 0.8) * level);
     });
   }
 

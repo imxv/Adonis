@@ -175,7 +175,40 @@ export function applyUpgrade(run: RunState, def: UpgradeDef) {
   run.armor = Math.min(run.mods.maxArmor, run.armor + Math.max(0, run.mods.maxArmor - ar));
 }
 
+/**
+ * Whether a choice can still be taken. Offers are rolled ahead of time (a treasure room lays out its pedestals when
+ * you walk in), so by the time one is taken the spell may have hit its last level, the four slots may be full, or the
+ * upgrade may be at its cap.
+ */
+export function choiceValid(run: RunState, c: Choice): boolean {
+  switch (c.type) {
+    case 'upgrade':
+      return (run.stacks[c.def.id] ?? 0) < c.def.max;
+    case 'weapon-new':
+      return !run.weapons.some((w) => w.def.id === c.id);
+    case 'weapon-up':
+      return !!run.weapons[c.index] && run.weapons[c.index].level < MAX_WEAPON_LEVEL;
+    case 'spell-new':
+      return !spellTaken(run, c.id) && run.spells.length < MAX_SPELLS;
+    case 'spell-up': {
+      const s = run.spells.find((x) => x.id === c.id);
+      return !!s && !SPELLS[s.id].fusion && s.level < MAX_SPELL_LEVEL;
+    }
+    case 'evolve': {
+      const s = run.spells.find((x) => x.id === c.id);
+      const key = s && SPELLS[s.id].evolveWith;
+      return !!s && !s.evolved && !!key && s.level >= MAX_SPELL_LEVEL && (run.stacks[key] ?? 0) > 0;
+    }
+    case 'pet':
+      return !run.pets.includes(c.kind);
+    case 'heal':
+      return true;
+  }
+}
+
 export function applyChoice(run: RunState, c: Choice) {
+  // Every level has a ceiling: nothing here may push past it, whatever offered it.
+  if (!choiceValid(run, c)) return;
   switch (c.type) {
     case 'upgrade':
       applyUpgrade(run, c.def);

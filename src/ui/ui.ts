@@ -610,14 +610,15 @@ class UI implements LayerHost {
         <div class="tl-story">${px('他一次次死去，又一次次重生。', DIM)}${px('这一次，穿过五层地牢，去见那头野猪。', DIM)}</div>
       </div>
       <div class="ver">${px('v0.5', E.slate, { small: true, outline: false })}</div>`;
-    // The painting: a framed night with the anemone moon, the knight and the boar; it answers the mouse and the menu.
+    // The painting fills the screen behind the menu; it answers the mouse and the menu.
     const painting = new TitlePainting();
-    ov.querySelector('.tl-right')!.prepend(painting.el);
+    ov.prepend(painting.el);
     ov.addEventListener('mousemove', (e) => painting.look(e.clientX, e.clientY));
     const note = save ? `第${FLOOR_NAMES[save.level] ?? save.level + 1}层 Lv${save.xpLevel}` : '没有存档';
     const rows = [menuRow('继续游戏', { note }), menuRow('开始冒险'), menuRow('排行榜'), menuRow('游戏说明'), menuRow('图鉴'), menuRow('设置')];
     ['continue', 'new', 'board', 'guide', 'codex', 'settings'].forEach((k, i) => (rows[i].dataset.k = k));
     ov.querySelector('.menu')!.append(...rows);
+    ov.querySelector('.menu')!.after(painting.caption);
     let tabs: CodexTab[] | undefined;
     const leave = (go: () => void) => {
       this.close(layer, 250);

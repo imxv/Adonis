@@ -3,7 +3,7 @@ import { TAU, dist2, hexToNum } from '../core/math';
 import { rand } from '../core/rng';
 import { audio } from '../audio/audio';
 import { E } from '../pixel/palette';
-import type { SpellInstance } from '../data/spells';
+import type { SpellId, SpellInstance } from '../data/spells';
 import type { Enemy, Img } from './entities';
 import { DEPTH } from './fx';
 import type { GameScene } from './GameScene';
@@ -77,7 +77,7 @@ function meteor(s: GameScene, x: number, y: number, r: number, dmg: number, src:
       dur: fall,
       onDone: () => {
         rock.destroy();
-        s.explode(x, y, r, dmg, { src, knock: 110, element: 'fire' });
+        s.explode(x, y, r, dmg, { src, knock: 110, element: 'fire', volume: 0.35 });
         if (fire > 0) s.hazards.push({ kind: 'ember', x, y, r: r * 0.8, t: fire, dur: fire, tick: 0.1, dmg: dmg * 0.12, src });
       },
     });
@@ -99,6 +99,9 @@ function zap(s: GameScene, x: number, y: number, e: Enemy, dmg: number, src: str
  * only half of what the shared damage and attack-rate upgrades give the weapons.
  */
 const SPELL_POWER = 0.7;
+
+/** Spells that only circle the knight; they keep turning outside fights since they make no sound there. */
+const CIRCLING = new Set<SpellId>(['orbit', 'aura', 'swords', 'bladestorm', 'plague']);
 
 export function updateSpells(s: GameScene, dt: number) {
   const run = s.run;
@@ -132,9 +135,13 @@ export function updateSpells(s: GameScene, dt: number) {
     return out;
   };
 
+  // Out of a fight the spells hold still: no knives at the walls, no meteors on empty floors, no novas in corridors.
+  // Only the ones that simply circle the knight (books, swords, auras) keep turning.
+  const fighting = !!s.active && s.enemies.some((e) => !e.dead);
   for (const sp of run.spells) {
     const L = sp.level;
     sp.cd -= dt;
+    if (!fighting && !CIRCLING.has(sp.id)) continue;
     switch (sp.id) {
       case 'orbit': {
         const n = (1 + lv(L >= 3) + lv(L >= 5) + extra) * (sp.evolved ? 2 : 1);

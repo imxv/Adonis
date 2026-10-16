@@ -1,12 +1,12 @@
 import { audio } from '../audio/audio';
 import { E } from '../pixel/palette';
 import { ICONS } from '../styles/textures';
-import { icon, px } from './pxhtml';
+import { icon, pxBlock } from './pxhtml';
 
 /** What the painting's caption says for each title menu item. */
 const CAPTIONS = [
   '回到你上次倒下的地方。',
-  '血落处开出银莲花。这一次，走得更远些。',
+  '血落处开出银莲花。这次走远一些。',
   '看看谁走得最深。',
   '踩着拍子挥剑，整座地牢为你伴奏。',
   '十种画风里的一切，都记在这里。',
@@ -17,26 +17,28 @@ const CAPTIONS = [
 const DEPTHS: Record<string, number> = { 'pt-stars': 1, 'pt-moon': 3, 'pt-ruins': 4, 'pt-petals': 6, 'pt-cliff': 7, 'pt-david': 5 };
 
 /**
- * The title painting: a Greek night. A marble David stands on his plinth among temple ruins, the anemone (the flower
- * of Adonis's blood) hangs behind his head as the moon, petals drift down. Moonlight runs over the marble now and
- * then, and whenever the mouse finds him; the layers drift with the mouse; a click scatters petals; the caption under
- * the frame follows the menu.
+ * The title painting, filling the whole screen behind the menu: a Greek night. A marble David stands on his plinth
+ * before a ruined colonnade, the anemone (the flower of Adonis's blood) hangs behind his head as the moon, petals drift
+ * down. The scene is drawn at half resolution and doubled, like the bosses; a banded dusk falls over its left side so
+ * the menu reads, and a Greek key runs along the foot. Moonlight runs over the marble now and then, and whenever the
+ * mouse finds him; the layers drift with the mouse; a click scatters petals; the caption follows the menu.
  */
 export class TitlePainting {
   readonly el: HTMLElement;
   private canvas: HTMLElement;
-  private caption: HTMLElement;
+  /** The line under the menu that follows the selection; the menu places it. */
+  readonly caption: HTMLElement;
   private layers: [HTMLElement, number][] = [];
 
   constructor() {
     this.el = document.createElement('div');
     this.el.className = 'painting';
-    const stars = Array.from({ length: 26 }, (_, i) => {
-      const x = (i * 97) % 214;
-      const y = (i * 53) % 70;
-      return `<i style="left:${x + 3}px;top:${y + 3}px;animation-delay:${(i * 0.37) % 3}s"></i>`;
+    const stars = Array.from({ length: 48 }, (_, i) => {
+      const x = (i * 97) % 236;
+      const y = (i * 53) % 84;
+      return `<i style="left:${x + 2}px;top:${y + 2}px;animation-delay:${(i * 0.37) % 3}s"></i>`;
     }).join('');
-    const petals = Array.from({ length: 7 }, (_, i) => `<i style="left:${40 + i * 27}px;animation-delay:${i * 0.9}s;animation-duration:${5 + (i % 3)}s">${icon('petal')}</i>`).join('');
+    const petals = Array.from({ length: 10 }, (_, i) => `<i style="left:${70 + i * 18}px;animation-delay:${i * 0.8}s;animation-duration:${5 + (i % 3)}s">${icon('petal')}</i>`).join('');
     this.el.innerHTML = `
       <div class="pt-canvas">
         <div class="pt-sky"></div>
@@ -47,11 +49,11 @@ export class TitlePainting {
         <div class="pt-cliff">${icon('terrace')}</div>
         <div class="pt-david">${icon('david')}<i class="shine"></i><i class="glint">${icon('sparkle')}</i></div>
       </div>
-      <div class="pt-frame"></div>
-      <div class="pt-meander">${icon('meander')}</div>
-      <div class="pt-caption"></div>`;
+      <div class="pt-fade"></div>
+      <div class="pt-meander">${icon('meander')}</div>`;
     this.canvas = this.el.querySelector('.pt-canvas') as HTMLElement;
-    this.caption = this.el.querySelector('.pt-caption') as HTMLElement;
+    this.caption = document.createElement('div');
+    this.caption.className = 'pt-caption';
     for (const [cls, depth] of Object.entries(DEPTHS)) this.layers.push([this.canvas.querySelector(`.${cls}`) as HTMLElement, depth]);
 
     // The moonlight that runs over the statue is cut to the statue's own shape.
@@ -78,7 +80,7 @@ export class TitlePainting {
   }
 
   setCaption(i: number) {
-    this.caption.innerHTML = px(CAPTIONS[i] ?? '', E.greyM);
+    this.caption.innerHTML = pxBlock(CAPTIONS[i] ?? '', E.greyM, 196);
     this.replay(this.caption, 'in');
   }
 
