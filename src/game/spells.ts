@@ -163,6 +163,7 @@ export function updateSpells(s: GameScene, dt: number) {
               s.damageEnemy(e, dmg, { src: sp.evolved ? '灵魂吸取' : '圣光领域', kx: e.x - p.x, ky: e.y - p.y, knock: L >= 5 ? 50 : 10, noCrit: true });
             }
           }
+          s.hurtProps(p.x, p.y, radius, dmg);
         }
         break;
       }

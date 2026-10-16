@@ -613,6 +613,16 @@ class AudioEngine {
     });
   }
 
+  /** A room is cleared: a quick rising run of bells into a warm chord. */
+  clear() {
+    this.safe(() => {
+      const t = Tone.now();
+      [0, 2, 4, 7].forEach((d, i) => this.bell.triggerAttackRelease(this.note(d, 1), 0.25, t + i * 0.07, 0.5));
+      [0, 4, 7, 12].forEach((d, i) => this.fuseBell.triggerAttackRelease(this.note(d, 1), 1.2, t + 0.3 + i * 0.012, 0.55));
+      [9, 7, 9, 12].forEach((d, i) => this.sparkle.triggerAttackRelease(this.note(d, 2), 0.08, t + 0.45 + i * 0.06, 0.35));
+    });
+  }
+
   /** A melee finisher landed on the beat: a heavy hit and a bright chord on top. */
   finisher() {
     this.safe(() => {

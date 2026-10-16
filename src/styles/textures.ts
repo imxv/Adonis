@@ -207,6 +207,15 @@ export function buildCommonTextures(scene: Phaser.Scene) {
     icon(`upg-${id}`, c);
   }
 
+  // The horde altar: a round stone dais with a red rune ring and a bell-shaped crystal; stepping on it starts the horde.
+  const altar = new Grid(26, 18);
+  altar.ellipse(13, 12, 12, 5, 'D').ellipse(13, 11, 11, 4, 'G').ellipse(13, 11, 8, 2.6, 'n');
+  altar.ellipse(13, 11, 7, 2, 'r').ellipse(13, 11, 5.5, 1.3, 'n');
+  for (const [x, y] of [[4, 11], [22, 11], [13, 8], [13, 14], [7, 9], [19, 9], [7, 13], [19, 13]]) altar.set(x, y, 'R');
+  altar.tri(13, 0, 9, 9, 17, 9, 'r').tri(13, 0, 9, 9, 12, 9, 'p').set(13, 3, 'w');
+  altar.rect(10, 9, 7, 1, 'R');
+  add(scene, 'altar', altar.render({ colors: { D: E.slateD, G: E.slate, n: E.ink, r: E.red, R: E.redD, p: E.pink, w: E.white } }));
+
   // Title painting: the anemone moon, a ruined keep on the skyline, the cliff in front, a petal.
   const emblem = new Grid(39, 39);
   for (let i = 0; i < 6; i++) {

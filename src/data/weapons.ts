@@ -95,7 +95,9 @@ export interface WeaponInstance {
 }
 
 export const magSize = (w: WeaponInstance, magMul: number) => (w.def.mag ? Math.max(1, Math.round(w.def.mag * magMul)) : 0);
-export const reloadTime = (w: WeaponInstance, reloadMul: number) => (w.def.reload ?? 0) * reloadMul;
+/** Reloads run 60% longer than the listed base, so emptying a magazine is a real decision. */
+export const RELOAD_PACE = 1.6;
+export const reloadTime = (w: WeaponInstance, reloadMul: number) => (w.def.reload ?? 0) * reloadMul * RELOAD_PACE;
 
 export const weaponLevelDamage = (level: number) => 1 + 0.3 * (level - 1);
 export const weaponLevelCount = (level: number) => (level >= 3 ? 1 : 0) + (level >= 5 ? 1 : 0);

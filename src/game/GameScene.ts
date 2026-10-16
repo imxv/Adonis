@@ -159,6 +159,10 @@ export class GameScene extends Phaser.Scene {
   slowT = 0;
   slowScale = 1;
   pendingLevelUps = 0;
+  /** A horde room's altar, waiting for the player to step on it. */
+  altar?: { room: DRoom; parts: Img[]; started: boolean };
+  /** How the fight in the current room went, for the clear banner. */
+  private fightStats = { t0: 0, kills: 0, combo: 0 };
   /** A fusion is playing out: the knight cannot be hurt, and level-ups and the pause menu wait for it. */
   fusing = false;
   /** The beat game: timing against the music, the on-beat streak, the style rank. */
@@ -376,6 +380,8 @@ export class GameScene extends Phaser.Scene {
     this.obstacles = [];
     this.decor.forEach((s) => s.destroy());
     this.decor = [];
+    this.altar?.parts.forEach((o) => o.destroy());
+    this.altar = undefined;
     this.hazards = [];
     this.telegraphs = [];
     this.visuals = [];
@@ -639,14 +645,54 @@ export class GameScene extends Phaser.Scene {
       }
     }
     // Two tiles past the doorway of an uncleared fighting room, the gates slam shut.
+    // A horde waits until the player steps on its altar: they choose when the survival run starts.
     if (!this.active && here && !here.cleared && (here.type === 'combat' || here.type === 'horde' || here.type === 'boss') && roomAt(d, p.x, p.y, 2) === here) {
-      this.activate(here);
+      if (here.type === 'horde') this.hordeAltar(here);
+      else this.activate(here);
     }
+  }
+
+  /** The horde room's altar: shown on entry, and a three-beat countdown once the knight stands on it. */
+  hordeAltar(r: DRoom) {
+    const [cx, cy] = roomCenter(r);
+    if (!this.altar || this.altar.room !== r) {
+      this.altar?.parts.forEach((o) => o.destroy());
+      const img = this.add.image(cx, cy, 'altar').setDepth(DEPTH.decal + 0.7);
+      const glow = this.add.image(cx, cy - 2, 'glow').setDepth(DEPTH.decal + 0.6).setTint(hexToNum(E.red)).setScale(2.4).setAlpha(0.45).setBlendMode(Phaser.BlendModes.ADD);
+      const label = this.add.image(cx, cy + 18, textTexture(this, '踏上祭坛 开始尸潮挑战', { color: E.yellow, outline: E.ink })).setDepth(DEPTH.numbers - 0.5);
+      this.tweens.add({ targets: glow, alpha: 0.15, duration: 700, yoyo: true, repeat: -1 });
+      this.tweens.add({ targets: label, y: cy + 16, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      this.light.addStatic(cx, cy, 50, E.red);
+      this.altar = { room: r, parts: [img, glow, label], started: false };
+      ui.toast('尸潮房：准备好了就踏上祭坛', 1600);
+    }
+    if (this.altar.started || dist2(this.player.x, this.player.y, cx, cy) > 12 * 12) return;
+    this.altar.started = true;
+    const parts = this.altar.parts;
+    audio.roar();
+    this.fx.ring(cx, cy, 60, E.red, 500, 2);
+    this.fx.shake(0.1);
+    ['3', '2', '1'].forEach((n, i) => this.time.delayedCall(i * 600, () => {
+      this.fx.callout(cx, cy - 26, n, E.hot, true);
+      audio.beatHit(i === 2);
+    }));
+    this.time.delayedCall(1800, () => {
+      // Walked off before the count ended: the altar waits for another go.
+      if (!this.altar || roomAt(this.dungeon, this.player.x, this.player.y, 1) !== r) {
+        if (this.altar) this.altar.started = false;
+        return;
+      }
+      parts.forEach((o) => o.destroy());
+      this.altar = undefined;
+      this.fx.callout(cx, cy - 26, '坚持住！', E.yellow, true);
+      this.activate(r);
+    });
   }
 
   activate(r: DRoom) {
     this.active = r;
     this.rhythm.startFight();
+    this.fightStats = { t0: this.time0, kills: 0, combo: 0 };
     this.waveIdx = 0;
     this.waveTimer = 0;
     this.hordeT = 0;
@@ -996,7 +1042,16 @@ export class GameScene extends Phaser.Scene {
     this.pendingSpawns = 0;
     const grade = this.rhythm.gradeFight();
     this.run.score += grade.points;
-    ui.stamp(grade.rank, grade.points);
+    // The room falls quiet: a beat of slow motion, a flash, a ring of gold, a fanfare and the clear banner.
+    const p = this.player;
+    this.slow(0.3, 0.45);
+    this.fx.flash(E.white, 0.22, 320);
+    this.fx.ring(p.x, p.y - 6, 110, E.yellow, 650, 2);
+    this.fx.ring(p.x, p.y - 6, 60, E.white, 420, 1);
+    this.fx.sparks(p.x, p.y - 6, 22, 'gold');
+    this.light.flash(p.x, p.y - 6, 160, E.yellow, 0.35);
+    audio.clear();
+    ui.roomClear({ rank: grade.rank, points: grade.points, secs: this.time0 - this.fightStats.t0, kills: this.fightStats.kills, combo: this.fightStats.combo, boss: bossDown });
     audio.stamp(['D', 'C', 'B', 'A', 'S', 'SS'].indexOf(grade.rank));
     this.telegraphs = this.telegraphs.filter((t) => t.kind !== 'spawn');
     audio.setIntensity(0);
@@ -1841,6 +1896,13 @@ export class GameScene extends Phaser.Scene {
           continue;
         }
       }
+      if (p.kind === 'flame' || p.kind === 'blade' || p.kind === 'axe') {
+        for (const o of this.obstacles) {
+          if (o.dead || o.kind === 'pillar' || p.hitProps?.has(o) || dist2(p.x, p.y, o.x, o.y) >= (o.r + p.r) ** 2) continue;
+          (p.hitProps ??= new Set()).add(o);
+          this.damageObstacle(o, p.dmg);
+        }
+      }
       if (p.kind === 'bolt' || p.kind === 'pellet' || p.kind === 'shard' || p.kind === 'orb' || p.kind === 'rocket') {
         const o = this.obstacles.find((q) => !q.dead && dist2(p.x, p.y, q.x, q.y) < (q.r + p.r) ** 2);
         if (o) {
@@ -2133,6 +2195,10 @@ export class GameScene extends Phaser.Scene {
     const run = this.run;
     run.kills++;
     run.score += this.rhythm.kill(!!e.elite || !!e.boss);
+    if (this.active) {
+      this.fightStats.kills++;
+      this.fightStats.combo = Math.max(this.fightStats.combo, this.combo + 1);
+    }
     if (e.kind === 'magma' && !e.mini) {
       for (const s of [-1, 1]) this.spawnEnemy('magma', e.x + s * 6, e.y, false, true);
     } else if (e.kind === 'sporeling') {
@@ -2209,6 +2275,11 @@ export class GameScene extends Phaser.Scene {
     this.fx.shake(o.small ? 0.06 : 0.2);
     this.light.flash(x, y, r * 3, E.orange);
     audio.explode(!o.small && r > 30);
+  }
+
+  /** Breakable props in a circle take a hit: crates splinter, kegs go up. */
+  hurtProps(x: number, y: number, r: number, dmg: number) {
+    for (const o of this.obstacles) if (!o.dead && o.kind !== 'pillar' && dist2(x, y, o.x, o.y) < (r + o.r) ** 2) this.damageObstacle(o, dmg);
   }
 
   damageObstacle(o: Obstacle, dmg: number) {
@@ -2805,6 +2876,7 @@ export class GameScene extends Phaser.Scene {
           this.damageEnemy(e, h.dmg, { src: h.src ?? '余烬', dot: true, color: COLOR[h.kind] });
           if (h.kind === 'poison' && !e.dead) e.status.chill = Math.max(e.status.chill, 0.5);
         }
+        this.hurtProps(h.x, h.y, h.r, h.dmg);
       }
       if (h.t <= 0 && h.kind === 'vortex' && h.burst) {
         this.explode(h.x, h.y, h.r * 0.8, h.burst, { src: h.src ?? '黑洞', knock: 160 });

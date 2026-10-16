@@ -55,6 +55,8 @@ export interface Proj {
   spin?: number;
   /** Wall bounces left (throwing stars). */
   bounce?: number;
+  /** Props a piercing shot has already hit (flames, blades). */
+  hitProps?: Set<Obstacle>;
   /** Shards it bursts into when it stops (ice lance). */
   split?: number;
   dist?: number;

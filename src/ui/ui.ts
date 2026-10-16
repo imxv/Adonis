@@ -366,6 +366,21 @@ class UI implements LayerHost {
     rk.classList.add('up');
   }
 
+  /** A room is cleared: a banner sweeps open with the grade stamped on it, the points, and how the fight went. */
+  roomClear(o: { rank: Rank; points: number; secs: number; kills: number; combo: number; boss: boolean }) {
+    this.root.querySelectorAll('.clearbanner, .stamp').forEach((x) => x.remove());
+    const node = el('div', 'clearbanner');
+    const time = `${Math.floor(o.secs / 60)}:${String(Math.floor(o.secs % 60)).padStart(2, '0')}`;
+    node.innerHTML = `<div class="cb-band">
+        <div class="cb-text">${px(o.boss ? '击破守卫' : '房间清空', E.yellow, { scale: 2 })}${px('CLEAR!', E.white, { small: true })}</div>
+        <div class="cb-rank">${px(o.rank, RANK_COLOR[o.rank], { small: true, scale: 3 })}<div class="cb-pts">${px('RANK', E.white, { small: true })}${px(`+${o.points}`, E.yellow, { small: true })}</div></div>
+        <i class="cb-sweep"></i>
+      </div>
+      <div class="cb-stats">${px(`用时 ${time}`, GREY)}${px(`击杀 ${o.kills}`, GREY)}${px(`最高连击 ${o.combo}`, GREY)}</div>`;
+    this.root.appendChild(node);
+    setTimeout(() => node.remove(), 2600);
+  }
+
   /** A fight was won: its grade is stamped across the top of the screen with the points it earned. */
   stamp(rank: Rank, points: number) {
     this.root.querySelectorAll('.stamp').forEach((x) => x.remove());
