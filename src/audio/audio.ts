@@ -490,34 +490,39 @@ class AudioEngine {
     const perc = kit.audio.perc;
 
     const loop = new Tone.Loop((time) => {
-      const beat = step % 8;
-      const degree = progression[this.bar % progression.length];
-      if (beat === 0) {
-        const chord = chordOf(degree).map((m) => Tone.Frequency(m, 'midi').toFrequency());
-        pad.triggerAttackRelease(chord, '1m', time, 0.5);
-      }
-      if (Math.random() < (this.intensity > 0 ? 0.62 : 0.4)) {
-        const chordTones = [0, 2, 4, 7, 9];
-        const idx = degree + chordTones[Math.floor(Math.random() * chordTones.length)] + (Math.random() < 0.3 ? n : 0);
-        lead(idx, time);
-      }
-      if (this.intensity > 0) {
-        // The beat game needs a beat you can hear: a soft backbeat on 2 and 4 in every fight.
-        if ((beat === 2 || beat === 6) && perc !== 'claps') clap.triggerAttackRelease('16n', time, perc === 'none' ? 0.4 : 0.55);
-        if (perc === 'none' && (beat === 0 || beat === 4) && this.intensity === 1) kick.triggerAttackRelease('C2', '8n', time, 0.5);
-        if (perc === 'taiko') {
-          if (beat === 0 || beat === 3 || beat === 6) kick.triggerAttackRelease(beat === 0 ? 'C2' : 'G2', '8n', time, beat === 0 ? 1 : 0.6);
-        } else if (perc !== 'none') {
-          if (beat === 0 || beat === 4) kick.triggerAttackRelease('C2', '8n', time, 0.8);
-          if (beat % 2 === 1) hat.triggerAttackRelease('32n', time, 0.6);
-          if (perc === 'claps' && (beat === 2 || beat === 6)) clap.triggerAttackRelease('16n', time, 0.8);
-          if (perc === 'clank' && (beat === 3 || beat === 7)) clank.triggerAttackRelease(this.note(0, -1), '16n', time, 0.6);
+      try {
+        const beat = step % 8;
+        const degree = progression[this.bar % progression.length];
+        if (beat === 0) {
+          const chord = chordOf(degree).map((m) => Tone.Frequency(m, 'midi').toFrequency());
+          pad.triggerAttackRelease(chord, '1m', time, 0.5);
         }
-      }
-      if (this.intensity > 1) {
-        const rootMidi = chordOf(degree)[0] - 12;
-        bass.triggerAttackRelease(Tone.Frequency(rootMidi, 'midi').toFrequency(), '16n', time, beat % 2 ? 0.5 : 0.9);
-        if (perc === 'none' && beat % 4 === 0) kick.triggerAttackRelease('C2', '8n', time, 0.7);
+        if (Math.random() < (this.intensity > 0 ? 0.62 : 0.4)) {
+          const chordTones = [0, 2, 4, 7, 9];
+          const idx = degree + chordTones[Math.floor(Math.random() * chordTones.length)] + (Math.random() < 0.3 ? n : 0);
+          lead(idx, time);
+        }
+        if (this.intensity > 0) {
+          // The beat game needs a beat you can hear: a soft backbeat on 2 and 4 in every fight.
+          if ((beat === 2 || beat === 6) && perc !== 'claps') clap.triggerAttackRelease('16n', time, perc === 'none' ? 0.4 : 0.55);
+          if (perc === 'none' && (beat === 0 || beat === 4) && this.intensity === 1) kick.triggerAttackRelease('C2', '8n', time, 0.5);
+          if (perc === 'taiko') {
+            if (beat === 0 || beat === 3 || beat === 6) kick.triggerAttackRelease(beat === 0 ? 'C2' : 'G2', '8n', time, beat === 0 ? 1 : 0.6);
+          } else if (perc !== 'none') {
+            if (beat === 0 || beat === 4) kick.triggerAttackRelease('C2', '8n', time, 0.8);
+            if (beat % 2 === 1) hat.triggerAttackRelease('32n', time, 0.6);
+            if (perc === 'claps' && (beat === 2 || beat === 6)) clap.triggerAttackRelease('16n', time, 0.8);
+            if (perc === 'clank' && (beat === 3 || beat === 7)) clank.triggerAttackRelease(this.note(0, -1), '16n', time, 0.6);
+          }
+        }
+        if (this.intensity > 1) {
+          const rootMidi = chordOf(degree)[0] - 12;
+          bass.triggerAttackRelease(Tone.Frequency(rootMidi, 'midi').toFrequency(), '16n', time, beat % 2 ? 0.5 : 0.9);
+          if (perc === 'none' && beat % 4 === 0) kick.triggerAttackRelease('C2', '8n', time, 0.7);
+        }
+      } catch {
+        // After a stall the clock fires overdue steps all at "now", and a synth can't restart at its own start
+        // time: that note is dropped.
       }
       step++;
       if (step % 8 === 0) this.bar++;
