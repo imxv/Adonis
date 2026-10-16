@@ -530,7 +530,7 @@ export class GameScene extends Phaser.Scene {
       if (r.type === 'start') {
         if (this.run.level === 0) {
           this.worldText(cx, cy - 40, 'WASD 移动  鼠标射击', E.grey);
-          this.worldText(cx, cy - 26, '空格冲刺  Q换枪  E双持', E.grey);
+          this.worldText(cx, cy - 26, '空格/Shift冲刺  Q换枪  E双持', E.grey);
         }
         continue;
       }
