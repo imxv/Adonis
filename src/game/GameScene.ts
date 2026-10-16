@@ -2145,8 +2145,7 @@ export class GameScene extends Phaser.Scene {
     run.frenzyStacks = Math.min(10, run.frenzyStacks + 1);
     audio.kill(this.combo);
     this.fx.burst(e.x, e.y - 4, e.elite ? 16 : 6);
-    this.fx.petals(e.x, e.y - 4, e.elite ? 8 : 2);
-    this.bloom(e.x, e.y, e.boss || e.elite ? 2 : 1);
+    this.splat(e);
     this.light.flash(e.x, e.y - 4, e.elite ? 60 : 30, E.white);
     this.stop(e.elite ? 0.08 : 0.014);
     if (e.elite) this.fx.shake(0.22);
@@ -2181,8 +2180,17 @@ export class GameScene extends Phaser.Scene {
   }
 
   /** Each kill leaves an anemone on the floor; a cleared room is in bloom. */
-  bloom(x: number, y: number, scale: number) {
-    this.decals?.stamp('bloom', undefined, Math.round(x), Math.round(y), { angle: Math.floor(rand(0, 4)) * 90, scale, alpha: 0.85 });
+  /**
+   * What a kill leaves on the floor, on about a third of them (always for elites and bosses): blood for beasts,
+   * goo for slimes and jellies, scorch for bombs and magma, dust for bones and stone, oil for machines.
+   */
+  splat(e: Enemy) {
+    if (!e.boss && !e.elite && Math.random() > 0.35) return;
+    const stuff: Partial<Record<string, string>> = { wanderer: this.kit.px.slime, magma: E.brownD, bomber: E.ink, shield: E.cream, angel: E.grey, ghost: E.cyan, jelly: E.pink, sporeling: E.greenD, turret: E.navy, drone: E.navy, guardian: E.slate };
+    const col = stuff[e.kind] ?? E.redD;
+    const alpha = e.kind === 'ghost' ? 0.3 : e.kind === 'shield' || e.kind === 'angel' ? 0.5 : 0.72;
+    const scale = (e.boss ? 2.6 : e.elite ? 1.7 : 1) * rand(0.8, 1.15);
+    this.decals?.stamp(`splat-${Math.floor(rand(0, 4))}`, undefined, Math.round(e.x), Math.round(e.y + 1), { angle: Math.floor(rand(0, 4)) * 90, scale, alpha, tint: hexToNum(col) });
   }
 
   explode(x: number, y: number, r: number, dmg: number, o: { src: string; hurtsPlayer?: number; knock?: number; small?: boolean }) {

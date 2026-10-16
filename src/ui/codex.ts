@@ -323,7 +323,7 @@ export function buildCodex(scene: Phaser.Scene): CodexTab[] {
     { id: 'gems', name: '经验宝石', icon: tex('gem-2'), tag: '掉落', tagColor: E.cyan, desc: '击杀掉落，蓝色 1 点、绿色 2 点、红色 5 点经验。清完房间会自动飞向你。', gallery: { title: '三种宝石', pics: ['gem-1', 'gem-2', 'gem-3'].map(tex) } },
     { id: 'heart', name: '生命', icon: tex('heart'), tag: '掉落', tagColor: E.red, desc: '回复 1 点生命。精英怪必掉，木箱和清房偶尔掉。护甲会在 2 秒不受伤后自动回复。' },
     { id: 'trapdoor', name: '地洞', icon: half('trapdoor'), art: tex('trapdoor'), tag: '出口', tagColor: E.grey, desc: '打倒 Boss 后出现，走进去前往下一层。最后一层出现的是一朵银莲花，走上去结束这次轮回。' },
-    { id: 'bloom', name: '银莲花', icon: tex('bloom'), tag: '传说', tagColor: E.red, desc: '阿多尼斯的血开出的花。每次击杀，地上都会开出一朵；通关时，银莲花开满了地牢。' },
+    { id: 'bloom', name: '银莲花', icon: tex('bloom'), tag: '传说', tagColor: E.red, desc: '阿多尼斯的血开出的花。打倒第五层的野猪后，它会在最深处盛开，走上去就能结束这一次轮回。' },
   ];
 
   return [

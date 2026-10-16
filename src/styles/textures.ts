@@ -233,14 +233,40 @@ export function buildCommonTextures(scene: Phaser.Scene) {
   add(scene, 'barrel', P.powderKeg().render({ colors: P.KEG_LEGEND }));
   add(scene, 'crate', P.crate().render({ colors: P.CRATE_LEGEND }));
 
-  // Anemone floor decal and petal.
-  const bloom = new Grid(11, 11);
-  for (let i = 0; i < 6; i++) {
-    const a = (i / 6) * Math.PI * 2;
-    bloom.ellipse(5 + Math.cos(a) * 3, 5 + Math.sin(a) * 3, 1.6, 1.6, '1');
+  // The anemone that grew from Adonis' blood: six red petals, a white ring and a dark heart, on a few leaves.
+  const bloom = new Grid(23, 21);
+  for (const [x, y, a] of [[3, 15, -0.5], [19, 15, 0.5], [11, 19, 0]] as [number, number, number][]) {
+    bloom.ellipse(x, y, 3.5, 1.6, 'l').set(Math.round(x + Math.cos(a) * 2), y, 'L');
   }
-  bloom.ellipse(5, 5, 1, 1, 'e');
-  add(scene, 'bloom', bloom.render({ roles: { 1: ramp(E.red, E.pink, E.redD) }, outline: false }));
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2 - Math.PI / 2;
+    bloom.ellipse(11 + Math.cos(a) * 5, 9 + Math.sin(a) * 5, 3.6, 3.6, 'r');
+  }
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2 - Math.PI / 2;
+    // A lighter rim on the outer edge of each petal, and a dark crease between petals.
+    bloom.ellipse(11 + Math.cos(a) * 6.6, 9 + Math.sin(a) * 6.6, 1.6, 1.6, 'p');
+    const b = a + Math.PI / 6;
+    bloom.line(11 + Math.cos(b) * 3, 9 + Math.sin(b) * 3, 11 + Math.cos(b) * 7, 9 + Math.sin(b) * 7, 'R');
+  }
+  bloom.ellipse(11, 9, 3.4, 3.4, 'w');
+  bloom.ellipse(11, 9, 2.4, 2.4, 'n');
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    bloom.set(Math.round(11 + Math.cos(a) * 3), Math.round(9 + Math.sin(a) * 3), 'v');
+  }
+  bloom.set(10, 8, 'P');
+  add(scene, 'bloom', bloom.render({ colors: { r: E.red, p: E.pink, R: E.redD, w: E.white, n: E.ink, v: E.purple, P: E.magenta, l: E.greenD, L: E.green } }));
+
+  // What a kill leaves on the floor: a few splat shapes, tinted per monster when stamped.
+  for (let i = 0; i < 4; i++) {
+    const rng = new Rng(97 + i * 13);
+    const g = new Grid(16, 12);
+    g.ellipse(8, 6, rng.range(3, 4.5), rng.range(2, 3), 'w');
+    for (let k = 0; k < 5; k++) g.ellipse(8 + rng.range(-5, 5), 6 + rng.range(-3.5, 3.5), rng.range(0.8, 2), rng.range(0.6, 1.4), 'w');
+    for (let k = 0; k < 4; k++) g.set(Math.round(8 + rng.range(-7, 7)), Math.round(6 + rng.range(-5, 5)), 'w');
+    add(scene, `splat-${i}`, g.render({ outline: false, margin: 0 }));
+  }
   add(scene, 'petal', Grid.ascii(['.rr', 'rRr', 'rr.']).render({ outline: false }));
 
   // Effects.
