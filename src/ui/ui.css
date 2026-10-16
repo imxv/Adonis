@@ -2358,6 +2358,62 @@ canvas.bt {
   animation: drop 0.16s steps(4) both;
 }
 
+/* Keep the result title and actions inside the 480x270 game viewport. */
+.box.endbox {
+  width: 400px;
+  max-height: calc(100% - 16px);
+  flex: none;
+}
+
+.endbox > .head,
+.endbox > .menu {
+  flex: none;
+}
+
+.endbox .end-details {
+  width: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 4px 4px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable both-edges;
+}
+
+.endbox .end-details::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+  background: #110f1a;
+}
+
+.endbox .end-details::-webkit-scrollbar-thumb {
+  background: #3a4466;
+  border: 1px solid #110f1a;
+}
+
+.endbox .end-details > * {
+  flex: none;
+}
+
+.endbox .end-details:focus-visible {
+  outline: 1px solid #3a4466;
+  outline-offset: -1px;
+}
+
+.endbox .score,
+.endbox .netrank {
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 100%;
+}
+
+.endbox .statgrid {
+  grid-template-columns: repeat(4, minmax(64px, max-content));
+}
+
 .build {
   margin-top: 2px;
   display: flex;

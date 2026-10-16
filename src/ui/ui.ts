@@ -857,12 +857,18 @@ class UI implements LayerHost {
     const rank = info.rank === 1 ? px('新纪录！排行榜第 1 名', E.yellow) : info.rank > 0 && info.rank <= 10 ? px(`排行榜第 ${info.rank} 名`, E.white) : '';
     ov.innerHTML = `<div class="box panel endbox">
       <div class="head"><span class="tagred">${px(victory ? 'CLEAR' : 'DEAD', E.white, { small: true, outline: false })}</span>${px(victory ? '这一次，他活了下来' : '阿多尼斯倒下了', victory ? E.yellow : ACCENT, { scale: 2 })}</div>
-      ${px(victory ? '野猪倒下了，银莲花开满了地牢。' : '血落处开出银莲花，他会再次重生。', GREY)}
-      <div class="statgrid">${stat(`${run.level + 1}/${LEVELS}`, '层数')}${stat(String(run.kills), '击杀')}${stat(String(run.xpLevel), '等级')}${stat(fmtTime(run.elapsed), '用时')}</div>
-      <div class="score">${px(`得分 ${info.score}`, E.yellow)}${px(DIFFICULTIES[run.diff.id].name, GREY)}${rank}</div>
-      <div class="netrank"></div>
-      <div class="dmg">${rows}</div>
+      <div class="end-details" tabindex="0" role="region" aria-label="本局结算详情">
+        ${px(victory ? '野猪倒下了，银莲花开满了地牢。' : '血落处开出银莲花，他会再次重生。', GREY)}
+        <div class="statgrid">${stat(`${run.level + 1}/${LEVELS}`, '层数')}${stat(String(run.kills), '击杀')}${stat(String(run.xpLevel), '等级')}${stat(fmtTime(run.elapsed), '用时')}</div>
+        <div class="score">${px(`得分 ${info.score}`, E.yellow)}${px(DIFFICULTIES[run.diff.id].name, GREY)}${rank}</div>
+        <div class="netrank"></div>
+        <div class="dmg">${rows}</div>
+      </div>
       <div class="menu row2"></div></div>`;
+    ov.querySelector('.end-details')!.addEventListener('keydown', (e) => {
+      // Let the focused details scroll without also moving the action-menu selection.
+      if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes((e as KeyboardEvent).key)) e.stopPropagation();
+    });
     const items = [menuRow('再次重生', { key: 'R' }), menuRow('返回主页')];
     ov.querySelector('.menu')!.append(...items);
     const nav = new MenuNav(items, (i) => {
