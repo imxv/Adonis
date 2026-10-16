@@ -170,6 +170,32 @@ export const BIOMES: Biome[] = [
     bossNames: { guardian: '大理石天使', boar: '金鬃野猪' },
     audio: { root: 'F3', scale: SCALES.lydian, bpm: 90, lead: 'bell', perc: 'soft', brightness: 0.7 },
   },
+  {
+    id: 'reef',
+    name: '深海遗迹',
+    en: 'SUNKEN RUINS',
+    subtitle: '沉船的钟声在水下回响',
+    palette: { ...common, bg: '#193c3e', bg2: '#124e89', mid: E.cyan, wall: E.tealD, danger: E.orange, extra: [E.cyan, E.pink, E.blue] },
+    px: { floor: 'sand', floorCols: ['#193c3e', '#1d4446', '#2ce8f5', '#124e89'], wall: 'rock', wallTop: '#193c3e', wallFace: '#124e89', wallDark: '#262b44', slime: E.cyan, bat: E.blueD, piglet: E.pink, robe: E.tealD, goblin: E.green, stone: E.slate, glow: E.cyan },
+    overlay: { grain: 0, vignette: 0.45 },
+    fonts,
+    frame: 'pixel',
+    bossNames: { guardian: '珊瑚巨像', boar: '深渊野猪' },
+    audio: { root: 'C3', scale: SCALES.dorian, bpm: 86, lead: 'glass', perc: 'soft', brightness: 0.5 },
+  },
+  {
+    id: 'neon',
+    name: '霓虹都市',
+    en: 'NEON CITY',
+    subtitle: '雨夜的广告牌从不熄灭',
+    palette: { ...common, bg: '#181425', bg2: '#262b44', mid: E.magenta, wall: E.navy, danger: E.yellow, accent: E.hot, extra: [E.cyan, E.magenta, E.hot] },
+    px: { floor: 'metal', floorCols: ['#262b44', '#2a2f4a', '#b55088', '#181425'], wall: 'brick', wallTop: '#181425', wallFace: '#3a4466', wallDark: '#262b44', slime: E.magenta, bat: E.purple, piglet: E.pink, robe: E.navy, goblin: E.cyan, stone: E.slate, glow: E.cyan },
+    overlay: { grain: 0, vignette: 0.5 },
+    fonts,
+    frame: 'pixel',
+    bossNames: { guardian: '霓虹机甲', boar: '赛博野猪' },
+    audio: { root: 'A2', scale: SCALES.minorPenta, bpm: 108, lead: 'pluck', perc: 'claps', brightness: 0.75 },
+  },
 ];
 
 export const BIOME_BY_ID: Record<string, Biome> = Object.fromEntries(BIOMES.map((b) => [b.id, b]));

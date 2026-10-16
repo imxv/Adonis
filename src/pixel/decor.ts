@@ -343,6 +343,77 @@ function orangeTree(): DecoArt {
   return { g, colors: { o: E.clay, O: E.tan, r: E.rust, Y: E.amber, b: E.brown, h: E.brownL, ...LEAF, a: E.amber, A: E.orange } };
 }
 
+// ---------------------------------------------------------------- reef
+
+function coral(): DecoArt {
+  const g = new Grid(16, 22);
+  g.rect(7, 12, 3, 8, 'r').rect(7, 12, 1, 8, 'p');
+  g.line(8, 13, 3, 6, 'r').line(3, 6, 2, 1, 'r').line(4, 8, 5, 3, 'r');
+  g.line(9, 12, 13, 5, 'r').line(13, 5, 14, 1, 'r').line(12, 7, 11, 2, 'r');
+  g.line(8, 12, 8, 3, 'r').line(8, 3, 7, 0, 'r');
+  for (const [x, y] of [[2, 1], [14, 1], [7, 0], [5, 3], [11, 2], [3, 6], [13, 5]]) g.set(x, y, 'p');
+  g.line(9, 10, 10, 6, 'R').line(6, 11, 5, 9, 'R');
+  g.ellipse(8, 20, 7, 1.5, 's').rect(2, 21, 12, 1, 'S');
+  g.set(4, 19, 'O').set(12, 19, 'y');
+  return { g, colors: { r: E.red, p: E.pink, R: E.redD, s: E.tan, S: E.brownL, O: E.orange, y: E.yellow } };
+}
+
+function clam(): DecoArt {
+  const g = new Grid(17, 14);
+  g.ellipse(8, 4, 7.5, 4, 'k').ellipse(8, 3, 6.5, 2.5, 'c');
+  for (let x = 2; x <= 14; x += 3) g.line(8, 7, x, 1, 'k');
+  g.ellipse(8, 7.5, 3, 1.5, 'n').ellipse(8, 7, 1.5, 1.2, 'W').set(7, 6, 'w');
+  g.ellipse(8, 10, 7.5, 3, 'k').ellipse(8, 9.5, 6.5, 2, 'K');
+  for (let x = 3; x <= 13; x += 3) g.set(x, 10, 'c');
+  g.rect(2, 13, 13, 1, 's');
+  return { g, colors: { k: E.blue, K: E.blueD, c: E.cyan, n: E.navy, W: E.white, w: E.grey, s: E.tan }, light: { dx: 0, dy: -7, r: 30, color: E.cyan } };
+}
+
+function anchor(): DecoArt {
+  const g = new Grid(15, 23);
+  g.ellipse(7, 2, 2, 2, 'D').set(7, 2, '.');
+  g.rect(6, 4, 3, 15, 'G').rect(6, 4, 1, 15, 'g').rect(3, 6, 9, 2, 'G').rect(3, 6, 9, 1, 'g');
+  g.line(1, 15, 6, 19, 'G').line(13, 15, 8, 19, 'G').line(1, 15, 1, 13, 'G').line(13, 15, 13, 13, 'G');
+  g.set(0, 13, 'g').set(14, 13, 'g');
+  g.set(4, 10, 'l').set(9, 13, 'l').set(5, 16, 'L').set(10, 9, 'L');
+  g.set(8, 18, 'O').set(3, 16, 'O');
+  g.ellipse(7, 21, 6, 1.5, 's');
+  return { g, colors: { G: E.slate, g: E.greyM, D: E.slateD, l: E.green, L: E.greenD, O: E.rust, s: E.tan } };
+}
+
+// ---------------------------------------------------------------- neon
+
+function neonSign(): DecoArt {
+  const g = new Grid(14, 27);
+  g.rect(6, 15, 2, 10, 'D').rect(3, 25, 8, 2, 'n');
+  g.rect(1, 0, 12, 15, 'n').rect(1, 0, 12, 1, 'D');
+  g.rect(2, 1, 10, 13, 'k');
+  // A glowing glyph and a frame of light.
+  g.rect(3, 2, 8, 1, 'P').rect(3, 12, 8, 1, 'P').rect(3, 2, 1, 11, 'P').rect(10, 2, 1, 11, 'P');
+  g.rect(5, 4, 4, 1, 'c').rect(6, 5, 2, 5, 'c').rect(5, 7, 4, 1, 'c').rect(5, 10, 4, 1, 'w');
+  return { g, colors: { D: E.slate, n: E.navy, k: E.ink, P: E.magenta, c: E.cyan, w: E.white }, light: { dx: 0, dy: -20, r: 44, color: E.magenta } };
+}
+
+function vending(): DecoArt {
+  const g = new Grid(14, 24);
+  g.rect(0, 0, 14, 23, 'r').rect(0, 0, 14, 1, 'p').rect(13, 1, 1, 22, 'R');
+  g.rect(2, 2, 7, 13, 'k');
+  for (let y = 3; y < 14; y += 3) for (let x = 3; x < 9; x += 2) g.set(x, y, ['c', 'y', 'l', 'p'][(x + y) % 4]);
+  g.rect(10, 3, 2, 3, 'c').rect(10, 7, 2, 1, 'w').rect(10, 9, 2, 1, 'w');
+  g.rect(2, 17, 7, 3, 'n').rect(3, 18, 5, 1, 'D');
+  g.rect(1, 23, 12, 1, 'n');
+  return { g, colors: { r: E.redD, p: E.red, R: E.brownD, k: E.navy, c: E.cyan, y: E.yellow, l: E.green, w: E.white, n: E.ink, D: E.slate }, light: { dx: 0, dy: -16, r: 36, color: E.cyan } };
+}
+
+function hydrant(): DecoArt {
+  const g = new Grid(12, 15);
+  g.ellipse(6, 2, 3, 2, 'r').rect(3, 3, 6, 10, 'r').rect(3, 3, 1, 10, 'p').rect(8, 3, 1, 10, 'R');
+  g.rect(1, 6, 10, 3, 'r').rect(1, 6, 10, 1, 'p').set(0, 7, 'D').set(11, 7, 'D');
+  g.rect(2, 12, 8, 2, 'R').rect(5, 1, 2, 1, 'y');
+  g.ellipse(6, 14, 5, 1, 'c');
+  return { g, colors: { r: E.red, p: E.pink, R: E.redD, D: E.slate, y: E.yellow, c: E.blueD } };
+}
+
 /** The three standing pieces of each biome; index 0 is its signature piece. */
 export function decoArt(biome: string): DecoArt[] {
   switch (biome) {
@@ -360,6 +431,10 @@ export function decoArt(biome: string): DecoArt[] {
       return [armor(), tomb(), candelabra()];
     case 'garden':
       return [stoneLantern(), bonsai(), scholarRock()];
+    case 'reef':
+      return [coral(), clam(), anchor()];
+    case 'neon':
+      return [neonSign(), vending(), hydrant()];
     default:
       return [statue(), column(), orangeTree()];
   }
@@ -374,6 +449,8 @@ export const DECO_NAMES: Record<string, [string, string, string]> = {
   castle: ['盔甲', '墓碑', '烛台'],
   garden: ['石灯笼', '盆景', '太湖石'],
   palace: ['大理石像', '石柱', '橘树盆栽'],
+  reef: ['珊瑚', '巨蚌', '沉船铁锚'],
+  neon: ['霓虹招牌', '自动售货机', '消防栓'],
 };
 
 // ---------------------------------------------------------------- painted onto the level
@@ -504,6 +581,44 @@ export function paintWall(P: Paint, biome: string, x: number, y: number, k: numb
         P(x + 7, y + 3, E.brownD, 1, 10);
         P(x + 5, y + 5, E.brownD, 1, 1);
         P(x + 10, y + 10, E.brownD, 1, 1);
+      }
+      return true;
+    }
+    case 'reef': {
+      if (k % 2 === 0) {
+        // Kelp swaying up from the floor.
+        for (const sx of [3, 8, 12]) {
+          const len = rng.int(6, 13);
+          for (let j = 0; j < len; j++) P(x + sx + (j % 4 < 2 ? 0 : 1), y + 15 - j, j % 3 ? E.greenD : E.green);
+        }
+      } else {
+        // A brass porthole onto dark water.
+        P(x + 4, y + 2, E.amber, 8, 11);
+        P(x + 3, y + 4, E.amber, 10, 7);
+        P(x + 5, y + 3, E.blueD, 6, 9);
+        P(x + 4, y + 5, E.blueD, 8, 5);
+        P(x + 5, y + 4, E.cyan, 2, 1);
+        P(x + 3, y + 7, E.brown, 1, 1);
+        P(x + 12, y + 7, E.brown, 1, 1);
+      }
+      return true;
+    }
+    case 'neon': {
+      if (k % 2 === 0) {
+        // A neon tube sign.
+        const col = rng.pick([E.magenta, E.cyan, E.hot, E.yellow]);
+        P(x + 2, y + 3, E.ink, 12, 9);
+        P(x + 3, y + 4, col, 10, 1);
+        P(x + 3, y + 10, col, 10, 1);
+        P(x + 3, y + 4, col, 1, 7);
+        P(x + 12, y + 4, col, 1, 7);
+        P(x + 6, y + 6, E.white, 4, 1);
+        P(x + 7, y + 7, E.white, 2, 2);
+      } else {
+        // Cables slung along the wall.
+        for (let i = 0; i < 16; i++) P(x + i, y + 4 + Math.round(Math.sin((i / 15) * Math.PI) * 3), E.ink);
+        for (let i = 0; i < 16; i++) P(x + i, y + 8 + Math.round(Math.sin((i / 15) * Math.PI) * 2), E.slateD);
+        P(x + 7, y + 7, E.hot, 1, 1);
       }
       return true;
     }
@@ -646,6 +761,34 @@ export function paintFloor(P: Paint, biome: string, x: number, y: number, rng: R
         P(ox, oy, E.greyM, 6, 3);
         P(ox + 1, oy - 1, E.greyM, 4, 1);
         P(ox + 1, oy, E.grey, 3, 1);
+      }
+      break;
+    case 'reef':
+      if (r < 0.03) {
+        // A starfish.
+        P(ox + 2, oy, E.orange, 1, 2);
+        P(ox, oy + 2, E.orange, 5, 1);
+        P(ox + 1, oy + 3, E.orange, 1, 1);
+        P(ox + 3, oy + 3, E.orange, 1, 1);
+      } else if (r < 0.06) {
+        // A shell.
+        P(ox, oy, E.cream, 3, 2);
+        P(ox + 1, oy - 1, E.cream, 1, 1);
+        P(ox + 1, oy, E.tan, 1, 2);
+      } else {
+        P(ox, oy, E.cyan, 1, 1);
+        P(ox + 3, oy - 2, E.white, 1, 1);
+      }
+      break;
+    case 'neon':
+      if (r < 0.05) {
+        // A puddle holding a sign's reflection.
+        P(ox, oy, E.navy, 7, 3);
+        P(ox + 1, oy - 1, E.navy, 5, 1);
+        P(ox + 2, oy + 1, rng.pick([E.magenta, E.cyan]), 3, 1);
+      } else {
+        P(ox, oy, E.slate, 2, 1);
+        P(ox + 4, oy + 1, E.hot, 1, 1);
       }
       break;
     default:

@@ -57,6 +57,17 @@ const ENEMY_NOTES: Record<EnemyKind, string> = {
   shooter: '和你保持距离、绕着走位，停下来瞄准后发射魔弹。精英会一次射出五发。',
   bomber: '直冲过来，贴身后点燃引信爆炸。爆炸会伤到你，也会炸到附近的怪物。',
   shield: '举盾正对着你，正面打来的子弹会被挡掉。绕到侧面打，或者用光束、电磁枪、爆炸、冰冻对付它。',
+  brute: '第三层起出现的大块头，又慢又厚。贴近你时会在拍点上举起棒子，地上亮出红圈，下一拍砸下来，赶紧离开红圈。',
+  sporeling: '森林遗迹的蘑菇人。慢吞吞地走，死的时候会炸出一圈孢子弹，别贴着它打死。',
+  yeti: '冰封雪原的雪怪。皮糙肉厚，踩着拍子扔出大雪球。',
+  scorpion: '黄沙神殿的沙蝎。爬得飞快，贴近后在拍点上扑过来，再喷出三根毒刺。',
+  magma: '熔岩深渊的熔岩史莱姆。打死后会裂成两只小的。',
+  turret: '蒸汽工坊的炮台，钉在地上不动，每隔两拍朝四周喷一圈子弹。层数越深子弹越多。',
+  ghost: '幽魂古堡的幽灵。穿墙飘过来，时不时变透明，透明时打不到它。',
+  ninja: '东方庭院的忍者。踩着拍子瞬移到你身边，下一拍扔出三枚手里剑。',
+  angel: '文艺复兴宫殿的天使石像。你看着它时它一动不动、只受一半伤害；一转开视线它就飞快扑过来。',
+  jelly: '深海遗迹的电水母。慢慢漂过来，贴近后积蓄电流，下一拍放出电圈。',
+  drone: '霓虹都市的无人机。飞在空中无视墙壁，保持距离绕着你飞，踩拍打出两连发。',
 };
 
 const FLOOR_NAME: Record<Biome['px']['floor'], string> = { grass: '草地', ice: '冰面', sand: '沙地', lava: '熔岩裂隙', metal: '铁板', checker: '棋盘地砖', paper: '宣纸地板', marble: '大理石' };
@@ -76,7 +87,7 @@ const SCALE_NAME: Record<keyof typeof SCALES, string> = {
 };
 const LEAD_NAME: Record<Biome['audio']['lead'], string> = { pluck: '拨弦', bell: '钟琴', marimba: '马林巴', glass: '玻璃琴' };
 
-const FLOOR_NO = ['一', '二', '三'];
+const FLOOR_NO = ['一', '二', '三', '四', '五'];
 
 /** Build every codex page from the game's own data tables and generated art. */
 export function buildCodex(scene: Phaser.Scene): CodexTab[] {
@@ -208,16 +219,16 @@ export function buildCodex(scene: Phaser.Scene): CodexTab[] {
     return {
       id: kind,
       name: d.name,
-      icon: tex(K(`en-${kind}-a`, forest)),
-      tag: d.minLevel === 0 ? '第一层起' : `第${FLOOR_NO[d.minLevel]}层起`,
-      tagColor: E.grey,
+      icon: tex(K(`en-${kind}-a`, d.biome ? (BIOMES.find((b) => b.id === d.biome) ?? forest) : forest)),
+      tag: d.biome ? `${BIOMES.find((b) => b.id === d.biome)?.name ?? ''}专属` : d.minLevel === 0 ? '第一层起' : `第${FLOOR_NO[d.minLevel]}层起`,
+      tagColor: d.biome ? E.yellow : E.grey,
       desc: ENEMY_NOTES[kind],
       stats: [
         ['生命', `${d.hp}（越深越厚）`],
         ['速度', speedWord(d.speed)],
         ['接触伤害', `${d.contact}`],
       ],
-      gallery: { title: '八种画风下的样子', pics: across((k) => K(`en-${kind}-a`, k)) },
+      gallery: d.biome ? undefined : { title: '各画风下的样子', pics: across((k) => K(`en-${kind}-a`, k)) },
     };
   });
   monsters.push({
@@ -237,7 +248,7 @@ export function buildCodex(scene: Phaser.Scene): CodexTab[] {
       name: '守卫',
       icon: half(K('boss-guardian', forest)),
       art: tex(K('boss-guardian', forest)),
-      tag: '第一、二层 Boss',
+      tag: '第一至四层 Boss',
       tagColor: E.hot,
       desc: '每种画风的守门者，名字和模样随画风变化。它悬浮在空中，柱子挡不住它，但挡得住它的光臂。',
       sections: [
@@ -245,14 +256,14 @@ export function buildCodex(scene: Phaser.Scene): CodexTab[] {
         { title: '第二阶段', lines: ['生命低于 55% 时进入：贴着你走位，加入黄金角螺旋弹幕，光臂更多更快。'] },
         { title: '各画风的守卫', lines: [BIOMES.map((k) => `${k.name}：${k.bossNames.guardian}`).join('；')] },
       ],
-      gallery: { title: '八种画风下的样子', pics: across((k) => K('boss-guardian', k)) },
+      gallery: { title: '各画风下的样子', pics: across((k) => K('boss-guardian', k)) },
     },
     {
       id: 'boar',
       name: '宿敌野猪',
       icon: half('boss-boar'),
       art: tex('boss-boar'),
-      tag: '第三层 Boss',
+      tag: '第五层 Boss',
       tagColor: E.hot,
       desc: '那头撞死阿多尼斯的野猪。每一次轮回，它都在最深处等着。',
       sections: [
@@ -275,7 +286,7 @@ export function buildCodex(scene: Phaser.Scene): CodexTab[] {
     art: pic(postcard(scene, kit, canvasOf)),
     tag: kit.en,
     tagColor: E.grey,
-    desc: `「${kit.subtitle}」每局从八种画风里不重复地抽三种，一层一种。`,
+    desc: `「${kit.subtitle}」每局从十种画风里不重复地抽五种，一层一种。`,
     stats: [
       ['守卫', kit.bossNames.guardian],
       ['野猪', kit.bossNames.boar],
@@ -305,7 +316,7 @@ export function buildCodex(scene: Phaser.Scene): CodexTab[] {
       tag: '障碍',
       tagColor: E.grey,
       desc: '每种画风三种，成对靠墙摆放：宫殿的大理石像和石柱、古堡的盔甲和烛台、森林的古树和巨菇、雪原的雪松和雪人……打不坏，会挡路也会挡子弹，怪物会绕开走。烛台、石灯笼、熔岩石自己会发光。墙上的油画、锁链、藤蔓和地上的杂物只是装饰。',
-      gallery: { title: '八种画风的装饰', pics: BIOMES.flatMap((k) => [0, 1, 2].map((i) => tex(K(`deco-${i}`, k)))) },
+      gallery: { title: '各画风的装饰', pics: BIOMES.flatMap((k) => [0, 1, 2].map((i) => tex(K(`deco-${i}`, k)))) },
     },
     { id: 'chest', name: '宝箱', icon: tex('chest'), tag: '奖励', tagColor: E.yellow, desc: '走过去就会打开，直接给一件奖励：法术升级、稀有加成，满足条件时是法术进化。' },
     { id: 'chest-w', name: '武器箱', icon: tex('chest-w'), tag: '奖励', tagColor: E.cyan, desc: '钢制的箱子，打开后从三把武器里挑一把，也可以都不要。清房、尸潮房和守卫都可能掉落。' },

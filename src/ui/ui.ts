@@ -69,7 +69,7 @@ const BAR_W = 52;
 const BOSS_W = 200;
 const CELL_W = 9;
 const CELL_H = 7;
-const FLOOR_NAMES = ['一', '二', '三', '四'];
+const FLOOR_NAMES = ['一', '二', '三', '四', '五', '六'];
 const RANK_COLOR: Record<Rank, string> = { D: E.greyM, C: E.green, B: E.cyan, A: E.yellow, S: E.orange, SS: E.hot };
 
 
@@ -544,7 +544,7 @@ class UI implements LayerHost {
       <div class="tl-right">
         <div class="scene">${icon('knight', 3)}<div class="vs">${px('VS', DIM, { small: true })}</div>${icon('boar', 2)}</div>
         ${px('他一次次死去，又一次次重生。', GREY)}
-        ${px('这一次，穿过三层地牢，去见那头野猪。', GREY)}
+        ${px('这一次，穿过五层地牢，去见那头野猪。', GREY)}
       </div>
       <div class="ver">${px('v0.5', E.slate, { small: true, outline: false })}</div>`;
     const note = save ? `第${['一', '二', '三'][save.level] ?? save.level + 1}层 Lv${save.xpLevel}` : '没有存档';

@@ -4,6 +4,7 @@ import { Grid, flipCanvas, outlineCanvas, pxText, ramp, type Ramp } from '../pix
 import { E, mix } from '../pixel/palette';
 import * as S from '../pixel/sprites';
 import * as P from '../pixel/props';
+import * as MS from '../pixel/monsters';
 import type { Biome } from '../pixel/biomes';
 import { FLOOR, PROP, T, VOID, WALL, tileAt, type Dungeon } from '../game/dungeon';
 import { decoArt, paintFloor, paintWall } from '../pixel/decor';
@@ -322,6 +323,8 @@ export function buildKitTextures(scene: Phaser.Scene, kit: Biome) {
   add(scene, K('en-bomber-a', kit), P.bombBody(0).render({ roles: iron, colors: P.BOMB_LEGEND }));
   add(scene, K('en-bomber-b', kit), P.bombBody(1).render({ roles: iron, colors: P.BOMB_LEGEND }));
   enemy('shield', S.SKELETON_A, S.SKELETON_B, { 1: ramp(E.grey, E.white, E.greyM) });
+  enemy('brute', ...MS.BRUTE, { 1: ramp(px.goblin) });
+  for (const [name, pair] of Object.entries({ sporeling: MS.SPORELING, yeti: MS.YETI, scorpion: MS.SCORPION, magma: MS.MAGMA, turret: MS.TURRET, ghost: MS.GHOST, ninja: MS.NINJA, angel: MS.ANGEL, jelly: MS.JELLY, drone: MS.DRONE })) enemy(name, ...pair, {});
 
   const shield = new Grid(5, 13);
   shield.rect(0, 0, 5, 13, '1').rect(1, 1, 3, 11, '2').rect(2, 3, 1, 7, 'y');
@@ -351,6 +354,8 @@ function particle(kit: Biome): HTMLCanvasElement {
     castle: [['.P', 'P.'], E.magenta],
     garden: [['pp', '.p'], E.pink],
     palace: [['y'], E.amber],
+    reef: [['.w.', 'w.w', '.w.'], E.white],
+    neon: [['c', 'c'], E.cyan],
   };
   const [rows] = shapes[kit.id] ?? shapes.forest;
   return Grid.ascii(rows).render({ outline: false, margin: 0 });

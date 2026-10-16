@@ -88,7 +88,7 @@ interface SawTrap {
 export type Trap = SpikeTrap | SawTrap;
 
 /** How strong each enemy's summon looks: weak ones rise from a rune, strong ones step out of a rift. */
-const SPAWN_TIER: Record<EnemyKind, 1 | 2 | 3> = { wanderer: 1, bat: 1, charger: 2, shooter: 2, bomber: 2, shield: 3 };
+const SPAWN_TIER: Record<EnemyKind, 1 | 2 | 3> = { wanderer: 1, bat: 1, charger: 2, shooter: 2, bomber: 2, shield: 3, brute: 3, sporeling: 1, yeti: 3, scorpion: 2, magma: 2, turret: 2, ghost: 2, ninja: 2, angel: 3, jelly: 2, drone: 1 };
 
 /** How far the camera leans toward the cursor, in pixels. */
 /** Seconds from the start of a spell fusion to the moment it lands; the sound is booked for the same moment. */
@@ -701,15 +701,20 @@ export class GameScene extends Phaser.Scene {
 
   enemyKinds(): EnemyKind[] {
     const depth = this.active?.depth ?? 0;
-    return (Object.keys(ENEMIES) as EnemyKind[]).filter((k) => ENEMIES[k].minLevel <= this.run.level || depth >= 3);
+    return (Object.keys(ENEMIES) as EnemyKind[]).filter((k) => {
+      const d = ENEMIES[k];
+      if (d.biome) return d.biome === this.kit.id;
+      return d.minLevel <= this.run.level || (depth >= 3 && d.minLevel <= this.run.level + 1);
+    });
   }
 
   /** Fewer, meaner enemies: a closer camera needs breathing room. */
   planWaves(rng: Rng) {
     const level = this.run.level;
     const depth = Math.min(this.active!.depth, 5);
-    const budget = (6 + level * 4 + depth) * this.run.diff.enemies;
-    const waveCount = depth >= 4 ? 3 : 2;
+    // Rooms fill up the deeper you go: about half again as many as the first cut, and a third wave sooner.
+    const budget = (9 + level * 5 + depth * 1.5) * this.run.diff.enemies;
+    const waveCount = depth >= 3 || level >= 2 ? 3 : 2;
     const kinds = this.enemyKinds();
     let elites = rng.chance(0.12 + level * 0.1 + depth * 0.03) ? 1 : 0;
     this.waves = [];
@@ -725,6 +730,19 @@ export class GameScene extends Phaser.Scene {
       }
       this.waves.push(wave);
     }
+  }
+
+  blinkSpot(e: Enemy): [number, number] | undefined {
+    const p = this.player;
+    const r = this.active;
+    if (!r) return undefined;
+    for (let i = 0; i < 8; i++) {
+      const a = rand(0, TAU);
+      const d = rand(55, 80);
+      const [x, y] = openSpot(this.dungeon, p.x + Math.cos(a) * d, p.y + Math.sin(a) * d, 2);
+      if (roomAt(this.dungeon, x, y, 0) === r && dist2(x, y, p.x, p.y) > 40 * 40 && dist2(x, y, e.x, e.y) > 20 * 20) return [x, y];
+    }
+    return undefined;
   }
 
   spawnPoint(minDist = 80): [number, number] {
@@ -787,7 +805,7 @@ export class GameScene extends Phaser.Scene {
     const def = ENEMIES[kind];
     const { level, rng } = this.run;
     const depth = this.active?.depth ?? 0;
-    const scaleHp = (1 + level * 0.65 + depth * 0.08) * (mini ? 0.5 : 1) * this.run.diff.hp;
+    const scaleHp = (1.2 + level * 0.75 + depth * 0.1) * (mini ? 0.5 : 1) * this.run.diff.hp;
     const affix: Affix | undefined = elite ? rng.pick(Object.keys(AFFIXES) as Affix[]) : undefined;
     const hp = def.hp * scaleHp * (elite ? 5 : 1) * (affix === 'tough' ? 1.4 : 1);
     const size = elite ? 1.6 : mini ? 0.8 : 1;
@@ -805,7 +823,7 @@ export class GameScene extends Phaser.Scene {
       r: def.r * size,
       hp,
       maxHp: hp,
-      speed: def.speed * (affix === 'swift' ? 1.4 : 1) * (mini ? 1.2 : 1) * (1 + level * 0.06),
+      speed: def.speed * (affix === 'swift' ? 1.4 : 1) * (mini ? 1.2 : 1) * (1 + level * 0.07),
       contact: def.contact,
       xp: def.xp * (elite ? 6 : 1),
       elite,
@@ -860,7 +878,7 @@ export class GameScene extends Phaser.Scene {
         if (this.hordeT < this.hordeDur) {
           this.spawnT -= dt;
           if (this.spawnT <= 0 && alive + this.pendingSpawns < (14 + this.run.level * 5) * this.run.diff.enemies) {
-            this.spawnT = lerp(1.5, 0.85, k) / (1 + this.run.level * 0.12) / this.run.diff.enemies;
+            this.spawnT = lerp(1.3, 0.7, k) / (1 + this.run.level * 0.15) / this.run.diff.enemies;
             const [x, y] = this.spawnPoint(110);
             const n = 1 + Math.floor(k * 1.5);
             for (let i = 0; i < n; i++) {
@@ -1950,10 +1968,11 @@ export class GameScene extends Phaser.Scene {
     o: { src: string; kx?: number; ky?: number; knock?: number; crit?: boolean; noCrit?: boolean; dot?: boolean; ignoreShield?: boolean; arc?: boolean; noElement?: boolean; color?: string; element?: Element; quiet?: boolean },
   ) {
     if (e.dead) return;
-    if (e.boss && e.boss.invuln > 0) {
+    if ((e.boss && e.boss.invuln > 0) || (e.kind === 'ghost' && e.state === 'fade')) {
       this.fx.sparks(e.x, e.y - 8, 2, 'white');
       return;
     }
+    if (e.kind === 'angel' && e.state === 'stone') amount *= 0.5;
     const m = this.run.mods;
     let dmg = amount;
     let crit = !!o.crit;
@@ -2062,6 +2081,12 @@ export class GameScene extends Phaser.Scene {
     const run = this.run;
     run.kills++;
     run.score += this.rhythm.kill(!!e.elite || !!e.boss);
+    if (e.kind === 'magma' && !e.mini) {
+      for (const s of [-1, 1]) this.spawnEnemy('magma', e.x + s * 6, e.y, false, true);
+    } else if (e.kind === 'sporeling') {
+      for (let i = 0; i < 6; i++) this.spawnEnemyBullet(e.x, e.y - 4, (i / 6) * TAU + e.id, 55 + run.level * 6);
+      this.fx.burst(e.x, e.y - 4, 8);
+    }
     this.combo++;
     this.comboT = 2.2;
     run.maxCombo = Math.max(run.maxCombo, this.combo);
@@ -2268,7 +2293,8 @@ export class GameScene extends Phaser.Scene {
         }
       }
       // The guardian hovers over pillars; everything else is held back by walls.
-      if (a.kind !== 'guardian' && (!a.boss || a.boss.air < 20)) [a.x, a.y] = collide(this.dungeon, a.x, a.y, Math.max(3, a.r * 0.8));
+      const flies = a.kind === 'guardian' || a.kind === 'ghost' || a.kind === 'drone';
+      if (!flies && (!a.boss || a.boss.air < 20)) [a.x, a.y] = collide(this.dungeon, a.x, a.y, Math.max(3, a.r * 0.8));
       if (this.mode === 'play' && dist2(a.x, a.y, pl.x, pl.y) < (a.r + pl.r * 0.8) ** 2 && (a.boss?.air ?? 0) < 20) {
         this.hurtPlayer(a.state === 'charge' ? 2 : a.contact, a.x, a.y);
       }
@@ -2287,7 +2313,9 @@ export class GameScene extends Phaser.Scene {
         const k = Math.max(0, 1 - this.rhythm.phase * 5);
         sp.setScale(a.scale * (1 + k * 0.12), a.scale * (1 - k * 0.12));
       }
+      if (a.kind === 'ghost') sp.setAlpha(a.state === 'fade' ? 0.25 : 0.9);
       if (a.flash > 0) sp.setTintFill(0xffffff);
+      else if (a.kind === 'angel' && a.state === 'stone') sp.setTint(0x9aa4b8);
       else if (a.status.frozen > 0) sp.setTint(hexToNum(ELEMENT_COLOR.ice));
       else if (a.status.burn > 0 && Math.floor(this.time0 * 10) % 2 === 0) sp.setTint(0xffb080);
       else if (a.boss?.enraged) sp.setTint(0xff9a9a);

@@ -10,7 +10,7 @@ import type { StyleKit } from '../styles/types';
 import { settings } from '../settings';
 import type { SavedRun } from '../save';
 
-export const LEVELS = 3;
+export const LEVELS = 5;
 export const COMBAT_ROOMS = 4;
 
 export interface RunState {
