@@ -1,0 +1,106 @@
+/* Native 480 × 270 game pixels; the shared UI root applies the canvas scale. */
+.difficulty-select {
+  --ds-accent: #fee761;
+  --ds-haze: #3e2731;
+  display: block;
+  overflow: hidden;
+  isolation: isolate;
+  background: #0d101a;
+  animation: ds-arrive 220ms steps(8) both;
+}
+
+.difficulty-select[data-difficulty='easy'] { --ds-accent: #b8dc97; --ds-haze: #193c3e; }
+.difficulty-select[data-difficulty='hard'] { --ds-accent: #f77622; --ds-haze: #733e39; }
+.difficulty-select button {
+  appearance: none;
+  border: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  border-radius: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.difficulty-select button:focus { outline: none; }
+.difficulty-select button:focus-visible { outline: 1px dashed #fff; outline-offset: 3px; }
+.difficulty-select button:disabled { cursor: default; opacity: 0.24; }
+.difficulty-select .ds-backdrop { position: absolute; inset: 0; z-index: -2; pointer-events: none; overflow: hidden; }
+.ds-sky { position: absolute; inset: 0; opacity: 0; transition: opacity 650ms ease; }
+.ds-sky-easy { background: radial-gradient(ellipse at 50% 85%, #265c4255, transparent 65%), linear-gradient(#0a1920, #122827 65%, #0a151a); }
+.ds-sky-normal { background: radial-gradient(ellipse at 50% 85%, #733e3950, transparent 65%), linear-gradient(#131824, #262b44 62%, #141520); }
+.ds-sky-hard { background: radial-gradient(ellipse at 50% 95%, #a2263360, transparent 65%), linear-gradient(#180e1b, #3e2029 65%, #1a1019); }
+[data-difficulty='easy'] > .ds-backdrop .ds-sky-easy,
+[data-difficulty='normal'] > .ds-backdrop .ds-sky-normal,
+[data-difficulty='hard'] > .ds-backdrop .ds-sky-hard { opacity: 1; }
+.ds-horizon { position: absolute; left: -10%; bottom: 34px; width: 120%; height: 75px; background: var(--ds-haze); opacity: 0.2; clip-path: polygon(0 100%, 0 69%, 9% 69%, 9% 52%, 16% 52%, 16% 67%, 24% 67%, 24% 30%, 29% 30%, 29% 52%, 37% 52%, 37% 0, 46% 0, 46% 35%, 53% 35%, 53% 17%, 61% 17%, 61% 48%, 70% 48%, 70% 28%, 76% 28%, 76% 62%, 83% 62%, 83% 44%, 94% 44%, 94% 76%, 100% 76%, 100% 100%); transition: background-color 650ms; }
+.ds-mote { position: absolute; left: var(--x); top: var(--y); width: 1px; height: 1px; background: var(--ds-accent); opacity: 0; animation: ds-drift var(--duration) steps(16) var(--delay) infinite; }
+.ds-mote:nth-of-type(3n) { width: 2px; }
+.ds-meander { position: absolute; pointer-events: none; height: 5px; opacity: 0.3; background: repeating-linear-gradient(90deg, var(--ds-accent) 0 1px, transparent 1px 5px, var(--ds-accent) 5px 9px, transparent 9px 13px); border-top: 1px solid var(--ds-accent); border-bottom: 1px solid var(--ds-accent); }
+.ds-meander-top { top: 0; left: 0; right: 0; }
+.ds-header { position: absolute; left: 0; right: 0; top: 8px; display: flex; flex-direction: column; align-items: center; gap: 1px; pointer-events: none; }
+.ds-header > div { display: flex; }
+.difficulty-select .ds-back { position: absolute; top: 22px; left: 15px; min-height: 18px; display: flex; align-items: center; background: transparent; padding: 2px; }
+.difficulty-select .ds-back:hover { background: #ffffff0a; }
+.ds-counter { position: absolute; right: 17px; top: 28px; }
+.ds-viewport { position: absolute; top: 50px; left: 0; right: 0; height: 164px; overflow: hidden; touch-action: pan-y; cursor: grab; }
+.ds-track { position: absolute; left: 132px; top: 1px; display: flex; gap: 14px; width: max-content; transition: transform 430ms cubic-bezier(0.22, 0.8, 0.2, 1); will-change: transform; }
+.difficulty-select .ds-card { position: relative; display: flex; flex: 0 0 216px; width: 216px; height: 158px; padding: 0 11px 5px; align-items: center; flex-direction: column; background: #10141f; box-shadow: inset 0 0 0 1px #3a4466, 0 2px 0 #07060b; transform: translateY(5px); opacity: 0.45; filter: saturate(0.55); transition: opacity 330ms, transform 430ms cubic-bezier(0.22, 0.8, 0.2, 1), filter 330ms, background-color 330ms; }
+.difficulty-select .ds-card.is-selected { transform: translateY(0); opacity: 1; filter: saturate(1); box-shadow: inset 0 0 0 1px var(--card-color), 0 3px 0 #07060b; background: #141722; }
+.difficulty-select .ds-card:not(.is-selected):hover { opacity: 0.75; filter: saturate(0.85); }
+.ds-card-head { width: 100%; display: flex; gap: 5px; align-items: center; height: 25px; flex: none; }
+.ds-number { display: flex; align-items: center; justify-content: center; min-width: 11px; height: 15px; border-right: 1px solid #3a4466; padding-right: 5px; }
+.ds-badge { display: flex; margin-left: auto; }
+.ds-art { position: relative; width: 192px; height: 82px; flex: none; overflow: hidden; background: #181425; box-shadow: 0 0 0 1px #07060b; }
+.ds-painting { position: absolute; left: 0; top: 0; }
+.is-selected .ds-painting { animation: ds-scene-breathe 5s steps(2) infinite; }
+.ds-scene-title { position: absolute; left: 5px; bottom: 4px; opacity: 0.85; }
+.ds-scene-shine { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(115deg, transparent 30%, #ffffff0d 46%, #ffffff16 48%, transparent 66%); transform: translateX(-110%); }
+.is-selected .ds-scene-shine { animation: ds-scene-shine 900ms ease-out both; }
+.ds-promise { height: 18px; flex: none; display: flex; align-items: center; justify-content: center; }
+.ds-metrics { display: flex; justify-content: space-between; width: 100%; border-top: 1px solid #262b44; padding-top: 2px; }
+.ds-metrics > div { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 0; width: 64px; }
+.ds-metrics > div + div { border-left: 1px solid #262b44; }
+.ds-card-corner { position: absolute; width: 4px; height: 4px; pointer-events: none; border-color: var(--card-color); border-style: solid; opacity: 0.7; }
+.ds-corner-tl { top: 0; left: 0; border-width: 1px 0 0 1px; }
+.ds-corner-tr { top: 0; right: 0; border-width: 1px 1px 0 0; }
+.ds-corner-bl { bottom: 0; left: 0; border-width: 0 0 1px 1px; }
+.ds-corner-br { bottom: 0; right: 0; border-width: 0 1px 1px 0; }
+.ds-dots { position: absolute; top: 216px; left: 0; right: 0; display: flex; justify-content: center; gap: 6px; }
+.ds-dots i { width: 3px; height: 3px; background: #5a6988; transition: background-color 200ms, width 200ms; }
+.ds-dots i.is-selected { width: 11px; background: var(--ds-accent); }
+.ds-actions { position: absolute; left: 0; right: 0; top: 225px; display: flex; justify-content: center; align-items: center; gap: 13px; }
+.difficulty-select .ds-arrow { display: flex; align-items: center; justify-content: center; width: 24px; height: 23px; background: #111621; box-shadow: inset 0 0 0 1px #3a4466, 0 2px 0 #07060b; }
+.difficulty-select .ds-arrow:not(:disabled):hover { box-shadow: inset 0 0 0 1px var(--ds-accent), 0 2px 0 #07060b; }
+.difficulty-select .ds-confirm { position: relative; display: flex; align-items: center; justify-content: center; gap: 12px; width: 158px; height: 23px; padding: 0 9px; background: var(--ds-accent); box-shadow: inset 0 1px 0 #ffffff55, inset 0 -2px 0 #00000033, 0 2px 0 #07060b; transition: background-color 350ms; }
+.difficulty-select .ds-confirm::before,
+.difficulty-select .ds-confirm::after { content: ''; position: absolute; top: 9px; width: 3px; height: 3px; background: #181425; transform: rotate(45deg); }
+.difficulty-select .ds-confirm::before { left: 5px; }
+.difficulty-select .ds-confirm::after { right: 5px; }
+.difficulty-select .ds-confirm:hover { filter: brightness(1.12); }
+.difficulty-select .ds-confirm:active { transform: translateY(1px); }
+.ds-confirm-label { display: flex; }
+.ds-guide { position: absolute; bottom: 5px; left: 0; right: 0; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.ds-guide i { height: 1px; width: 8px; background: #3a4466; }
+.ds-status { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.ds-confirm-flash { position: absolute; inset: 0; background: var(--ds-accent); opacity: 0; pointer-events: none; }
+.difficulty-select.is-dragging .ds-track { transition: none; }
+.difficulty-select.is-dragging .ds-viewport,
+.difficulty-select.is-dragging .ds-card { cursor: grabbing; }
+.difficulty-select.is-confirming { pointer-events: none; animation: ds-depart 260ms ease-in both; }
+.is-confirming .ds-confirm { animation: ds-seal 260ms steps(5) both; }
+.is-confirming .ds-confirm-flash { animation: ds-flash 260ms ease-out both; }
+.difficulty-select.is-leaving { pointer-events: none; animation: ds-depart 140ms ease-in both; }
+@keyframes ds-arrive { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ds-depart { 0%, 45% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes ds-drift { 0% { opacity: 0; transform: translate(0, 8px); } 25%, 65% { opacity: 0.4; } 100% { opacity: 0; transform: translate(4px, -15px); } }
+@keyframes ds-scene-breathe { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1px); } }
+@keyframes ds-scene-shine { from { transform: translateX(-110%); } to { transform: translateX(110%); } }
+@keyframes ds-seal { 0% { transform: translateY(0); } 30%, 70% { transform: translateY(2px); filter: brightness(1.4); } 100% { transform: translateY(1px); } }
+@keyframes ds-flash { 0%, 30%, 100% { opacity: 0; } 45% { opacity: 0.12; } }
+@media (prefers-reduced-motion: reduce) {
+  .difficulty-select,
+  .difficulty-select *,
+  .difficulty-select *::before,
+  .difficulty-select *::after { animation: none !important; transition: none !important; }
+  .difficulty-select .ds-mote { opacity: 0.15; }
+}

@@ -36,7 +36,7 @@ interface Card {
 
 function card(cls: string): Card {
   const el = document.createElement('div');
-  el.className = `wcard ${cls} panel`;
+  el.className = `wcard ${cls}`;
   el.innerHTML = '<div class="clip"></div><div class="gun"></div><div class="cnt"></div><div class="lab"></div>';
   const q = (s: string) => el.querySelector(s) as HTMLElement;
   return { el, clip: q('.clip'), gun: q('.gun'), count: q('.cnt'), label: q('.lab'), bullets: [] };
@@ -96,16 +96,18 @@ export class WeaponCards {
         c.id = '';
         c.gun.innerHTML = c.count.innerHTML = c.clip.innerHTML = '';
         c.bullets = [];
-        c.label.innerHTML = px('副武器', E.slate);
+        c.label.innerHTML = px('Q', E.slate, { small: true });
+        c.el.title = '副武器';
       }
       return;
     }
     if (g.id !== c.id || g.level !== c.level) {
       const w = ICON_SIZE[`gun-${g.id}`]?.[0] ?? 99;
-      const lv = g.level > 1 ? px(`Lv${g.level}`, E.yellow, { small: true }) : '';
+      const lv = g.level > 1 ? px(`${front ? 'Lv' : 'L'}${g.level}`, E.yellow, { small: true }) : '';
       const pips = front ? `<span class="pips">${Array.from({ length: MAX_WEAPON_LEVEL }, (_, i) => (i < g.level ? '<i class="on"></i>' : '<i></i>')).join('')}</span>` : '';
       c.gun.innerHTML = icon(`gun-${g.id}`, front && w * 2 <= 40 ? 2 : 1) + pips;
-      c.label.innerHTML = `${px(g.name, front ? E.white : E.grey)}${lv}`;
+      c.label.innerHTML = front ? `${px(g.name, E.white)}${lv}` : `${px('Q', E.greyM, { small: true })}${lv}`;
+      c.el.title = `${g.name} · Lv${g.level}`;
       // The front card has no room for the name, so it rises above the stack whenever the gun in hand changes.
       if (front) replay(c.label, 'flash');
       c.id = g.id;
@@ -141,7 +143,8 @@ export class WeaponCards {
     if (reloading) this.setCount(c, 'reload', px('换弹', E.hot));
     else {
       const color = ammo === 0 ? E.hot : ammo <= g.mag * 0.25 ? E.yellow : E.white;
-      this.setCount(c, `${ammo}/${g.mag}/${color}`, front ? `${px(String(ammo), color, { small: true, scale: 2 })}${px(`/${g.mag}`, E.greyM, { small: true })}` : px(String(ammo), color, { small: true }));
+      // Separate rows keep even a 120-round magazine inside the narrow receiver.
+      this.setCount(c, `${ammo}/${g.mag}/${color}`, front ? `${px(String(ammo), color)}${px(`/${g.mag}`, E.greyM, { small: true })}` : px(String(ammo), color, { small: true }));
       if (shot && front) replay(c.count, 'bump');
     }
     c.el.classList.toggle('dry', ammo === 0 && !reloading);

@@ -69,10 +69,17 @@ export const AFFIXES: Record<Affix, string> = {
   burst: '弹幕',
 };
 
-export type Pets = 'hound' | 'dove' | 'swan';
+export const PET_ORDER = ['hound', 'dove', 'swan', 'pig', 'cow', 'sheep', 'chicken', 'rabbit', 'fox'] as const;
+export type Pets = (typeof PET_ORDER)[number];
 
-export const PETS: Record<Pets, { name: string; glyph: string; desc: string }> = {
-  hound: { name: '猎犬', glyph: '犬', desc: '冲向最近的敌人撕咬，继承你的元素' },
-  dove: { name: '白鸽', glyph: '鸽', desc: '大范围吸取宝石，每清一个房间回复 1 点生命' },
-  swan: { name: '天鹅', glyph: '鹅', desc: '贴身环绕，挡掉敌方子弹并撞伤敌人' },
+export const PETS: Record<Pets, { name: string; glyph: string; role: string; desc: string }> = {
+  hound: { name: '猎犬', glyph: '犬', role: '追击', desc: '追踪近敌，蓄力扑咬后返回身边' },
+  dove: { name: '白鸽', glyph: '鸽', role: '拾取·风', desc: '振翅打出风击，扩大拾取范围；清房回复 1 点生命' },
+  swan: { name: '天鹅', glyph: '鹅', role: '挡弹', desc: '贴身环绕，展翅挡掉敌方子弹并撞伤敌人' },
+  pig: { name: '小猪', glyph: '猪', role: '范围', desc: '跃向敌群，落地震伤并推开周围敌人' },
+  cow: { name: '奶牛', glyph: '牛', role: '冲锋', desc: '低头蓄力，沿直线冲撞途经的多个敌人' },
+  sheep: { name: '绵羊', glyph: '羊', role: '护甲', desc: '战斗中释放羊毛冲击，推开近敌并回复 1 点护甲' },
+  chicken: { name: '母鸡', glyph: '鸡', role: '远程', desc: '向敌人抛出鸡蛋，落地爆开造成范围伤害' },
+  rabbit: { name: '白兔', glyph: '兔', role: '连击', desc: '迅速跳扑近敌，接续第二次踢击' },
+  fox: { name: '灵狐', glyph: '狐', role: '元素·火', desc: '甩尾放出狐火，附着火元素并触发元素反应' },
 };

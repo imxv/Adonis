@@ -13,6 +13,10 @@ import type { Biome } from '../pixel/biomes';
 import { FLOOR, PROP, T, VOID, WALL, tileAt, type Dungeon } from '../game/dungeon';
 import { decoArt, paintWall } from '../pixel/decor';
 import { paintBiomeFloor } from '../pixel/biomeFloor';
+import { PET_ART_KINDS, petProjectileArt, petTextureFrames } from '../pixel/petArt';
+import { vitalIcons } from '../pixel/vitalIcons';
+import { whaleHeroFrames } from '../pixel/whaleHero';
+import { registerJesusTextures } from '../pixel/jesusArt';
 
 export const K = (name: string, kit: Biome) => `${name}@${kit.id}`;
 
@@ -43,11 +47,15 @@ export function buildCommonTextures(scene: Phaser.Scene) {
   add(scene, 'adonis-a', sprite(S.ADONIS_A).render());
   add(scene, 'adonis-b', sprite(S.ADONIS_B).render());
   icon('adonis', scene.textures.get('adonis-a').getSourceImage() as HTMLCanvasElement);
-  const shieldRows = ['GgggggG', 'GgwgggG', 'GgggggG', 'GgggggG', '.GgggG.', '..GgG..', '...G...'];
-  icon('armor', Grid.ascii(shieldRows).render());
-  // Empty and flash versions for the HUD: a lost shield or heart flashes white, then goes dark.
-  icon('armor-empty', Grid.ascii(shieldRows).render({ colors: { G: '#2c2a3c', g: '#211f2e', w: '#2c2a3c' } }));
-  icon('armor-flash', Grid.ascii(shieldRows).render({ colors: { G: '#ffffff', g: '#ffffff', w: '#ffffff' } }));
+  const whale = whaleHeroFrames();
+  add(scene, 'deepseek-a', whale.a);
+  add(scene, 'deepseek-b', whale.b);
+  icon('deepseek', whale.a);
+  icon('jesus', registerJesusTextures(scene).icon);
+  const vitals = vitalIcons();
+  icon('armor', vitals.armor);
+  icon('armor-empty', vitals.armorEmpty);
+  icon('armor-flash', vitals.armorFlash);
   icon('xp', sprite(S.GEM).render({ roles: { 1: ramp(E.cyan, E.white, E.blue) } }));
 
   // Weapons, drawn facing right with the grip on the left.
@@ -220,9 +228,9 @@ export function buildCommonTextures(scene: Phaser.Scene) {
     add(scene, `gem-${tier}`, c);
   }
   add(scene, 'heart', sprite(S.HEART).render({ roles: { 1: ramp(E.red, E.pink, E.redD) } }));
-  icon('heart', sprite(S.HEART).render({ roles: { 1: ramp(E.red, E.pink, E.redD) } }));
-  icon('heart-empty', sprite(S.HEART).render({ roles: { 1: ['#3a2a38', '#2a1f2b', '#211824'] } }));
-  icon('heart-flash', sprite(S.HEART).render({ roles: { 1: ['#ffffff', '#ffffff', '#ffffff'] } }));
+  icon('heart', vitals.heart);
+  icon('heart-empty', vitals.heartEmpty);
+  icon('heart-flash', vitals.heartFlash);
 
   // Upgrades: a picture each, for the level-up cards, the pause page, the codex and the pedestals.
   for (const [id, art] of Object.entries(UPGRADE_ICONS)) {
@@ -348,12 +356,15 @@ export function buildCommonTextures(scene: Phaser.Scene) {
   add(scene, 'chest-w', P.chestClosed().render({ colors: P.chestLegend(P.STEEL_CHEST) }));
   add(scene, 'chest-w-open', P.chestOpen().render({ colors: P.chestLegend(P.STEEL_CHEST) }));
 
-  // Pets.
-  add(scene, 'pet-hound', sprite(S.HOUND).render());
-  add(scene, 'pet-dove', sprite(S.DOVE_A).render());
-  add(scene, 'pet-dove-b', sprite(S.DOVE_B).render());
-  add(scene, 'pet-swan', Grid.ascii(S.SWAN.rows).render());
-  for (const p of ['hound', 'dove', 'swan']) icon(`pet-${p}`, (scene.textures.get(`pet-${p}`).getSourceImage() as HTMLCanvasElement));
+  // Companions share frame bounds but have individually drawn ears, legs, wings and attack poses.
+  for (const kind of PET_ART_KINDS) {
+    const frames = petTextureFrames(kind);
+    for (const [key, canvas] of Object.entries(frames)) add(scene, key, canvas);
+    icon(`pet-${kind}`, frames[`pet-${kind}`]);
+    if (kind === 'dove') add(scene, 'pet-dove-b', frames['pet-dove-walk-2']);
+  }
+  add(scene, 'pet-egg', petProjectileArt('egg').render());
+  add(scene, 'pet-ember', petProjectileArt('ember').render());
 
   // Props.
   add(scene, 'barrel', P.powderKeg().render({ colors: P.KEG_LEGEND }));

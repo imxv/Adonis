@@ -132,6 +132,9 @@ export class Lighting {
     const ox = cam.scrollX - M;
     const oy = cam.scrollY - M;
     const rt = this.rt;
+    const viewportWidth = s.scale.width + M * 2;
+    const viewportHeight = s.scale.height + M * 2;
+    if (rt.width !== viewportWidth || rt.height !== viewportHeight) rt.resize(viewportWidth, viewportHeight);
     const W = rt.width;
     const H = rt.height;
     // Clear, then lay the ambient down as an opaque stamp inside the batch. fill() blends with whatever

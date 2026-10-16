@@ -70,3 +70,4 @@
 - 外部数据：无。游戏内容全部是程序生成的虚构数据。
 - 外部美术、音频素材：无。
 - 风格参考：ACHROMA（game.unsnow.online/ach）仅作为界面和镜头风格的参考，没有使用它的任何代码或素材。
+- 新增可选角色「鲸鱼娘」的造型参考 DeepSeek 社区二创：蓝色长发、鲸类头鳍、鲸尾、深蓝白女仆裙。参考[梗鲸角色资料](https://aigengtu.com/zh/whale-chan)及[社区示例形象](https://raw.githubusercontent.com/tokenhunter475/awesome-chatgpt-plus-guide/main/assets/articles/2026-09-20-deepseek-pet/deepseek-base.png)，本项目以字符网格重新绘制像素动作（`src/pixel/whaleHero.ts`），运行时不加载外部参考图。该形象作为社区同人角色加入，不代表 DeepSeek 官方角色；原角色设计的来源与作者归属见参考资料。

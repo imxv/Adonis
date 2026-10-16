@@ -1,0 +1,208 @@
+.touch-controls {
+  --touch-gold: #e9c982;
+  --touch-ink: #101525;
+  --touch-rim: #596079;
+  position: fixed;
+  left: var(--viewport-left, 0px);
+  top: var(--viewport-top, 0px);
+  width: var(--viewport-width, 100%);
+  height: var(--viewport-height, 100%);
+  z-index: 30;
+  pointer-events: none;
+  color: #f5e8cb;
+  font-family: 'FusionPixel', monospace;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.touch-controls[hidden] { display: none; }
+.touch-controls * { box-sizing: border-box; }
+
+.touch-controls-deck {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.touch-action,
+.touch-stick {
+  position: absolute;
+  pointer-events: auto;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.touch-action {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 5px;
+  border: 2px solid var(--touch-rim);
+  border-radius: 5px;
+  background: rgba(16, 21, 37, 0.92);
+  color: #f5e8cb;
+  box-shadow: inset 0 2px 0 #343e55, 0 3px 0 #070a13;
+  font: 14px / 1 'FusionPixel', monospace;
+  text-shadow: 1px 1px #070a13;
+  transition: background-color 80ms, box-shadow 80ms;
+}
+
+.touch-action.is-pressed,
+.touch-action:active {
+  background: #394259;
+  box-shadow: inset 0 2px 0 #080b14, 0 1px 0 #070a13;
+}
+
+.touch-action:focus-visible {
+  outline: 2px solid #fff2bd;
+  outline-offset: 3px;
+}
+
+.touch-action-dash {
+  width: 52px;
+  height: 56px;
+  right: calc(116px + env(safe-area-inset-right, 0px));
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  border-color: #bf6172;
+  background: rgba(98, 33, 56, 0.96);
+  box-shadow: inset 0 2px 0 #ae4a61, 0 3px 0 #210e1c;
+  font-size: 16px;
+}
+
+.touch-action-dash.is-pressed { background: #a94460; }
+
+.touch-action-interact {
+  width: 52px;
+  height: 48px;
+  right: calc(116px + env(safe-area-inset-right, 0px));
+  bottom: calc(82px + env(safe-area-inset-bottom, 0px));
+  border-color: #b49a5e;
+  color: #ffe4a2;
+}
+
+.touch-controls-utilities {
+  position: absolute;
+  left: 50%;
+  bottom: calc(62px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  gap: 6px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.touch-controls-utilities .touch-action {
+  position: relative;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  font-size: 13px;
+}
+
+.touch-action-skill {
+  border-color: #9380ae;
+  color: #e6d5ff;
+}
+
+.touch-stick {
+  width: 96px;
+  height: 96px;
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  border: 2px solid rgba(211, 188, 130, 0.62);
+  border-radius: 50%;
+  background:
+    linear-gradient(90deg, transparent 48%, #b9a77b18 48%, #b9a77b18 52%, transparent 52%),
+    linear-gradient(transparent 48%, #b9a77b18 48%, #b9a77b18 52%, transparent 52%),
+    rgba(16, 21, 37, 0.76);
+  box-shadow: inset 0 0 0 5px #10152590, inset 0 0 0 7px #d3bc8222, 0 2px 0 #050710;
+}
+
+.touch-stick-move { left: calc(12px + env(safe-area-inset-left, 0px)); }
+.touch-stick-aim { right: calc(12px + env(safe-area-inset-right, 0px)); }
+
+.touch-stick-thumb {
+  position: absolute;
+  width: 38px;
+  height: 38px;
+  left: calc(50% - 19px);
+  top: calc(50% - 19px);
+  border: 2px solid #d3bc82;
+  border-radius: 12px;
+  background: #303849;
+  box-shadow: inset 0 3px 0 #596176, 0 3px 0 #060812;
+  pointer-events: none;
+}
+
+.touch-stick-aim .touch-stick-thumb {
+  border-color: #d38b92;
+  background: #603043;
+  box-shadow: inset 0 3px 0 #96576a, 0 3px 0 #160d18;
+}
+
+.touch-stick.is-pressed { border-color: #ffe4a2; }
+.touch-stick.is-pressed .touch-stick-thumb { filter: brightness(1.2); }
+
+.touch-stick-caption {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  color: #e2d7bc;
+  font-size: 12px;
+  line-height: 1;
+  text-shadow: 1px 1px #070a13, -1px -1px #070a13;
+  pointer-events: none;
+}
+
+/* Keep the same 220px reserve as the portrait game viewport. */
+.touch-portrait .touch-controls-deck {
+  top: auto;
+  height: calc(var(--touch-controls-height, 220px) + env(safe-area-inset-bottom, 0px));
+  border-top: 2px solid #65593f;
+  background:
+    linear-gradient(90deg, transparent, #b99a4a16, transparent),
+    #101320;
+  box-shadow: inset 0 5px 0 #070b15, 0 -2px 0 #050710;
+}
+
+.touch-portrait .touch-controls-deck::before {
+  content: '';
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 6px;
+  height: 4px;
+  opacity: 0.65;
+  background: repeating-linear-gradient(90deg, #ab8b4c 0 12px, transparent 12px 17px, #ab8b4c 17px 20px, transparent 20px 27px);
+}
+
+.touch-portrait .touch-stick {
+  width: clamp(100px, 29vw, 128px);
+  height: clamp(100px, 29vw, 128px);
+  bottom: calc(32px + env(safe-area-inset-bottom, 0px));
+}
+
+.touch-portrait .touch-action-dash,
+.touch-portrait .touch-action-interact {
+  right: auto;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 56px;
+}
+
+.touch-portrait .touch-action-dash { bottom: calc(100px + env(safe-area-inset-bottom, 0px)); }
+.touch-portrait .touch-action-interact { bottom: calc(42px + env(safe-area-inset-bottom, 0px)); }
+.touch-portrait .touch-controls-utilities { top: 16px; bottom: auto; gap: 10px; }
+.touch-portrait .touch-controls-utilities .touch-action { width: 48px; flex-basis: 48px; }
+.touch-portrait .touch-stick-caption { top: calc(100% + 10px); font-size: 13px; }
+
+@media (max-width: 560px) {
+  .touch-device:not(.touch-portrait) .touch-controls-utilities {
+    display: grid;
+    grid-template-columns: repeat(2, 44px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .touch-action { transition: none; }
+}

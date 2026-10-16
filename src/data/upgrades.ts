@@ -16,6 +16,7 @@ export interface UpgradeDef {
   rarity: Rarity;
   tags: Tag[];
   max: number;
+  minPets?: number;
   desc: string;
   apply: (m: Mods) => void;
 }
@@ -50,15 +51,22 @@ export const UPGRADES: UpgradeDef[] = [
   { id: 'sniper', name: '狙心', glyph: '狙', rarity: 'rare', tags: ['crit', 'power'], max: 2, desc: '伤害 +35%，弹速 +30%，攻击频率 -10%', apply: (m) => ((m.damage += 0.35), (m.speed += 0.3), (m.fireRate -= 0.1)) },
   { id: 'bond', name: '羁绊', glyph: '绊', rarity: 'rare', tags: ['pet'], max: 2, desc: '宠物继承你的加成 +25%', apply: (m) => (m.petInherit += 0.25) },
   { id: 'pack', name: '群猎', glyph: '猎', rarity: 'rare', tags: ['pet'], max: 3, desc: '宠物攻击频率 +30%', apply: (m) => (m.petRate += 0.3) },
+  { id: 'tamer', name: '驯兽术', glyph: '驯', rarity: 'common', tags: ['pet'], max: 4, desc: '全队宠物伤害 +25%', apply: (m) => (m.petDamage += 0.25) },
+  { id: 'petfield', name: '兽灵领域', glyph: '灵', rarity: 'rare', tags: ['pet'], max: 3, desc: '宠物攻击、守护与辅助范围 +20%', apply: (m) => (m.petArea += 0.2) },
+  { id: 'wildinstinct', name: '野性本能', glyph: '野', rarity: 'rare', tags: ['pet', 'crit'], max: 3, desc: '宠物暴击率 +12%', apply: (m) => (m.petCrit += 0.12) },
+  { id: 'teamwork', name: '同心协力', glyph: '同', rarity: 'rare', tags: ['pet'], max: 2, desc: '每只不同宠物使全队宠物伤害 +6%', apply: (m) => (m.petTeamwork += 0.06) },
+  { id: 'packguard', name: '兽群守护', glyph: '护', rarity: 'rare', tags: ['pet', 'vital'], max: 2, desc: '每只宠物提供 2% 格挡几率，最多 24%；成功时免疫本次伤害', apply: (m) => (m.petGuard += 0.02) },
 
   { id: 'ember', name: '余烬爆裂', glyph: '爆', rarity: 'epic', tags: ['power', 'element'], max: 2, desc: '命中有 10% 概率引发小爆炸', apply: (m) => (m.explodeOnHit += 0.1) },
   { id: 'fission', name: '裂变', glyph: '裂', rarity: 'epic', tags: ['crit', 'barrage'], max: 2, desc: '暴击时裂出 2 枚碎片弹', apply: (m) => (m.splitOnCrit += 2) },
   { id: 'chainboom', name: '连锁殉爆', glyph: '殉', rarity: 'epic', tags: ['power'], max: 2, desc: '敌人死亡时爆炸，造成其最大生命 35% 的伤害', apply: (m) => (m.explodeOnKill += 0.35) },
   { id: 'frenzy', name: '狂热', glyph: '狂', rarity: 'epic', tags: ['barrage'], max: 2, desc: '每次击杀攻击频率 +4%，最多 +40%，2 秒不杀逐渐消退', apply: (m) => (m.frenzy += 0.04) },
   { id: 'resonance', name: '共鸣', glyph: '鸣', rarity: 'epic', tags: ['element'], max: 2, desc: '元素反应伤害 +50%，已有元素的触发率 +10%', apply: (m) => { m.elementPower += 0.5; for (const k of Object.keys(m.elements) as (keyof typeof m.elements)[]) m.elements[k] += 0.1 * Math.sign(m.elements[k]); } },
+  { id: 'petecho', name: '回响追击', glyph: '追', rarity: 'epic', tags: ['pet'], max: 2, desc: '宠物命中有 20% 概率追击，额外造成本次伤害的 50%', apply: (m) => (m.petEcho += 0.2) },
 
   { id: 'anemone', name: '银莲之血', glyph: '莲', rarity: 'legendary', tags: ['power', 'vital'], max: 1, desc: '伤害 +40%，生命上限 +2，暴击率 +10%', apply: (m) => ((m.damage += 0.4), (m.maxHp += 2), (m.critChance += 0.1)) },
   { id: 'aphrodite', name: '爱神之吻', glyph: '爱', rarity: 'legendary', tags: ['barrage', 'crit'], max: 1, desc: '数量 +2，暴击伤害 +60%', apply: (m) => ((m.count += 2), (m.critMult += 0.6)) },
+  { id: 'beastmaster', name: '万兽之王', glyph: '王', rarity: 'legendary', tags: ['pet'], max: 1, minPets: 3, desc: '至少拥有 3 只宠物：全队宠物伤害 +40%，攻击频率 +20%', apply: (m) => ((m.petDamage += 0.4), (m.petRate += 0.2)) },
 ];
 
 export const UPGRADE_BY_ID: Record<string, UpgradeDef> = Object.fromEntries(UPGRADES.map((u) => [u.id, u]));

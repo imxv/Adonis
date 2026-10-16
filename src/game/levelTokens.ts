@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { TAU, dist2, hexToNum } from '../core/math';
+import { TAU, hexToNum } from '../core/math';
 import { rand } from '../core/rng';
 import { audio } from '../audio/audio';
 import { E } from '../pixel/palette';
@@ -11,7 +11,7 @@ import type { GameScene } from './GameScene';
 
 /*
  * A level-up does not stop the fight. It springs out of the knight as a gold crystal that lands nearby and waits,
- * spinning over a turning rune ring under a beam of light with 升级 written over it. Walking into it is what opens
+ * spinning over a turning rune ring under a beam of light with 升级 written over it. Pressing F nearby is what opens
  * the three cards, so the player picks the moment. Crystals left behind go down the trapdoor with the knight and land
  * beside it on the next floor.
  */
@@ -60,7 +60,6 @@ export function dropLevelToken(s: GameScene, level: number, i = 0, n = 1) {
 }
 
 export function updateLevelTokens(s: GameScene, dt: number) {
-  const p = s.player;
   for (const k of s.levelTokens) {
     if (k.dead) continue;
     k.t += dt;
@@ -86,7 +85,6 @@ export function updateLevelTokens(s: GameScene, dt: number) {
       k.sparkT = 0.22;
       s.fx.sparks(k.x + rand(-6, 6), k.y - 8, 1, 'gold');
     }
-    if (s.mode === 'play' && !s.fusing && dist2(k.x, k.y - 4, p.x, p.y - 4) < 14 * 14) collect(s, k);
   }
   s.levelTokens = s.levelTokens.filter((k) => !k.dead);
 }
@@ -132,8 +130,9 @@ function destroyToken(s: GameScene, k: LevelToken) {
   if (k.light) s.light.removeStatic(k.light);
 }
 
-/** Touched: the crystal bursts and the cards are dealt. */
-function collect(s: GameScene, k: LevelToken) {
+/** Explicit interaction: the crystal bursts and the cards are dealt. */
+export function collectLevelToken(s: GameScene, k: LevelToken) {
+  if (s.mode !== 'play' || s.fusing || !k.landed || k.dead) return;
   destroyToken(s, k);
   s.fx.ring(k.x, k.y - 10, 64, E.yellow, 420, 3);
   s.fx.implode(k.x, k.y - 10, 50, E.white, 260, 1);

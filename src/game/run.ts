@@ -4,7 +4,7 @@ import { baseMods, type Mods, type Tag } from '../core/stats';
 import { RARITY_INFO, UPGRADES, UPGRADE_BY_ID, type Rarity, type UpgradeDef } from '../data/upgrades';
 import { MAX_WEAPONS, MAX_WEAPON_LEVEL, WEAPONS, WEAPON_ORDER, type WeaponInstance } from '../data/weapons';
 import { FUSE_LEVEL, FUSION_ORDER, MAX_SPELLS, MAX_SPELL_LEVEL, SPELLS, SPELL_ORDER, fusionOf, type FusionId, type SpellId, type SpellInstance } from '../data/spells';
-import { PETS, type Pets } from '../data/enemies';
+import { PET_ORDER, type Pets } from '../data/enemies';
 import { KITS, KIT_BY_ID } from '../styles/kits';
 import { DIFFICULTIES, type Difficulty, type DifficultyId } from '../data/difficulty';
 import type { StyleKit } from '../styles/types';
@@ -29,6 +29,8 @@ export interface RunState {
   held: number;
   spells: SpellInstance[];
   pets: Pets[];
+  /** The all-companion transformation has already granted its one-time bonuses. */
+  ascended: boolean;
   hp: number;
   armor: number;
   xp: number;
@@ -51,7 +53,7 @@ export function xpForLevel(level: number) {
   return Math.floor(5 + level * 2.8 + Math.pow(level, 1.5) * 0.7);
 }
 
-export function newRun(params: URLSearchParams, heroId: HeroId = 'adonis'): RunState {
+export function newRun(params: URLSearchParams, heroId: HeroId = 'adonis', difficultyId?: DifficultyId): RunState {
   const hero = HEROES[(params.get('hero') as HeroId) ?? heroId] ?? HEROES[heroId] ?? HEROES.adonis;
   const seed = Number(params.get('seed')) || Math.floor(Math.random() * 1e9);
   const rng = new Rng(seed);
@@ -70,7 +72,7 @@ export function newRun(params: URLSearchParams, heroId: HeroId = 'adonis'): RunS
   return {
     hero: hero.id,
     seed,
-    diff: DIFFICULTIES[params.get('diff') as DifficultyId] ?? DIFFICULTIES[settings.get().diff] ?? DIFFICULTIES.normal,
+    diff: DIFFICULTIES[difficultyId ?? (params.get('diff') as DifficultyId)] ?? DIFFICULTIES[settings.get().diff] ?? DIFFICULTIES.normal,
     rng,
     styles,
     level: Number(params.get('level')) || 0,
@@ -82,6 +84,7 @@ export function newRun(params: URLSearchParams, heroId: HeroId = 'adonis'): RunS
     held: 0,
     spells,
     pets: [],
+    ascended: false,
     hp: mods.maxHp,
     armor: mods.maxArmor,
     xp: 0,
@@ -113,6 +116,7 @@ export function snapshotRun(run: RunState): Omit<SavedRun, 'v' | 'savedAt' | 'ro
     held: run.held,
     spells: run.spells.map((s) => ({ id: s.id, level: s.level, evolved: s.evolved, kills: s.kills })),
     pets: [...run.pets],
+    ascended: run.ascended,
     hp: run.hp,
     armor: run.armor,
     xp: run.xp,
@@ -143,7 +147,8 @@ export function restoreRun(s: SavedRun): RunState {
     weapons: s.weapons.filter((w) => WEAPONS[w.id]).map((w) => ({ def: WEAPONS[w.id], level: w.level, cd: 0 })),
     held: Math.min(s.held, Math.max(0, s.weapons.length - 1)),
     spells: s.spells.filter((x) => SPELLS[x.id]).map((x) => ({ ...newSpell(x.id), level: x.level, evolved: x.evolved, kills: x.kills })),
-    pets: s.pets.filter((p) => PETS[p]),
+    pets: [...new Set(s.pets.filter((p) => PET_ORDER.includes(p)))],
+    ascended: s.ascended === true,
     hp: s.hp,
     armor: s.armor,
     xp: s.xp,
@@ -164,7 +169,7 @@ export const newSpell = (id: SpellId): SpellInstance => ({ id, level: 1, evolved
 
 export type Choice =
   | { type: 'upgrade'; def: UpgradeDef }
-  | { type: 'weapon-new'; id: string }
+  | { type: 'weapon-new'; id: string; instance?: WeaponInstance }
   | { type: 'weapon-up'; index: number }
   | { type: 'spell-new'; id: SpellId }
   | { type: 'spell-up'; id: SpellId }
@@ -190,9 +195,9 @@ export function applyUpgrade(run: RunState, def: UpgradeDef) {
 export function choiceValid(run: RunState, c: Choice): boolean {
   switch (c.type) {
     case 'upgrade':
-      return (run.stacks[c.def.id] ?? 0) < c.def.max;
+      return upgradeValid(run, c.def);
     case 'weapon-new':
-      return !run.weapons.some((w) => w.def.id === c.id);
+      return WEAPON_ORDER.includes(c.id) && (!c.instance || c.instance.def.id === c.id) && !run.weapons.some((w) => w.def.id === c.id);
     case 'weapon-up':
       return !!run.weapons[c.index] && run.weapons[c.index].level < MAX_WEAPON_LEVEL;
     case 'spell-new':
@@ -207,27 +212,34 @@ export function choiceValid(run: RunState, c: Choice): boolean {
       return !!s && !s.evolved && !!key && s.level >= MAX_SPELL_LEVEL && (run.stacks[key] ?? 0) > 0;
     }
     case 'pet':
-      return !run.pets.includes(c.kind);
+      return PET_ORDER.includes(c.kind) && !run.pets.includes(c.kind);
     case 'heal':
       return true;
   }
 }
 
-export function applyChoice(run: RunState, c: Choice) {
+export function applyChoice(run: RunState, c: Choice, replaceIndex?: number): WeaponInstance | undefined {
   // Every level has a ceiling: nothing here may push past it, whatever offered it.
   if (!choiceValid(run, c)) return;
   switch (c.type) {
     case 'upgrade':
       applyUpgrade(run, c.def);
       break;
-    case 'weapon-new':
+    case 'weapon-new': {
+      const incoming = c.instance ? { ...c.instance, def: WEAPONS[c.id] } : { def: WEAPONS[c.id], level: 1, cd: 0 };
       if (run.weapons.length < MAX_WEAPONS) {
-        run.weapons.push({ def: WEAPONS[c.id], level: 1, cd: 0 });
+        run.weapons.push(incoming);
         run.held = run.weapons.length - 1;
       } else {
-        run.weapons[run.held] = { def: WEAPONS[c.id], level: run.weapons[run.held].level, cd: 0 };
+        // A full inventory requires the player to choose which weapon leaves the slot.
+        if (replaceIndex === undefined || !Number.isInteger(replaceIndex) || replaceIndex < 0 || replaceIndex >= run.weapons.length) return;
+        const displaced = { ...run.weapons[replaceIndex] };
+        run.weapons[replaceIndex] = incoming;
+        run.held = replaceIndex;
+        return displaced;
       }
       break;
+    }
     case 'weapon-up':
       run.weapons[c.index].level++;
       break;
@@ -254,12 +266,17 @@ export function applyChoice(run: RunState, c: Choice) {
   }
 }
 
+function upgradeValid(run: RunState, u: UpgradeDef) {
+  if ((run.stacks[u.id] ?? 0) >= u.max) return false;
+  if (u.tags.includes('pet') && new Set(run.pets).size < (u.minPets ?? 1)) return false;
+  return true;
+}
+
 function availableUpgrades(run: RunState, minRarity?: Rarity) {
   const order: Rarity[] = ['common', 'rare', 'epic', 'legendary'];
   return UPGRADES.filter((u) => {
-    if ((run.stacks[u.id] ?? 0) >= u.max) return false;
+    if (!upgradeValid(run, u)) return false;
     if (minRarity && order.indexOf(u.rarity) < order.indexOf(minRarity)) return false;
-    if (u.tags.includes('pet') && run.pets.length === 0) return false;
     if (u.id === 'resonance' && Object.values(run.mods.elements).every((v) => v === 0)) return false;
     return true;
   });
@@ -324,10 +341,10 @@ export function applyFusion(run: RunState, f: FusionId): SpellInstance[] {
   return used;
 }
 
-export function rollChoices(run: RunState, kind: 'level' | 'rare' | 'weapon' | 'pet'): Choice[] {
+export function rollChoices(run: RunState, kind: 'level' | 'rare' | 'weapon' | 'pet', choiceLevel = run.xpLevel): Choice[] {
   const rng = run.rng;
+  const pets = PET_ORDER.filter((p) => !run.pets.includes(p));
   if (kind === 'pet') {
-    const pets = (Object.keys(PETS) as Pets[]).filter((p) => !run.pets.includes(p));
     if (pets.length === 0) return rollChoices(run, 'rare');
     return rng.shuffle(pets).slice(0, 3).map((k) => ({ type: 'pet', kind: k }));
   }
@@ -339,27 +356,44 @@ export function rollChoices(run: RunState, kind: 'level' | 'rare' | 'weapon' | '
   // An evolution, when ready, always shows up first.
   const evo = evolutionsReady(run);
   if (evo.length) out.push(evo[0]);
-  // Early on, spells dominate so the screen fills up fast.
+  const target = 3;
   if (kind === 'level') {
+    // The first crystal, then every third one, always offers a new companion. Other levels have a 25% chance.
+    // Use the crystal's level so leaving it on the floor cannot skip the guaranteed recruitment.
+    if (pets.length && ((choiceLevel >= 2 && (choiceLevel - 2) % 3 === 0) || rng.chance(0.25))) {
+      out.push({ type: 'pet', kind: rng.pick(pets) });
+    }
     // Steps toward a fusion float to the front half the time, so pairs actually come together.
     const sc = rng.shuffle(spellChoices(run));
     if (rng.chance(0.5)) sc.sort((x, y) => Number(towardFusion(run, y)) - Number(towardFusion(run, x)));
     const wantSpells = run.spells.length < 2 ? 2 : rng.chance(0.55) ? 1 : 0;
-    out.push(...sc.slice(0, Math.max(0, wantSpells - (out.length ? 0 : 0))));
+    // Keep an upgrade slot whenever possible, so a recruited companion can start a build immediately.
+    out.push(...sc.slice(0, Math.min(wantSpells, Math.max(0, target - out.length - 1))));
   }
   const pool = availableUpgrades(run, kind === 'rare' ? 'rare' : undefined);
   const used = new Set<string>();
   let guard = 0;
   // Three cards, always.
-  const target = 3;
   while (out.length < target && guard++ < 60) {
     const cand = pool.filter((u) => !used.has(u.id));
     if (!cand.length) break;
-    const u = rng.weighted(cand, (c) => RARITY_INFO[c.rarity].weight * (spellPairBonus(run, c.id) ? 2.2 : 1));
+    const u = rng.weighted(cand, (c) => {
+      // Recruiting and investing in pets gently favors that build without excluding other upgrade families.
+      const petWeight = c.tags.includes('pet') ? 1 + Math.min(2, run.pets.length * 0.2 + (run.tags.pet ?? 0) * 0.2) : 1;
+      return RARITY_INFO[c.rarity].weight * petWeight * (spellPairBonus(run, c.id) ? 2.2 : 1);
+    });
     used.add(u.id);
     out.push({ type: 'upgrade', def: u });
   }
-  if (out.length === 0) out.push({ type: 'heal' });
+  // Extremely long runs can exhaust upgrades; offer remaining spells/weapons before healing.
+  if (out.length < target) {
+    for (const c of rng.shuffle([...spellChoices(run), ...weaponChoices(run)])) {
+      if (out.some((x) => JSON.stringify(x) === JSON.stringify(c))) continue;
+      out.push(c);
+      if (out.length === target) break;
+    }
+  }
+  if (out.length < target) out.push({ type: 'heal' });
   return out.slice(0, target);
 }
 

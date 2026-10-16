@@ -1,6 +1,6 @@
 import type Phaser from 'phaser';
 import { TAG_NAMES } from '../core/stats';
-import { ENEMIES, PETS, type EnemyKind, type Pets } from '../data/enemies';
+import { ENEMIES, PETS, PET_ORDER, type EnemyKind } from '../data/enemies';
 import { ELEMENT_COLOR, ELEMENT_NAME } from '../game/entities';
 import type { Element } from '../core/stats';
 import { FUSE_LEVEL, FUSION_ORDER, MAX_SPELL_LEVEL, SPELLS, SPELL_ORDER, fusionOf } from '../data/spells';
@@ -205,15 +205,19 @@ export function buildCodex(scene: Phaser.Scene): CodexTab[] {
   });
 
   // ---------------------------------------------------------------- pets
-  const pets: CodexEntry[] = (['hound', 'dove', 'swan'] as Pets[]).map((kind) => ({
+  const pets: CodexEntry[] = PET_ORDER.map((kind) => ({
     id: kind,
     name: PETS[kind].name,
     icon: tex(`pet-${kind}`),
-    tag: '宠物',
+    tag: PETS[kind].role,
     tagColor: E.pink,
     desc: `${PETS[kind].desc}。`,
-    stats: [['获得', '宝物房']],
-    sections: [{ title: '成长', lines: ['继承你一部分加成和元素，加成「羁绊」可以继承更多。', '加成「群猎」让它攻击得更勤。'] }],
+    stats: [['获得', '升级招募 / 宝物房'], ['队伍', '每种一只，最多九只']],
+    sections: [
+      { title: '成长', lines: ['默认继承 50% 伤害加成与元素概率；「羁绊」提高继承，「群猎」加快出招。', '「驯兽术」「野性本能」「回响追击」强化输出；「兽灵领域」扩大攻击范围。'] },
+      { title: '宠物流派', lines: ['「同心协力」随伙伴数量提升全队宠物伤害，「兽群守护」提供格挡几率。', '拥有至少三只伙伴后，可遇到传说加成「万兽之王」。宠物不会受伤，非战斗时只跟随。'] },
+    ],
+    gallery: { title: '待机 · 行走 · 出招', pics: ['idle-0', 'walk-1', 'walk-3', 'attack-0', 'attack-1', 'attack-2'].map((frame) => tex(`pet-${kind}-${frame}`)) },
   }));
 
   // ---------------------------------------------------------------- monsters
@@ -302,7 +306,7 @@ export function buildCodex(scene: Phaser.Scene): CodexTab[] {
     ['start', '起点', '每层从这里出发，没有敌人。第一层的地上写着操作提示。', E.greyM, E.white],
     ['combat', '战斗房', '走进门两格后铁栅门会关上，打完两三波敌人才打开。房间有矩形、切角、十字、L 形、柱厅、回廊几种形状，里面有掩体，越深的层越常见机关。清完有概率掉宝箱、武器箱或生命。', E.slate, E.red],
     ['horde', '尸潮房', '每层一个。坚持 20 到 28 秒，敌人源源不断，还会有蝙蝠群横扫和史莱姆包围圈。撑到最后必掉一个宝箱和一个武器箱。', E.purple, E.magenta],
-    ['treasure', '宝物房', '藏在死胡同里。三个台子上各放一件宝物，通常有新武器、新法术和宠物，只能拿一件，拿走后其余的会碎掉。', E.slate, E.yellow],
+    ['treasure', '宝物房', '藏在死胡同里。三个台子上各放一件宝物，通常有新武器、新法术和宠物，靠近按 F 领取。只能拿一件，拿走后其余的会碎掉。', E.slate, E.yellow],
     ['boss', 'Boss 房', '每层最深处的死胡同，四根掩体柱可以挡子弹。打倒 Boss 后出现通往下一层的地洞。', E.redD, E.hot],
   ];
   for (const [id, name, desc, floor, mark] of rooms) maps.push({ id: `room-${id}`, name, icon: pic(roomIcon(floor, mark)), tag: '房间', tagColor: E.grey, desc });
@@ -322,8 +326,10 @@ export function buildCodex(scene: Phaser.Scene): CodexTab[] {
       desc: '十种画风各有六种场景摆件，成对靠墙摆放：冰封石门、沙漠遗物、蒸汽机械、庭院竹簇等各有特色。打不坏，会挡路也会挡子弹，怪物会绕开走。部分摆件会发光。地面的冰纹、沙丘、铺装、落花与小碎片只是装饰，不会挡路。',
       gallery: { title: '各画风的装饰', pics: BIOMES.flatMap((k) => DECO_NAMES[k.id].map((_, i) => tex(K(`deco-${i}`, k)))) },
     },
-    { id: 'chest', name: '宝箱', icon: tex('chest'), tag: '奖励', tagColor: E.yellow, desc: '走过去就会打开，直接给一件奖励：法术升级、稀有加成，满足条件时是法术进化。' },
-    { id: 'chest-w', name: '武器箱', icon: tex('chest-w'), tag: '奖励', tagColor: E.cyan, desc: '钢制的箱子，打开后从三把武器里挑一把，也可以都不要。清房、尸潮房和守卫都可能掉落。' },
+    { id: 'chest', name: '技能/强化箱', icon: tex('chest'), tag: '奖励', tagColor: E.yellow, desc: '靠近按 F 打开，直接给一件奖励：法术升级、稀有加成，满足条件时是法术进化。' },
+    { id: 'chest-w', name: '武器箱', icon: tex('chest-w'), tag: '奖励', tagColor: E.cyan, desc: '钢制的箱子，按 F 只开出一把武器，升起后悬浮在箱子上，再按 F 拾取。非战斗时靠近可观看当前角色攻击假人的演示和武器指标。已带两把时可任选一把替换；取消会保留箱上武器，旧武器保留等级与弹药落地。清房、尸潮房和守卫都可能掉落。' },
+    { id: 'level-token', name: '升级水晶', icon: tex('lvl-token'), tag: '成长', tagColor: E.yellow, desc: '升级时落在身边，名称旁标明等级；靠近按 F 打开成长选项，自己选择升级时机。留在地上的升级水晶会跟随你进入下一层。' },
+    { id: 'crystal', name: '元素护盾水晶', icon: tex('crystal'), tag: '掉落', tagColor: E.yellow, desc: '元素结晶反应形成，靠近按 F 拾取可回复 1 格护甲。不会自动吸取，地上会标明所属元素。' },
     { id: 'gems', name: '经验宝石', icon: tex('gem-2'), tag: '掉落', tagColor: E.cyan, desc: '击杀掉落，蓝色 1 点、绿色 2 点、红色 5 点经验。清完房间会自动飞向你。', gallery: { title: '三种宝石', pics: ['gem-1', 'gem-2', 'gem-3'].map(tex) } },
     { id: 'heart', name: '生命', icon: tex('heart'), tag: '掉落', tagColor: E.red, desc: '回复 1 点生命。精英怪必掉，木箱和清房偶尔掉。护甲会在 2 秒不受伤后自动回复。' },
     { id: 'trapdoor', name: '地洞', icon: half('trapdoor'), art: tex('trapdoor'), tag: '出口', tagColor: E.grey, desc: '打倒 Boss 后出现，走进去前往下一层。最后一层出现的是一朵银莲花，走上去结束这次轮回。' },

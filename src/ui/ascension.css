@@ -1,0 +1,52 @@
+.ascension-cinematic {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+}
+
+.ascension-heading,
+.ascension-blessing {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.ascension-heading {
+  top: 23px;
+  animation: ascensionTitle 0.5s steps(6) both;
+}
+
+.ascension-blessing {
+  bottom: 20px;
+  opacity: 0;
+}
+
+.ascension-cinematic.revealed .ascension-blessing {
+  animation: ascensionTitle 0.35s steps(5) both;
+}
+
+.ps-ascended {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  margin-top: 5px;
+}
+
+@keyframes ascensionTitle {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ascension-heading,
+  .ascension-cinematic.revealed .ascension-blessing {
+    animation: none;
+    opacity: 1;
+  }
+}

@@ -2,6 +2,7 @@ import type { BossLook } from './bossAnim';
 import type Phaser from 'phaser';
 import type { Element } from '../core/stats';
 import type { Affix, BossKind, EnemyKind, Pets, SpawnStyle } from '../data/enemies';
+import type { WeaponInstance } from '../data/weapons';
 
 export type Img = Phaser.GameObjects.Image;
 
@@ -183,7 +184,13 @@ export interface BossState {
 }
 
 export interface Pickup {
-  kind: 'gem' | 'heart' | 'chest' | 'wchest' | 'crystal';
+  kind: 'gem' | 'heart' | 'chest' | 'wchest' | 'crystal' | 'weapon';
+  weapon?: WeaponInstance;
+  /** Open weapon chest supporting this reward until it is collected. */
+  chest?: Img;
+  /** Seconds of the one-time rise out of a weapon chest. */
+  revealT?: number;
+  label?: Img;
   /** Crystallize shards: the element they formed from. */
   element?: Element;
   tier: number;
@@ -239,11 +246,18 @@ export interface Pet {
   vx: number;
   vy: number;
   t: number;
+  /** Time in the current action; t itself never resets, so per-enemy hit gates remain valid. */
+  stateT: number;
   cd: number;
-  state: 'follow' | 'dash' | 'return';
+  state: 'follow' | 'windup' | 'dash' | 'leap' | 'recover' | 'return';
   target?: Enemy;
   angle: number;
   sprite: Img;
+  shadow: Img;
+  joinT: number;
+  /** Rabbit's remaining follow-up hops. */
+  combo: number;
+  leap?: { x0: number; y0: number; x1: number; y1: number; dur: number };
   hitCd: Map<Enemy, number>;
 }
 

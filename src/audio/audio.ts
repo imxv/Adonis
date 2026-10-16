@@ -10,7 +10,19 @@ type AnyInst = { dispose(): void };
 
 class AudioEngine {
   ready = false;
+  private initializing?: Promise<void>;
   muted = false;
+  private silentDepth = 0;
+
+  /** Run an isolated training scene without scheduling sounds or consuming sound throttles. */
+  silently<T>(run: () => T): T {
+    this.silentDepth++;
+    try {
+      return run();
+    } finally {
+      this.silentDepth--;
+    }
+  }
   private sfx!: Tone.Gain;
   private music!: Tone.Gain;
   private verb!: Tone.Reverb;
@@ -62,8 +74,16 @@ class AudioEngine {
     });
   }
 
-  async init() {
-    if (this.ready) return;
+  init(): Promise<void> {
+    if (this.ready) return Promise.resolve();
+    // The first touch unlocks audio; a later menu confirmation shares the same setup.
+    return this.initializing ??= this.initialize().catch((error) => {
+      this.initializing = undefined;
+      throw error;
+    });
+  }
+
+  private async initialize() {
     await Tone.start();
     const limiter = new Tone.Limiter(-1.5).toDestination();
     const comp = new Tone.Compressor({ threshold: -20, ratio: 3.5, attack: 0.004, release: 0.18 }).connect(limiter);
@@ -156,6 +176,7 @@ class AudioEngine {
   }
 
   private gate(key: string, ms: number): boolean {
+    if (this.silentDepth) return false;
     const now = performance.now();
     if ((this.last[key] ?? 0) + ms > now) return false;
     this.last[key] = now;
@@ -187,7 +208,7 @@ class AudioEngine {
 
   /** Audio must never break a game frame. */
   private safe(fn: () => void) {
-    if (!this.ready) return;
+    if (!this.ready || this.silentDepth) return;
     try {
       fn();
     } catch {

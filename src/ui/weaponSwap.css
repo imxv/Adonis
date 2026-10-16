@@ -1,0 +1,139 @@
+.weapon-swap {
+  --ws-edge: #42495f;
+  --ws-dark: #11131f;
+  --ws-accent: #d6b178;
+  background: rgba(24, 26, 41, 0.88);
+}
+
+.weapon-swap .ws-panel {
+  position: relative;
+  display: grid;
+  grid-template-rows: 24px 36px minmax(0, 1fr) 42px;
+  gap: 6px;
+  width: 420px;
+  height: 246px;
+  padding: 10px;
+  background: #25283b;
+  box-shadow: inset 0 0 0 3px var(--ws-dark), inset 0 0 0 5px var(--ws-edge), inset 0 -8px 0 #1b1e2e;
+  clip-path: polygon(0 6px, 3px 6px, 3px 3px, 6px 3px, 6px 0, calc(100% - 6px) 0, calc(100% - 6px) 3px, calc(100% - 3px) 3px, calc(100% - 3px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 3px) calc(100% - 6px), calc(100% - 3px) calc(100% - 3px), calc(100% - 6px) calc(100% - 3px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 3px), 3px calc(100% - 3px), 3px calc(100% - 6px), 0 calc(100% - 6px));
+}
+
+.weapon-swap .ws-heading,
+.weapon-swap .ws-name-line,
+.weapon-swap .ws-incoming,
+.weapon-swap .ws-art,
+.weapon-swap .ws-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.weapon-swap .ws-incoming {
+  background: #1c2032;
+  box-shadow: inset 0 -2px 0 #181a29, inset 0 2px 0 #30364b;
+  clip-path: polygon(0 3px, 3px 3px, 3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px));
+}
+
+.weapon-swap .ws-incoming > .ws-art {
+  width: 56px;
+}
+
+.weapon-swap .ws-new-name,
+.weapon-swap .ws-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+
+.weapon-swap .ws-slots {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  min-height: 0;
+}
+
+.weapon-swap .ws-slot {
+  appearance: none;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 6px;
+  border: 0;
+  border-radius: 0;
+  background: #1d2233;
+  box-shadow: inset 0 0 0 2px #343c52, inset 0 -4px 0 #181a29;
+  clip-path: polygon(0 4px, 2px 4px, 2px 2px, 4px 2px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 2px, calc(100% - 2px) 2px, calc(100% - 2px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 2px) calc(100% - 4px), calc(100% - 2px) calc(100% - 2px), calc(100% - 4px) calc(100% - 2px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 2px), 2px calc(100% - 2px), 2px calc(100% - 4px), 0 calc(100% - 4px));
+  transition: background-color 0.12s steps(2), transform 0.12s steps(2);
+  cursor: pointer;
+}
+
+.weapon-swap .ws-slot.sel {
+  background: #333448;
+  box-shadow: inset 0 0 0 2px #8f806b, inset 0 -4px 0 #242536;
+  transform: translateY(-1px);
+}
+
+.weapon-swap .ws-slot.sel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(var(--ws-accent), var(--ws-accent)) left 2px top 2px / 4px 4px no-repeat,
+    linear-gradient(var(--ws-accent), var(--ws-accent)) right 2px top 2px / 4px 4px no-repeat,
+    linear-gradient(var(--ws-accent), var(--ws-accent)) left 2px bottom 2px / 4px 4px no-repeat,
+    linear-gradient(var(--ws-accent), var(--ws-accent)) right 2px bottom 2px / 4px 4px no-repeat;
+  pointer-events: none;
+}
+
+.weapon-swap .ws-slot-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.weapon-swap .ws-slot > .ws-art {
+  width: 64px;
+  height: 28px;
+  background: #30364b;
+  box-shadow: inset 0 -3px 0 #282e42;
+  clip-path: polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px));
+}
+
+.weapon-swap .ws-ammo {
+  min-height: 14px;
+}
+
+.weapon-swap .ws-cancel {
+  appearance: none;
+  flex: none;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 0;
+  background: #343b50;
+  box-shadow: inset 0 2px 0 #4b536a, inset 0 -2px 0 #181a29;
+  clip-path: polygon(0 2px, 2px 2px, 2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px));
+  cursor: pointer;
+}
+
+.weapon-swap .ws-cancel:hover,
+.weapon-swap .ws-cancel:focus-visible {
+  background: #465066;
+}
+
+.weapon-swap .ws-slot:focus-visible,
+.weapon-swap .ws-cancel:focus-visible {
+  outline: 2px solid var(--ws-accent);
+  outline-offset: -4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .weapon-swap .ws-slot { transition: none; }
+}

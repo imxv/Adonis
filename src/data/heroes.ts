@@ -1,7 +1,7 @@
 import type { Mods } from '../core/stats';
 
 /** The heroes a run can start with. Adonis is the default; the knight is the original hero, still there to pick. */
-export type HeroId = 'adonis' | 'knight';
+export type HeroId = 'adonis' | 'knight' | 'deepseek';
 
 export interface HeroDef {
   id: HeroId;
@@ -44,6 +44,19 @@ export const HEROES: Record<HeroId, HeroDef> = {
     },
     tex: 'knight',
   },
+  deepseek: {
+    id: 'deepseek',
+    name: '鲸鱼娘',
+    title: 'DeepSeek 海中来客',
+    desc: '摇着鲸尾走进画里的深海来客。打完这场，再去吃饭！',
+    weapon: 'tide',
+    perk: '弹匣 +20%，换弹 -10%',
+    apply: (m) => {
+      m.mag *= 1.2;
+      m.reload *= 0.9;
+    },
+    tex: 'deepseek',
+  },
 };
 
-export const HERO_ORDER: HeroId[] = ['adonis', 'knight'];
+export const HERO_ORDER: HeroId[] = ['adonis', 'knight', 'deepseek'];

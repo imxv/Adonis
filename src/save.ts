@@ -8,6 +8,19 @@ import type { SpellId } from './data/spells';
  * Both live in this browser only; every access is guarded, so blocked storage just means no saves.
  */
 
+export interface SavedGroundWeapon {
+  /** Preserve the opened chest under an uncollected weapon when continuing. */
+  onChest?: boolean;
+  x: number;
+  y: number;
+  id: string;
+  level: number;
+  cd: number;
+  ammo?: number;
+  reloadT?: number;
+  spin?: number;
+}
+
 export interface SavedRun {
   v: 1;
   savedAt: number;
@@ -21,9 +34,13 @@ export interface SavedRun {
   stacks: Record<string, number>;
   tags: Partial<Record<Tag, number>>;
   weapons: { id: string; level: number }[];
+  /** Weapons left on the current floor; absent in older v1 saves. */
+  groundWeapons?: SavedGroundWeapon[];
   held: number;
   spells: { id: SpellId; level: number; evolved: boolean; kills: number }[];
   pets: Pets[];
+  /** Missing in older saves; true means the saved modifiers already include the transformation bonuses. */
+  ascended?: boolean;
   hp: number;
   armor: number;
   xp: number;
@@ -82,7 +99,7 @@ export function saveRun(run: SavedRun) {
 
 export function loadRun(): SavedRun | null {
   const r = read<SavedRun>(RUN_KEY);
-  return r && r.v === 1 ? r : null;
+  return r && r.v === 1 && (r.ascended === undefined || typeof r.ascended === 'boolean') ? r : null;
 }
 
 export function clearRun() {

@@ -33,6 +33,12 @@ export interface Mods {
   mag: number; // multiplier on magazine size
   petInherit: number; // fraction of player damage bonuses pets inherit
   petRate: number; // multiplier on pet attack rate
+  petDamage: number; // multiplier on all pet damage
+  petArea: number; // multiplier on pet attack and support areas
+  petCrit: number; // additional pet critical hit chance
+  petEcho: number; // chance for a pet hit to deal an extra 50% damage
+  petTeamwork: number; // pet damage bonus per distinct recruited companion
+  petGuard: number; // chance to block player damage per pet, capped at 24% in combat
 }
 
 export function baseMods(): Mods {
@@ -64,6 +70,12 @@ export function baseMods(): Mods {
     mag: 1,
     petInherit: 0.5,
     petRate: 1,
+    petDamage: 1,
+    petArea: 1,
+    petCrit: 0,
+    petEcho: 0,
+    petTeamwork: 0,
+    petGuard: 0,
   };
 }
 

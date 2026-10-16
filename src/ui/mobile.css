@@ -1,0 +1,161 @@
+/* Shared buttons retain the existing raster text on desktop. */
+.hero-back,
+.fhead button.back {
+  appearance: none;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.hero-back { display: flex; align-items: center; padding: 2px; cursor: pointer; }
+.hero-back:focus-visible,
+.fhead button.back:focus-visible { outline: 1px solid #fee761; outline-offset: 2px; }
+
+body.touch-device {
+  overscroll-behavior: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.touch-device #game canvas { touch-action: none; cursor: default; }
+.touch-device #ui-root { --touch-target: 44px; }
+.touch-menu #ui-root > .hud { visibility: hidden; }
+.touch-device .overlay { touch-action: manipulation; overscroll-behavior: contain; }
+.touch-device .menu .item,
+.touch-device .hero-back,
+.touch-device .fhead .back,
+.touch-device .cx-tab,
+.touch-device .st-row,
+.touch-device .pk-skip,
+.touch-device .bd-me .edit,
+.touch-device .ws-cancel {
+  min-height: var(--touch-target);
+  touch-action: manipulation;
+}
+.touch-device .menu .item .kh,
+.touch-device .pk-key { display: none; }
+.touch-device .menu .item { min-width: 100px; }
+.touch-device .menu { gap: 5px; }
+.touch-device .fhead { flex: none; flex-wrap: wrap; }
+.touch-device .fhead .back { min-width: var(--touch-target); }
+.touch-device .screen .frame { width: calc(100% - 20px); height: calc(100% - 20px); max-height: none; }
+.touch-device .fbody { overflow-y: auto; overscroll-behavior: contain; }
+.touch-device .cx-tabs { flex-wrap: wrap; flex: none; gap: 4px; }
+.touch-device .cx-tab { justify-content: center; padding: 4px 9px; }
+.touch-device .gd-page { gap: 12px; }
+.touch-device .gd-row { grid-template-columns: 88px 1fr; }
+.touch-device .st-list { padding: 2px 10px; gap: 6px; }
+.touch-device .st-row { flex: none; }
+.touch-device .pxinput { min-height: var(--touch-target); font-size: 20px; width: 130px; }
+.touch-device .box { max-height: calc(100% - 20px); overflow-y: auto; }
+.touch-device .ps-left .menu { overflow-y: auto; min-height: 0; }
+.touch-device .pausescr { gap: 10px; }
+.touch-device .ps-left { width: 128px; }
+.touch-device .ps-diff { flex: none; padding-top: 6px; }
+.touch-device .pk-head { flex: none; flex-wrap: wrap; justify-content: center; }
+.touch-device .pk-head .hero-back { margin-left: 8px; }
+.touch-device .picker { padding: 10px 0; overflow-y: auto; justify-content: flex-start; touch-action: pan-x pan-y; }
+.touch-device .pk-cards { flex: none; max-width: 100%; padding: 8px 14px; overflow-x: auto; overscroll-behavior: contain; touch-action: pan-x; }
+.touch-device .pk-card { flex: none; }
+.touch-device .pk-skip { flex: none; padding: 8px 14px; }
+.touch-device .weapon-swap .ws-panel { height: min(360px, calc(100% - 20px)); grid-template-rows: 24px 36px minmax(0, 1fr) minmax(42px, auto); }
+.touch-device .weapon-swap .ws-footer { gap: 4px; }
+.touch-device .difficulty-select .ds-back { min-width: var(--touch-target); min-height: var(--touch-target); top: 6px; }
+.touch-device .difficulty-select .ds-arrow { width: var(--touch-target); height: var(--touch-target); }
+.touch-device .difficulty-select .ds-confirm { min-height: var(--touch-target); }
+.touch-device #ui-root .difficulty-select .ds-confirm > img.px,
+.touch-device .difficulty-select .ds-guide { display: none; }
+.touch-device .difficulty-select .ds-actions { top: auto; bottom: 10px; }
+.touch-device .difficulty-select .ds-viewport { touch-action: pan-y; }
+
+/* Portrait menus use the full visible browser height, independently of the game world. */
+.touch-portrait .title { padding: 40px 36px 24px; }
+.touch-portrait .title .tl-left { width: 100%; align-items: stretch; }
+.touch-portrait .title .logo { margin-bottom: 12px; }
+.touch-portrait .title .sub { margin-bottom: 28px; }
+.touch-portrait .title .menu { width: 100%; gap: 10px; }
+.touch-portrait .title .menu .item { padding: 10px 14px; gap: 10px; background: #0b0a12bb; }
+.touch-portrait .title .menu .item > img:not(.dia) { zoom: 1.25; }
+.touch-portrait .title .pt-caption { margin-top: 18px; max-width: 100%; }
+.touch-portrait .title .hint { padding-top: 22px; }
+.touch-portrait .title .tl-right { top: auto; bottom: 70px; right: 28px; opacity: 0.65; }
+.touch-portrait .title .painting { background: linear-gradient(#181425, #07060b); }
+.touch-portrait .title .pt-canvas { top: auto; bottom: 0; transform-origin: 0 100%; }
+.touch-portrait .title .pt-fade { background: linear-gradient(#07060b22, #07060b77 70%, transparent); }
+.touch-portrait .title .ver { bottom: 7px; }
+.touch-portrait .picker { justify-content: center; gap: 24px; }
+.touch-portrait .pk-head { width: 100%; padding: 0 16px; gap: 12px; }
+.touch-portrait .pk-head .hero-back { width: 100%; margin: 0; justify-content: center; }
+.touch-portrait .pk-cards { gap: 16px; padding: 12px 24px; }
+.touch-portrait .pk-card { width: 158px; height: 236px; }
+.touch-portrait .pk-card.hero { width: 198px; height: 278px; }
+.touch-portrait .pk-card .pk-name,
+.touch-portrait .pk-card .pk-desc,
+.touch-portrait .pk-card.hero .hero-row,
+.touch-portrait .pk-card.hero .hero-perk { zoom: 1.2; }
+.touch-portrait .pk-card.hero .pk-art { height: 78px; }
+.touch-portrait .pk-card.hero .pk-desc { max-height: 70px; }
+.touch-portrait .pk-card.hero .hero-row { gap: 2px; }
+.touch-portrait .pk-card.hero .hero-row img { max-width: 142px; object-fit: contain; }
+.touch-portrait .pk-card .pk-key { display: none; }
+.touch-portrait .pausescr { flex-direction: column; padding: 20px; }
+.touch-portrait .ps-left { width: 100%; flex: none; }
+.touch-portrait .ps-left .menu { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.touch-portrait .ps-right { min-height: 0; }
+.touch-portrait .ps-diff { margin-top: 10px; }
+.touch-portrait .ps-cols { grid-template-columns: 1fr; }
+.touch-portrait .screen .frame { padding: 16px; }
+.touch-portrait .fhead { gap: 10px; }
+.touch-portrait .fhead .fsub { order: 3; width: 100%; margin: 0 0 8px; }
+.touch-portrait .gd-row { grid-template-columns: 1fr; gap: 5px; padding-bottom: 10px; border-bottom: 1px solid #262b44; }
+.touch-portrait .gd-row .gv { zoom: 1.2; }
+.touch-portrait .cx-main { flex-direction: column; }
+.touch-portrait .cx-grid { width: 100%; max-height: 170px; grid-template-columns: repeat(6, 1fr); grid-auto-rows: var(--touch-target); }
+.touch-portrait .cx-detail { min-height: 170px; }
+.touch-portrait .difficulty-select .ds-header { top: 90px; gap: 8px; }
+.touch-portrait .difficulty-select .ds-back { top: 18px; left: 20px; }
+.touch-portrait .difficulty-select .ds-counter { top: 40px; right: 24px; }
+.touch-portrait .difficulty-select .ds-viewport { top: 45%; transform: translateY(-50%); height: 336px; }
+.touch-portrait .difficulty-select .ds-track { gap: 20px; }
+.touch-portrait .difficulty-select .ds-card { flex-basis: 340px; width: 340px; height: 320px; padding: 16px; gap: 12px; }
+.touch-portrait .difficulty-select .ds-card-head { height: 40px; }
+.touch-portrait .difficulty-select .ds-card-head > img { zoom: 1.4; }
+.touch-portrait .difficulty-select .ds-badge,
+.touch-portrait .difficulty-select .ds-number { zoom: 1.25; }
+.touch-portrait .difficulty-select .ds-art { width: 288px; height: 123px; }
+.touch-portrait .difficulty-select .ds-painting { zoom: 1.5; }
+.touch-portrait .difficulty-select .ds-promise { height: 34px; }
+.touch-portrait .difficulty-select .ds-promise > img { zoom: 1.35; }
+.touch-portrait .difficulty-select .ds-metrics { padding-top: 10px; }
+.touch-portrait .difficulty-select .ds-metrics > div { width: 100px; gap: 4px; }
+.touch-portrait .difficulty-select .ds-metrics img { zoom: 1.3; }
+.touch-portrait .difficulty-select .ds-actions { bottom: 100px; gap: 20px; }
+.touch-portrait .difficulty-select .ds-confirm { width: 220px; }
+.touch-portrait .difficulty-select .ds-dots { top: auto; bottom: 78px; }
+.touch-portrait .difficulty-select .ds-dots i { height: 5px; }
+.touch-portrait .difficulty-select::after { content: '左右滑动选择 · 轻触踏入试炼'; position: absolute; bottom: 36px; left: 0; right: 0; text-align: center; font: 15px 'FusionPixel', monospace; color: #8b9bb4; pointer-events: none; }
+
+/* Short landscape phones retain touch targets and allow menu scrolling. */
+.touch-device:not(.touch-portrait) .title { padding-top: 10px; padding-bottom: 10px; }
+.touch-device:not(.touch-portrait) .title .logo { height: 25px; transform: scale(0.8); transform-origin: left top; margin-bottom: 0; }
+.touch-device:not(.touch-portrait) .title .sub,
+.touch-device:not(.touch-portrait) .title .hint,
+.touch-device:not(.touch-portrait) .title .pt-caption { display: none; }
+.touch-device:not(.touch-portrait) .title .menu { gap: 2px; overflow-y: auto; }
+.touch-device:not(.touch-portrait) .picker { gap: 4px; }
+.touch-device:not(.touch-portrait) .heroes { padding: 4px 0; }
+.touch-device:not(.touch-portrait) .heroes .pk-cards { padding-top: 2px; padding-bottom: 2px; }
+.touch-device:not(.touch-portrait) .difficulty-select .ds-viewport { top: 43px; }
+.touch-device:not(.touch-portrait) .difficulty-select .ds-dots { top: 207px; }
+
+@media (max-width: 700px) and (orientation: landscape) {
+  /* Short phones do not have side gutters wide enough for the left stick. */
+  .touch-device .hud .wbar { bottom: 118px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .touch-device .title *,
+  .touch-device .picker * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

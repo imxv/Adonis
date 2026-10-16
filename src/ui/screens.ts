@@ -6,6 +6,7 @@ import { fetchGlobal, playerName, setPlayerName, type BoardReply } from '../net/
 import { DEFAULT_SETTINGS, settings, type Settings } from '../settings';
 import type { CodexEntry, CodexTab, Pic } from './codex';
 import { diamond, el, icon, img, px, pxBlock } from './pxhtml';
+import { isTouchBrowser } from '../platform/mobile';
 
 const GREY = E.grey;
 const DIM = E.greyM;
@@ -100,13 +101,13 @@ export function menuRow(label: string, opts: { note?: string; key?: string; colo
 /** The shared frame of full-screen pages: tag, title, and a back button. */
 function frame(tag: string, title: string, cls: string) {
   const ov = el('div', `overlay screen ${cls}`);
-  ov.innerHTML = `<div class="frame panel"><div class="fhead"><span class="tagred">${px(tag, E.white, { small: true, outline: false })}</span>${px(title, E.yellow, { scale: 2 })}<div class="fsub"></div><div class="back">${diamond()}${px('返回', E.white)}${px('Esc', DIM, { small: true })}</div></div><div class="fbody"></div></div>`;
+  ov.innerHTML = `<div class="frame panel"><div class="fhead"><span class="tagred">${px(tag, E.white, { small: true, outline: false })}</span>${px(title, E.yellow, { scale: 2 })}<div class="fsub"></div><button type="button" class="back" aria-label="返回">${diamond()}${px('返回', E.white)}${isTouchBrowser() ? '' : px('Esc', DIM, { small: true })}</button></div><div class="fbody"></div></div>`;
   return ov;
 }
 
 function openFrame(host: LayerHost, ov: HTMLElement, onKey: (e: KeyboardEvent) => void, onClose?: () => void) {
   const layer = host.push(ov, (e) => {
-    if (isBack(e)) {
+    if (isBack(e) || (isOk(e) && document.activeElement === ov.querySelector('.back'))) {
       e.preventDefault();
       close();
       host.escUsed();
@@ -220,7 +221,8 @@ const GUIDE: { name: string; rows: [string, string][] }[] = [
       ['Q / 滚轮', '换枪，最多带两把'],
       ['E / 右键', '双持：两把枪同时开火 4 秒，冷却 14 秒'],
       ['R', '换弹；弹匣打空也会自动换，收起的副武器会在后台换弹'],
-      ['F', '自动射击开关'],
+      ['F', '打开附近箱子和升级水晶，拾取地面武器与护盾水晶，领取台上宝物'],
+      ['G', '自动射击开关'],
       ['Esc', '暂停；在三选一面板里是跳过'],
     ],
   },
@@ -230,7 +232,7 @@ const GUIDE: { name: string; rows: [string, string][] }[] = [
       ['五层', '每层一种随机画风，第五层的 Boss 是那头野猪；越往下怪越多越凶'],
       ['战斗房', '走进去门会关上，清完两三波敌人才开门'],
       ['尸潮房', '坚持 20 到 28 秒，撑到最后有两个宝箱'],
-      ['宝物房', '三件宝物只能拿一件'],
+      ['宝物房', '靠近台子按 F 领取，三件宝物只能拿一件'],
       ['Boss 房', '在最深处；打倒 Boss 后走进地洞去下一层'],
       ['小地图', '右上角：白色是你所在，红点 Boss，黄点宝物'],
     ],
@@ -238,12 +240,17 @@ const GUIDE: { name: string; rows: [string, string][] }[] = [
   {
     name: '成长',
     rows: [
-      ['经验', '击杀掉宝石，攒满就升级：身边掉下一枚金色升级水晶，走过去碰它，三张卡牌里选一张或跳过'],
+      ['经验', '击杀掉宝石，攒满就升级：身边掉下一枚金色升级水晶，靠近按 F 打开，三张卡牌里选一张或跳过'],
       ['法术', '自动施放，最多四个；满 5 级加对应加成可进化'],
       ['融合', '特定的两个法术都到 3 级会自动融合成更强的法术，空出一个栏位'],
-      ['加成', '只改属性，对所有武器和法术都生效'],
-      ['宝箱', '金色直接给奖励；钢制武器箱三选一换枪'],
-      ['宠物', '宝物房里获得，最多三只，继承你的部分加成'],
+      ['加成', '强化属性；宠物标签的加成专门培养伙伴'],
+      ['宝箱', '按 F 开箱；金箱直接给奖励，武器箱只开一把，悬浮后按 F 拾取'],
+      ['武器演示', '非战斗时靠近武器稍作停留，右下角显示攻击演示和指标；开火即收起'],
+      ['换枪', '两把武器已满时可选任意一把替换，旧武器落地保留等级与弹药，靠近按 F 拾取'],
+      ['拾取', '护盾水晶按 F 拾取；经验宝石和红心仍自动吸取'],
+      ['宠物', '升级招募或宝物房获得，九种各一只，自动出招并继承部分加成'],
+      ['招募', '等级 2、5、8……的升级水晶必有招募卡，其他等级也有机会'],
+      ['兽群', '驯兽术、群猎、同心协力可组成宠物流派；三只伙伴后可遇到万兽之王'],
       ['护甲', '2 秒没受伤就会一格一格恢复'],
     ],
   },
@@ -283,11 +290,23 @@ export function openHelp(host: LayerHost) {
   const show = (i: number) => {
     cur = (i + GUIDE.length) % GUIDE.length;
     tabEls.forEach((el, k) => el.classList.toggle('sel', k === cur));
-    page.innerHTML = GUIDE[cur].rows.map(([k, v]) => `<div class="gd-row"><div class="gk">${px(k, E.yellow)}</div><div class="gv">${pxBlock(v, GREY, 300)}</div></div>`).join('');
+    const touch = isTouchBrowser();
+    const rows: [string, string][] = touch && cur === 0 ? [
+      ['左摇杆', '拖动移动；松开后停止'],
+      ['右摇杆', '拖动瞄准并射击；轻触可出招，松开后停止射击'],
+      ['冲刺', '轻触冲刺按钮，冲刺途中无敌'],
+      ['换枪', '切换当前武器，最多带两把'],
+      ['双持', '两把枪同时开火 4 秒，冷却 14 秒'],
+      ['换弹', '手动换弹；弹匣打空也会自动换'],
+      ['交互', '靠近箱子、升级水晶、地面武器或宝物，轻触交互按钮'],
+      ['暂停', '轻触暂停打开菜单；奖励面板可直接轻触卡片或跳过'],
+      ['横竖屏', '两种方向均可游玩；横屏视野更开阔'],
+    ] : GUIDE[cur].rows;
+    page.innerHTML = rows.map(([k, v]) => `<div class="gd-row"><div class="gk">${px(k, E.yellow)}</div><div class="gv">${pxBlock(touch ? v.replaceAll('按 F', '轻触交互').replaceAll('按左键', '轻触右摇杆') : v, GREY, 300)}</div></div>`).join('');
   };
   tabEls.forEach((el, i) => el.addEventListener('click', () => show(i)));
   show(0);
-  ov.querySelector('.fsub')!.innerHTML = px('← → 翻页', DIM);
+  ov.querySelector('.fsub')!.innerHTML = px(isTouchBrowser() ? '轻触分类 · 上下滑动' : '← → 翻页', DIM);
   openFrame(host, ov, (e) => {
     const digit = Number(e.key);
     if (digit >= 1 && digit <= GUIDE.length) show(digit - 1);
@@ -328,7 +347,7 @@ function valueHtml(key: Row['key'], s: Settings) {
 export function openSettings(host: LayerHost) {
   const ov = frame('SETTINGS', '设置', 'settings');
   const body = ov.querySelector('.fbody') as HTMLElement;
-  ov.querySelector('.fsub')!.innerHTML = px('↑↓ 选择　← → 调整', DIM);
+  ov.querySelector('.fsub')!.innerHTML = px(isTouchBrowser() ? '轻触左侧减少 · 右侧增加' : '↑↓ 选择　← → 调整', DIM);
   body.innerHTML = `<div class="st-list">${SETTING_ROWS.map((r) => `<div class="st-row" data-k="${r.key}">${diamond()}<div class="sl">${px(r.label, E.white)}</div><div class="sv"></div>${r.note ? px(r.note, DIM) : ''}</div>`).join('')}</div>`;
   const rows = [...body.querySelectorAll<HTMLElement>('.st-row')];
   let sel = 0;

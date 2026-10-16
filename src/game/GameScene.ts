@@ -3,21 +3,25 @@ import { TAU, angleDiff, clamp, dist, dist2, hexToNum, lerp, segCircle } from '.
 import { Rng, rand } from '../core/rng';
 import type { Element } from '../core/stats';
 import { audio } from '../audio/audio';
-import { ENEMIES, AFFIXES, PETS, SPAWN_STYLE, type Affix, type EnemyKind, type SpawnStyle } from '../data/enemies';
+import { ENEMIES, AFFIXES, PETS, PET_ORDER, SPAWN_STYLE, type Affix, type EnemyKind, type SpawnStyle } from '../data/enemies';
 import { SPELLS, SPELL_ORDER } from '../data/spells';
 import { UPGRADE_BY_ID } from '../data/upgrades';
-import { WEAPON_ORDER, magSize, reloadTime, weaponLevelCount, weaponLevelDamage, type MeleeMove, type MoveKind, type WeaponInstance } from '../data/weapons';
+import { MAX_WEAPONS, WEAPONS, WEAPON_ORDER, magSize, reloadTime, weaponLevelCount, weaponLevelDamage, type MeleeMove, type MoveKind, type WeaponInstance } from '../data/weapons';
 import { E } from '../pixel/palette';
 import { K, buildCommonTextures, buildKitTextures, buildLevel, textTexture } from '../styles/textures';
 import type { StyleKit } from '../styles/types';
 import { decoArt } from '../pixel/decor';
 import { ui } from '../ui/ui';
 import { settings } from '../settings';
+import { TouchControls } from '../input/touchControls';
 import { DIRS, DIR_VEC } from './dirs';
 import { bossDeath, spawnBoss, updateBoss } from './boss';
 import { animateBoss } from './bossAnim';
 import { dropLevelToken, packLevelTokens, updateLevelTokens, type LevelToken } from './levelTokens';
+import { interactNearby, updateInteractionHints, updateNearbyWeaponPreview, resetWeaponPreview } from './interactions';
+import { WEAPON_POWER } from './weaponMetrics';
 import { HEROES, type HeroId } from '../data/heroes';
+import { DIFFICULTIES, type DifficultyId } from '../data/difficulty';
 import { T, collide, generateDungeon, openSpot, randomFloorIn, raycast, roomAt, roomCenter, solidAt, type DRoom, type Dungeon } from './dungeon';
 import { updateEnemyAI } from './enemyAI';
 import { FlowField } from './flow';
@@ -41,14 +45,16 @@ import {
 import { DEPTH, Fx } from './fx';
 import { ELEMENTS, SHIELD_COUNTER, STYLE_ELEMENT, clearCores, markAura, react, shatter, tintShield, updateCores, type Core } from './elements';
 import { Lighting } from './lighting';
-import { syncPets, updatePets } from './pets';
+import { destroyPets, resetPets, syncPets, updatePets } from './pets';
+import { tryAscend } from './ascension';
+import { AscensionFx } from './ascensionFx';
 import { LEVELS, applyChoice, applyFusion, choiceValid, evolutionsReady, fusionsReady, newRun, restoreRun, rollChoices, snapshotRun, spellTaken, xpForLevel, type Choice, type RunState } from './run';
 import type { FusionId } from '../data/spells';
 import { addScore, clearRun, loadRun, saveRun, scoreOf, type SavedRun } from '../save';
 import { buildCodex } from '../ui/codex';
 import { clearSpellVisuals, updateSpells, zap } from './spells';
 
-type Mode = 'title' | 'play' | 'choose' | 'pause' | 'transition' | 'dead' | 'end';
+type Mode = 'title' | 'play' | 'choose' | 'pause' | 'ascend' | 'transition' | 'dead' | 'end';
 
 interface Pedestal {
   x: number;
@@ -110,9 +116,6 @@ const FUSION_GLOW: Record<FusionId, [string, string]> = {
 };
 const LEAN_X = 46;
 const LEAN_Y = 28;
-
-/** Weapons hit this much above their listed damage (see fireShot). */
-const WEAPON_POWER = 1.15;
 
 export class GameScene extends Phaser.Scene {
   run!: RunState;
@@ -187,6 +190,8 @@ export class GameScene extends Phaser.Scene {
   private fightStats = { t0: 0, kills: 0, combo: 0 };
   /** A fusion is playing out: the knight cannot be hurt, and level-ups and the pause menu wait for it. */
   fusing = false;
+  private ascensionFx?: AscensionFx;
+  private ascensionClock?: { timer: number; tween: number };
   /** The beat game: timing against the music, the on-beat streak, the style rank. */
   rhythm = new Rhythm();
   /** A judged melee press: the swing that follows within a few frames carries its grade. */
@@ -223,15 +228,38 @@ export class GameScene extends Phaser.Scene {
   private kickX = 0;
   private kickY = 0;
   private pointerMoved = false;
+  private touch?: TouchControls;
   time0 = 0;
   aimX = 0;
   aimY = 0;
 
-  constructor() {
-    super('game');
+  constructor(key = 'game') {
+    super(key);
+  }
+
+  /** Reset presentation state when an isolated training scene changes the demonstrated weapon. */
+  protected resetWeaponRuntime() {
+    this.melee = { step: 0, last: -9, anim: undefined };
+    this.casings = 0;
+    this.shotBoost = 1;
+    this.swingGrade = undefined;
+    this.swingElement = undefined;
+    this.beatShot = { grade: 'miss', until: 0 };
+    this.reloadShown = -1;
+    this.reloadPopping = false;
+    this.swapT = 0;
   }
 
   create() {
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.resetAscension();
+      this.ascensionFx?.destroy();
+      this.ascensionFx = undefined;
+      destroyPets(this);
+      resetWeaponPreview(this);
+      this.touch?.destroy();
+      this.touch = undefined;
+    });
     buildCommonTextures(this);
     this.fx = new Fx(this);
     this.light = new Lighting(this);
@@ -242,14 +270,18 @@ export class GameScene extends Phaser.Scene {
     this.reloadIcon = this.add.image(0, 0, 'cyl-0').setDepth(DEPTH.numbers - 0.2).setVisible(false);
     this.input.mouse?.disableContextMenu();
     const kb = this.input.keyboard!;
-    this.keys = kb.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,ESC,F,SHIFT,Q,E') as Record<string, Phaser.Input.Keyboard.Key>;
+    this.keys = kb.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,ESC,F,G,SHIFT,Q,E') as Record<string, Phaser.Input.Keyboard.Key>;
     // Esc only opens the pause page; once it is up, the page handles Esc itself.
     kb.on('keydown-ESC', () => {
       if (this.mode === 'play' && performance.now() - ui.closedAt > 250) this.openPause();
     });
-    kb.on('keydown-F', () => {
-      if (this.mode !== 'play') return;
+    kb.on('keydown-F', (e: KeyboardEvent) => {
+      if (!e.repeat) interactNearby(this);
+    });
+    kb.on('keydown-G', (e: KeyboardEvent) => {
+      if (e.repeat || this.mode !== 'play') return;
       this.autoFire = !this.autoFire;
+      if (this.autoFire) resetWeaponPreview(this);
       ui.toast(this.autoFire ? '自动射击 开' : '自动射击 关', 900);
     });
     kb.on('keydown-Q', () => this.switchGun());
@@ -259,20 +291,32 @@ export class GameScene extends Phaser.Scene {
     kb.on('keydown-E', (e: KeyboardEvent) => this.useSkill(e.timeStamp));
     kb.on('keydown-SPACE', (e: KeyboardEvent) => (this.dashPressAt = e.timeStamp));
     kb.on('keydown-SHIFT', (e: KeyboardEvent) => (this.dashPressAt = e.timeStamp));
-    this.input.on('pointermove', () => (this.pointerMoved = true));
+    this.input.on('pointermove', () => {
+      if (!this.usesTouchControls()) this.pointerMoved = true;
+    });
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      if (this.usesTouchControls()) return;
       this.pointerMoved = true;
+      if (this.mode === 'play') resetWeaponPreview(this);
       const at = p.event?.timeStamp ?? performance.now();
       if (p.rightButtonDown()) this.useSkill(at);
-      else if (p.leftButtonDown() && this.mode === 'play' && this.meleeHeld()) {
-        // A melee swing pressed on the beat hits harder, and a finisher on the beat goes off in full.
-        const g = this.beatAct(at);
-        this.beatShot = { grade: g, until: performance.now() + 160 };
-      }
+      else if (p.leftButtonDown()) this.attackPressed(at);
     });
     this.input.on('wheel', () => this.switchGun());
     this.god = this.params.has('god');
-    ui.mount(this.game.canvas);
+    ui.mount(this.game.canvas, this.game);
+    this.touch = new TouchControls();
+    const pauseTouch = () => {
+      this.touch?.reset();
+      if (this.usesTouchControls() && this.mode === 'play' && !this.fusing) this.openPause();
+    };
+    const hidden = () => { if (document.hidden) pauseTouch(); };
+    window.addEventListener('blur', pauseTouch);
+    document.addEventListener('visibilitychange', hidden);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      window.removeEventListener('blur', pauseTouch);
+      document.removeEventListener('visibilitychange', hidden);
+    });
     const apply = (st: ReturnType<typeof settings.get>) => {
       audio.setVolumes(st.music, st.sfx);
       this.light.setEnabled(st.light);
@@ -287,15 +331,16 @@ export class GameScene extends Phaser.Scene {
     ui.showHud(false);
     ui.title({
       save: () => loadRun(),
+      initialDifficulty: () => DIFFICULTIES[this.params.get('diff') as DifficultyId]?.id ?? settings.get().diff,
       onContinue: () => {
         const saved = loadRun();
         if (!saved) return this.showTitle();
         void audio.init();
         this.startRun(saved);
       },
-      onNew: (hero) => {
+      onNew: (hero, difficulty) => {
         void audio.init();
-        this.startRun(undefined, hero);
+        this.startRun(undefined, hero, difficulty);
       },
       codex: () => buildCodex(this),
     });
@@ -317,6 +362,10 @@ export class GameScene extends Phaser.Scene {
       v: 1,
       savedAt: Date.now(),
       ...snapshotRun(run),
+      groundWeapons: this.pickups.filter((p) => p.kind === 'weapon' && !p.dead && p.weapon).map((p) => {
+        const w = p.weapon!;
+        return { x: p.x, y: p.y, id: w.def.id, level: w.level, cd: w.cd, ammo: w.ammo, reloadT: w.reloadT, spin: w.spin, onChest: !!p.chest };
+      }),
       rooms: d.rooms.map((r) => ({ id: r.id, cleared: r.cleared, visited: r.visited, seen: r.seen })),
       at: (this.safeRoom ?? d.start).id,
     });
@@ -352,7 +401,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   openPause() {
-    if (this.fusing) return;
+    if (this.fusing || this.mode !== 'play') return;
     this.mode = 'pause';
     const fights = this.dungeon.rooms.filter((r) => r.type === 'combat' || r.type === 'horde' || r.type === 'boss');
     ui.pause(
@@ -369,12 +418,13 @@ export class GameScene extends Phaser.Scene {
 
   // ---------------------------------------------------------------- run and floors
 
-  startRun(saved?: SavedRun, hero?: HeroId) {
+  startRun(saved?: SavedRun, hero?: HeroId, difficulty?: DifficultyId) {
+    this.touch?.reset();
+    ui.resetDamageFeedback();
     this.clearLevel();
-    this.pets.forEach((p) => p.sprite.destroy());
-    this.pets = [];
-    this.run = saved ? restoreRun(saved) : newRun(this.params, hero);
-    this.heroTex = HEROES[this.run.hero].tex;
+    destroyPets(this);
+    this.run = saved ? restoreRun(saved) : newRun(this.params, hero, difficulty);
+    this.heroTex = this.run.ascended ? 'jesus' : HEROES[this.run.hero].tex;
     this.combo = 0;
     this.carryTokens = [];
     this.fusing = false;
@@ -383,7 +433,7 @@ export class GameScene extends Phaser.Scene {
     this.autoFire = false;
     this.safeRoom = undefined;
     if (this.player) {
-      this.player.sprite.setVisible(true);
+      this.player.sprite.setVisible(true).setTexture(`${this.heroTex}-a`);
       this.player.gun.setVisible(true);
       this.player.iframes = 1;
     }
@@ -391,16 +441,16 @@ export class GameScene extends Phaser.Scene {
   }
 
   clearLevel() {
+    this.resetAscension();
+    resetWeaponPreview(this);
+    resetPets(this);
     this.carryTokens.push(...packLevelTokens(this));
     for (const e of this.enemies) this.destroyEnemy(e);
     this.enemies = [];
     for (const p of [...this.pproj, ...this.eproj]) this.killProj(p, true);
     this.pproj = [];
     this.eproj = [];
-    for (const p of this.pickups) {
-      (p.sprite.getData('glow') as Img | undefined)?.destroy();
-      p.sprite.destroy();
-    }
+    for (const p of this.pickups) this.removePickup(p);
     this.pickups = [];
     this.obstacles.forEach((o) => o.sprite.destroy());
     this.obstacles = [];
@@ -478,10 +528,7 @@ export class GameScene extends Phaser.Scene {
     this.camY = p.y;
     this.cameras.main.centerOn(p.x, p.y);
     syncPets(this);
-    this.pets.forEach((pet) => {
-      pet.x = p.x + rand(-10, 10);
-      pet.y = p.y + rand(-10, 10);
-    });
+    resetPets(this, true);
     this.room = startRoom;
     startRoom.visited = true;
     this.markSeen(startRoom);
@@ -503,6 +550,8 @@ export class GameScene extends Phaser.Scene {
       } as any)
       .setDepth(DEPTH.particles + 0.5);
     this.mode = 'play';
+    this.player.sprite.setTexture(`${this.heroTex}-a`);
+    if (this.run.ascended) (this.ascensionFx ??= new AscensionFx(this)).syncAura(true);
     ui.showHud(true);
     ui.banner(`第${['一', '二', '三', '四'][this.run.level]}层`, kit.name, kit.en, kit.subtitle, first ? 2400 : 2200);
     if (!first) cam.fadeIn(420, 255, 255, 255);
@@ -511,6 +560,14 @@ export class GameScene extends Phaser.Scene {
     // Crystals carried down the trapdoor land beside the knight.
     const carried = this.carryTokens.splice(0);
     carried.forEach((lv, i) => this.time.delayedCall(700 + i * 150, () => dropLevelToken(this, lv, i, carried.length)));
+    if (saved && saved.level === this.run.level) {
+      for (const weapon of saved.groundWeapons ?? []) {
+        const { x, y, id, onChest, ...state } = weapon;
+        if (WEAPONS[id] && Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(state.level)) {
+          this.dropWeapon({ ...state, def: WEAPONS[id] }, x, y, !!onChest, false);
+        }
+      }
+    }
     this.saveProgress();
   }
 
@@ -529,8 +586,9 @@ export class GameScene extends Phaser.Scene {
       const [cx, cy] = roomCenter(r);
       if (r.type === 'start') {
         if (this.run.level === 0) {
-          this.worldText(cx, cy - 40, 'WASD 移动  鼠标射击', E.grey);
-          this.worldText(cx, cy - 26, '空格/Shift冲刺  Q换枪  E双持', E.grey);
+          this.worldText(cx, cy - 40, this.usesTouchControls() ? '左摇杆移动  右摇杆射击' : 'WASD 移动  鼠标射击', E.grey);
+          this.worldText(cx, cy - 26, this.usesTouchControls() ? '点按钮冲刺、交互和换枪' : '空格/Shift冲刺  Q换枪  E双持', E.grey);
+          this.worldText(cx, cy - 12, this.usesTouchControls() ? '双持、换弹也可点按钮' : 'F 交互  G 自动射击', E.grey);
         }
         continue;
       }
@@ -725,6 +783,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   activate(r: DRoom) {
+    resetWeaponPreview(this);
     this.active = r;
     this.rhythm.startFight();
     this.fightStats = { t0: this.time0, kills: 0, combo: 0 };
@@ -1149,16 +1208,82 @@ export class GameScene extends Phaser.Scene {
 
   // ---------------------------------------------------------------- update
 
+  /** All species, once per run. Called after reward callbacks have returned to play. */
+  private beginAscension() {
+    this.mode = 'ascend';
+    this.touch?.reset();
+    resetWeaponPreview(this);
+    this.player.vx = this.player.vy = 0;
+    this.player.dashT = 0;
+    this.player.sprite.setAlpha(1);
+    this.player.gun.setVisible(false);
+    this.player.gun2.setVisible(false);
+    this.reloadIcon.setVisible(false);
+    this.ascensionClock = { timer: this.time.timeScale, tween: this.tweens.timeScale };
+    this.time.timeScale = this.tweens.timeScale = 0;
+    (this.ascensionFx ??= new AscensionFx(this)).start();
+    ui.ascension(true);
+    audio.rankUp(5);
+    this.saveProgress();
+  }
+
+  private resetAscension() {
+    if (this.ascensionClock) {
+      this.time.timeScale = this.ascensionClock.timer;
+      this.tweens.timeScale = this.ascensionClock.tween;
+      this.ascensionClock = undefined;
+    }
+    this.ascensionFx?.reset();
+    ui.ascension(false);
+  }
+
+  private updateAscension(dt: number) {
+    const effect = this.ascensionFx!;
+    const finished = effect.update(dt);
+    if (effect.revealed && this.heroTex !== 'jesus') {
+      this.heroTex = 'jesus';
+      this.player.sprite.setTexture('jesus-a');
+      ui.ascension(true, true);
+      audio.rankUp(6);
+    }
+    this.light.update(this, 0);
+    this.hudTick(dt);
+    if (!finished) return;
+    this.resetAscension();
+    effect.syncAura(true);
+    this.mode = 'play';
+    this.player.iframes = Math.max(this.player.iframes, 1.2);
+    this.player.gun.setVisible(true);
+    this.drawWorld(0);
+    ui.toast('神迹觉醒：耶稣 · 众生皆在庇护之下', 2200);
+    this.checkFusions();
+  }
+
   update(_t: number, dms: number) {
+    this.touch?.setPlaying(this.mode === 'play' && !this.fusing && !document.hidden);
     const realDt = Math.min(dms, 50) / 1000;
     this.fx.update(realDt * this.slowScale);
     if (!this.kit || !this.player) return;
-    const ptr = this.input.activePointer;
-    const wp = this.cameras.main.getWorldPoint(ptr.x, ptr.y);
-    this.aimX = wp.x;
-    this.aimY = wp.y;
+    if (this.mode === 'play' && !this.fusing && tryAscend(this.run)) this.beginAscension();
+    if (this.mode === 'ascend') {
+      this.updateAscension(realDt);
+      return;
+    }
+    this.ascensionFx?.syncAura(this.run.ascended && this.mode !== 'title' && this.mode !== 'end' && this.mode !== 'dead');
+    this.ascensionFx?.updateAura(realDt);
+    this.updateTouchActions();
+    if (this.usesTouchControls()) {
+      this.aimX = this.player.x + this.touch!.aim.x * 90;
+      this.aimY = this.player.y - 4 + this.touch!.aim.y * 90;
+    } else {
+      const ptr = this.input.activePointer;
+      const wp = this.cameras.main.getWorldPoint(ptr.x, ptr.y);
+      this.aimX = wp.x;
+      this.aimY = wp.y;
+    }
     this.drawCursor();
     if (this.mode === 'title' || this.mode === 'pause' || this.mode === 'choose' || this.mode === 'end') {
+      resetWeaponPreview(this);
       this.light.update(this, 0);
       this.hudTick(realDt);
       return;
@@ -1213,6 +1338,7 @@ export class GameScene extends Phaser.Scene {
     updatePets(this, dt);
     this.updatePickups(dt);
     updateLevelTokens(this, dt);
+    updateInteractionHints(this);
     this.updateHazards(dt);
     updateCores(this, dt);
     for (const h of this.ehazards) {
@@ -1230,6 +1356,7 @@ export class GameScene extends Phaser.Scene {
     if (this.gemT <= 0) this.gemStreak = 0;
     this.updateCamera(realDt);
     this.drawWorld(dt);
+    updateNearbyWeaponPreview(this, realDt);
     this.light.update(this, dt);
     this.hudTick(realDt);
   }
@@ -1241,7 +1368,7 @@ export class GameScene extends Phaser.Scene {
     const ptr = this.input.activePointer;
     let nx = 0;
     let ny = 0;
-    if (this.pointerMoved && this.mode === 'play' && settings.get().lean) {
+    if (!this.usesTouchControls() && this.pointerMoved && this.mode === 'play' && settings.get().lean) {
       nx = clamp((ptr.x - cam.width / 2) / (cam.width / 2), -1, 1);
       ny = clamp((ptr.y - cam.height / 2) / (cam.height / 2), -1, 1);
     }
@@ -1350,13 +1477,53 @@ export class GameScene extends Phaser.Scene {
 
   // ---------------------------------------------------------------- player
 
+  usesTouchControls() {
+    return !!this.touch?.enabled;
+  }
+
+  /** Shared by combat and the nearby-weapon preview; touch never masquerades as a mouse press. */
+  isFiring() {
+    return (!this.usesTouchControls() && this.input.activePointer.leftButtonDown()) || !!this.touch?.firing || this.autoFire;
+  }
+
+  private attackPressed(at: number) {
+    if (this.mode !== 'play') return;
+    resetWeaponPreview(this);
+    if (this.meleeHeld()) {
+      const g = this.beatAct(at);
+      this.beatShot = { grade: g, until: performance.now() + 160 };
+    }
+  }
+
+  private updateTouchActions() {
+    const touch = this.touch;
+    if (!touch?.enabled || this.mode !== 'play' || this.fusing) return;
+    if (touch.consume('pause') !== undefined && performance.now() - ui.closedAt > 250) {
+      this.openPause();
+      touch.setPlaying(false);
+      return;
+    }
+    if (touch.consume('swap') !== undefined) this.switchGun();
+    if (touch.consume('reload') !== undefined) this.startReload(this.run.weapons[this.run.held]);
+    const skillAt = touch.consume('skill');
+    if (skillAt !== undefined) this.useSkill(skillAt);
+    const attackAt = touch.consume('attack');
+    if (attackAt !== undefined) this.attackPressed(attackAt);
+    if (touch.consume('interact') !== undefined) interactNearby(this);
+    if (this.mode !== 'play') touch.setPlaying(false);
+  }
+
   updatePlayer(dt: number) {
     const p = this.player;
     const k = this.keys;
     let ix = (k.D.isDown || k.RIGHT.isDown ? 1 : 0) - (k.A.isDown || k.LEFT.isDown ? 1 : 0);
     let iy = (k.S.isDown || k.DOWN.isDown ? 1 : 0) - (k.W.isDown || k.UP.isDown ? 1 : 0);
+    if (this.usesTouchControls()) {
+      ix += this.touch!.move.x;
+      iy += this.touch!.move.y;
+    }
     const il = Math.hypot(ix, iy);
-    if (il > 0) {
+    if (il > 1) {
       ix /= il;
       iy /= il;
     }
@@ -1373,9 +1540,13 @@ export class GameScene extends Phaser.Scene {
         this.run.armor++;
       }
     }
-    if ((Phaser.Input.Keyboard.JustDown(k.SPACE) || Phaser.Input.Keyboard.JustDown(k.SHIFT)) && p.dashCd <= 0) {
-      p.dashX = il > 0 ? ix : Math.cos(p.aim);
-      p.dashY = il > 0 ? iy : Math.sin(p.aim);
+    const touchDashAt = this.touch?.consume('dash');
+    if (touchDashAt !== undefined) this.dashPressAt = touchDashAt;
+    if ((Phaser.Input.Keyboard.JustDown(k.SPACE) || Phaser.Input.Keyboard.JustDown(k.SHIFT) || touchDashAt !== undefined) && p.dashCd <= 0) {
+      // Analog movement affects walking speed, but a dash always travels the full distance.
+      const dashLength = Math.hypot(ix, iy);
+      p.dashX = dashLength > 0 ? ix / dashLength : Math.cos(p.aim);
+      p.dashY = dashLength > 0 ? iy / dashLength : Math.sin(p.aim);
       p.dashT = 0.16;
       p.iframes = Math.max(p.iframes, 0.22);
       p.dashCd = 0.9 * this.run.mods.dashCooldown;
@@ -1473,7 +1644,7 @@ export class GameScene extends Phaser.Scene {
    */
   updateWeapons(dt: number) {
     const run = this.run;
-    const firing = this.input.activePointer.leftButtonDown() || this.autoFire;
+    const firing = this.isFiring();
     const rate = this.fireRateMult();
     const dual = this.player.skillT > 0 && run.weapons.length > 1;
     run.weapons.forEach((w, i) => {
@@ -2444,10 +2615,20 @@ export class GameScene extends Phaser.Scene {
     if (this.mode !== 'play' || p.iframes > 0 || this.god || this.fusing) return false;
     const run = this.run;
     let left = n;
+    const guard = Math.min(0.24, run.mods.petGuard * run.pets.length);
+    if (guard > 0 && Math.random() < guard) {
+      p.iframes = 0.4;
+      this.fx.ring(p.x, p.y - 4, 24, E.cyan, 220);
+      this.fx.callout(p.x, p.y - 24, '兽群守护', E.cyan);
+      audio.block();
+      return false;
+    }
     const absorbed = Math.min(run.armor, left);
     run.armor -= absorbed;
     left -= absorbed;
+    const hpLost = Math.min(Math.max(0, run.hp), left);
     run.hp -= left;
+    ui.damageFeedback(hpLost, absorbed);
     p.iframes = 0.8;
     p.sinceHit = 0;
     p.armorT = 0.9;
@@ -2489,7 +2670,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   restart() {
-    this.startRun();
+    this.startRun(undefined, this.run.hero, this.run.diff.id);
   }
 
   endToTitle() {
@@ -2659,7 +2840,7 @@ export class GameScene extends Phaser.Scene {
     this.pickups.push({ kind: 'heart', tier: 0, x, y, vx: 0, vy: -20, value: 1, t: 0, magnet: false, sprite, dead: false });
   }
 
-  /** A gold chest gives one reward on the spot; a steel weapon chest opens a pick of three guns. */
+  /** A gold chest gives one reward; a steel chest reveals one weapon to inspect and pick up. */
   dropChest(x: number, y: number, weapon = false) {
     [x, y] = openSpot(this.dungeon, x, y);
     const sprite = this.add.image(Math.round(x), Math.round(y), weapon ? 'chest-w' : 'chest').setDepth(DEPTH.pickup + 0.5).setOrigin(0.5, 0.8);
@@ -2669,17 +2850,80 @@ export class GameScene extends Phaser.Scene {
     this.pickups.push({ kind: weapon ? 'wchest' : 'chest', tier: 0, x, y, vx: 0, vy: 0, value: 0, t: 0, magnet: false, sprite, dead: false });
   }
 
+  /** A replaced weapon keeps its own level, ammunition and reload progress on the floor. */
+  dropWeapon(weapon: WeaponInstance, dropX?: number, dropY?: number, onChest = false, reveal = true) {
+    const p = this.player;
+    const [x, y] = openSpot(this.dungeon, dropX ?? p.x - Math.cos(p.aim) * 20, dropY ?? p.y - Math.sin(p.aim) * 20);
+    const chest = onChest ? this.add.image(x, y, 'chest-w-open').setOrigin(0.5, 0.8).setDepth(DEPTH.pickup + 0.2) : undefined;
+    const sprite = this.add.image(x, y - (onChest && !reveal ? 25 : 4), `gun-${weapon.def.id}`).setDepth(DEPTH.pickup + 0.5);
+    const glow = this.add.image(x, y - 4, 'glow').setDepth(DEPTH.pickup).setTint(hexToNum(E.cyan)).setScale(onChest ? 1.3 : 0.8).setAlpha(0.4).setBlendMode(Phaser.BlendModes.ADD);
+    sprite.setData('glow', glow);
+    const pickup: Pickup = { kind: 'weapon', weapon: { ...weapon }, chest, revealT: onChest && reveal ? 0.55 : 0, tier: 0, x, y, vx: 0, vy: 0, value: 0, t: 0, magnet: false, sprite, dead: false };
+    if (chest && reveal) this.tweens.add({ targets: chest, scaleX: 1.12, scaleY: 0.88, duration: 100, yoyo: true });
+    this.pickups.push(pickup);
+    return pickup;
+  }
+
+  private removePickup(p: Pickup) {
+    if (!p.sprite.scene) return;
+    p.dead = true;
+    p.label?.destroy();
+    const glow = p.sprite.getData('glow') as Img | undefined;
+    if (glow) {
+      this.tweens.killTweensOf(glow);
+      glow.destroy();
+    }
+    if (p.chest) {
+      this.tweens.killTweensOf(p.chest);
+      p.chest.destroy();
+    }
+    this.tweens.killTweensOf(p.sprite);
+    p.sprite.destroy();
+  }
+
+  pickupWeapon(p: Pickup) {
+    if (p.dead || p.kind !== 'weapon' || !p.weapon || (p.revealT ?? 0) > 0 || this.mode !== 'play') return;
+    if (this.run.weapons.some((w) => w.def.id === p.weapon!.def.id)) {
+      ui.toast('已携带这把武器，地上的武器会保留', 1300);
+      return;
+    }
+    this.chooseReward({ type: 'weapon-new', id: p.weapon.def.id, instance: p.weapon }, () => {
+      this.removePickup(p);
+      audio.select();
+      this.mode = 'play';
+    }, () => { this.mode = 'play'; });
+  }
+
+  collectCrystal(p: Pickup) {
+    if (p.dead || p.kind !== 'crystal' || this.mode !== 'play') return;
+    this.removePickup(p);
+    const pl = this.player;
+    this.run.armor = Math.min(this.run.mods.maxArmor, this.run.armor + 1);
+    const c = ELEMENT_COLOR[p.element ?? 'rock'];
+    this.fx.ring(pl.x, pl.y - 6, 22, c, 280, 2);
+    this.fx.callout(pl.x, pl.y - 26, '结晶护盾', c);
+    audio.select();
+  }
+
   updatePickups(dt: number) {
     const pl = this.player;
-    const radius = 34 * this.run.mods.pickupRadius + (this.run.pets.includes('dove') ? 50 : 0);
+    const radius = 34 * this.run.mods.pickupRadius + (this.run.pets.includes('dove') ? 50 * this.run.mods.petArea : 0);
     for (const p of this.pickups) {
       if (p.dead) continue;
       p.t += dt;
-      if (p.kind === 'chest' || p.kind === 'wchest') {
-        if (this.mode === 'play' && dist2(p.x, p.y, pl.x, pl.y) < 14 * 14) this.openChest(p);
+      if (p.kind === 'chest' || p.kind === 'wchest' || p.kind === 'weapon') {
+        if (p.kind === 'weapon') {
+          p.revealT = Math.max(0, (p.revealT ?? 0) - dt);
+          const rise = 1 - (p.revealT / 0.55) ** 3;
+          const hover = p.chest ? 4 + 21 * rise : 4;
+          p.sprite.setY(Math.round(p.y - hover + Math.sin(p.t * 3) * 2));
+          p.sprite.setAngle(Math.sin(p.t * 1.8) * (p.chest ? 5 : 2));
+          const glow = p.sprite.getData('glow') as Img | undefined;
+          glow?.setPosition(p.x, p.sprite.y + 3).setAlpha(0.3 + Math.sin(p.t * 3) * 0.1);
+        }
         continue;
       }
-      if (!p.magnet && p.t > 0.25 && (dist2(p.x, p.y, pl.x, pl.y) < radius * radius || ((p.kind === 'heart' || p.kind === 'crystal') && dist2(p.x, p.y, pl.x, pl.y) < 26 * 26))) {
+      if (p.kind !== 'crystal' && !p.magnet && p.t > 0.25 && (dist2(p.x, p.y, pl.x, pl.y) < radius * radius || (p.kind === 'heart' && dist2(p.x, p.y, pl.x, pl.y) < 26 * 26))) {
         p.magnet = true;
         p.t = 0;
       }
@@ -2701,19 +2945,13 @@ export class GameScene extends Phaser.Scene {
         [p.x, p.y] = collide(this.dungeon, p.x, p.y, 3);
       }
       p.sprite.setPosition(Math.round(p.x), Math.round(p.y + (p.magnet ? 0 : Math.round(Math.sin(p.t * 5) * 1.2))));
-      if (dist2(p.x, p.y, pl.x, pl.y - 4) < (pl.r + 6) ** 2 && this.mode !== 'dead') {
+      // Crystals wait for F; only experience and hearts retain automatic collection.
+      if (p.kind === 'crystal') continue;
+      if (dist2(p.x, p.y, pl.x, pl.y - 4) < (pl.r + 6) ** 2 && this.mode === 'play') {
         p.dead = true;
         p.sprite.destroy();
         if (p.kind === 'heart') {
           this.heal(1, pl.x, pl.y);
-          audio.select();
-        } else if (p.kind === 'crystal') {
-          // Crystallize: a shield of the element it formed from.
-          const run = this.run;
-          run.armor = Math.min(run.mods.maxArmor, run.armor + 1);
-          const c = ELEMENT_COLOR[p.element ?? 'rock'];
-          this.fx.ring(pl.x, pl.y - 6, 22, c, 280, 2);
-          this.fx.callout(pl.x, pl.y - 26, '结晶护盾', c);
           audio.select();
         } else {
           this.gemStreak++;
@@ -2729,18 +2967,25 @@ export class GameScene extends Phaser.Scene {
   }
 
   openChest(p: Pickup) {
-    p.dead = true;
-    (p.sprite.getData('glow') as Img | undefined)?.destroy();
+    if (p.dead || (p.kind !== 'chest' && p.kind !== 'wchest') || this.mode !== 'play') return;
     if (p.kind === 'wchest') {
-      p.sprite.setTexture('chest-w-open');
-      this.tweens.add({ targets: p.sprite, alpha: 0, delay: 900, duration: 300, onComplete: () => p.sprite.destroy() });
-      this.fx.ring(p.x, p.y - 6, 50, E.cyan, 400);
-      this.fx.sparks(p.x, p.y - 8, 14, 'ice');
-      this.light.flash(p.x, p.y - 8, 90, E.cyan);
-      audio.levelUp();
-      this.offerWeapons();
+      // Roll once, then retain that exact instance on the floor through cancel/save/continue.
+      const pool = WEAPON_ORDER.filter((id) => !this.run.weapons.some((w) => w.def.id === id));
+      const def = WEAPONS[this.run.rng.pick(pool.length ? pool : WEAPON_ORDER)];
+      const weapon: WeaponInstance = { def, level: 1, cd: 0 };
+      if (def.mag) weapon.ammo = magSize(weapon, this.run.mods.mag);
+      this.removePickup(p);
+      this.dropWeapon(weapon, p.x, p.y, true);
+      this.fx.ring(p.x, p.y - 6, 36, E.cyan, 400);
+      this.fx.sparks(p.x, p.y - 8, 10, 'ice');
+      this.light.flash(p.x, p.y - 8, 65, E.cyan);
+      audio.select();
+      this.saveProgress();
       return;
     }
+    p.dead = true;
+    p.label?.destroy();
+    (p.sprite.getData('glow') as Img | undefined)?.destroy();
     p.sprite.setTexture('chest-open');
     this.tweens.add({ targets: p.sprite, alpha: 0, delay: 900, duration: 300, onComplete: () => p.sprite.destroy() });
     this.fx.ring(p.x, p.y - 6, 50, E.yellow, 400);
@@ -2757,7 +3002,15 @@ export class GameScene extends Phaser.Scene {
       const ups = run.spells.filter((s) => s.level < 5 && !SPELLS[s.id].fusion).map((s) => ({ type: 'spell-up', id: s.id }) as Choice);
       c = ups.length && run.rng.chance(0.6) ? run.rng.pick(ups) : rollChoices(run, 'rare')[0];
     }
-    ui.chestReward(this.takeChoice(c), run);
+    this.chooseReward(c, (taken) => {
+      ui.chestReward(taken, run);
+      this.mode = 'play';
+    }, () => {
+      // A reward chest is already open: cancelling a weapon swap leaves its reward on the floor.
+      if (c.type === 'weapon-new') this.dropWeapon(c.instance ?? { def: WEAPONS[c.id], level: 1, cd: 0 });
+      this.mode = 'play';
+      this.saveProgress();
+    });
   }
 
   /** Treasure room: three items on pedestals; take one and the others crumble. */
@@ -2773,7 +3026,7 @@ export class GameScene extends Phaser.Scene {
       const up = run.spells.find((s) => s.level < 5 && !SPELLS[s.id].fusion);
       if (up) items.push({ type: 'spell-up', id: up.id });
     }
-    const pets = (['hound', 'dove', 'swan'] as const).filter((k) => !run.pets.includes(k));
+    const pets = PET_ORDER.filter((k) => !run.pets.includes(k));
     if (pets.length) items.push({ type: 'pet', kind: rng.pick(pets) });
     while (items.length < 3) items.push(rollChoices(run, 'rare')[0]);
     const [cx, cy] = roomCenter(room);
@@ -2809,25 +3062,28 @@ export class GameScene extends Phaser.Scene {
 
   updatePedestals() {
     if (!this.pedestals.length || this.mode !== 'play') return;
-    const pl = this.player;
     for (const p of this.pedestals) {
       p.item.setY(Math.round(p.y - 9 + Math.sin(this.time0 * 3 + p.x) * 2));
       p.glow.setY(p.item.y);
-      if (dist2(p.x, p.y, pl.x, pl.y) < 12 * 12) {
-        ui.chestReward(this.takeChoice(p.choice), this.run);
-        this.fx.ring(p.x, p.y - 8, 40, E.yellow, 400);
-        this.fx.sparks(p.x, p.y - 8, 16, 'gold');
-        audio.levelUp();
-        for (const q of this.pedestals) {
-          if (q.room !== p.room) continue;
-          [q.item, q.glow, q.label].forEach((o) => o.destroy());
-          q.ped.setAlpha(0.5);
-          if (q !== p) this.fx.dust(q.x, q.y - 8, 8);
-        }
-        this.pedestals = this.pedestals.filter((q) => q.room !== p.room);
-        return;
-      }
     }
+  }
+
+  collectPedestal(p: Pedestal) {
+    if (this.mode !== 'play' || !this.pedestals.includes(p)) return;
+    this.chooseReward(p.choice, (taken) => {
+      ui.chestReward(taken, this.run);
+      this.fx.ring(p.x, p.y - 8, 40, E.yellow, 400);
+      this.fx.sparks(p.x, p.y - 8, 16, 'gold');
+      audio.levelUp();
+      for (const q of this.pedestals) {
+        if (q.room !== p.room) continue;
+        [q.item, q.glow, q.label].forEach((o) => o.destroy());
+        q.ped.setAlpha(0.5);
+        if (q !== p) this.fx.dust(q.x, q.y - 8, 8);
+      }
+      this.pedestals = this.pedestals.filter((q) => q.room !== p.room);
+      this.mode = 'play';
+    }, () => { this.mode = 'play'; });
   }
 
   spawnTrapdoor(x: number, y: number) {
@@ -2866,27 +3122,10 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  offerWeapons() {
-    if (this.mode !== 'play') return;
-    const choices = rollChoices(this.run, 'weapon');
-    this.mode = 'choose';
-    ui.choices(
-      '武器箱',
-      '挑一把带走',
-      choices,
-      this.run,
-      (i) => {
-        if (i >= 0) this.takeChoice(choices[i]);
-        this.mode = 'play';
-      },
-      { tag: 'WEAPON', skip: '都不要，跳过' },
-    );
-  }
-
   gainXp(v: number) {
     const run = this.run;
     run.xp += v;
-    // Each level drops a crystal; walking into one is what opens the cards.
+    // Each level drops a crystal; F near it opens the cards when the player is ready.
     const levels: number[] = [];
     while (run.xp >= run.xpNext) {
       run.xp -= run.xpNext;
@@ -2897,29 +3136,60 @@ export class GameScene extends Phaser.Scene {
     levels.forEach((lv, i) => dropLevelToken(this, lv, i, levels.length));
   }
 
-  /** A level-up crystal was touched: deal the three cards for that level. */
+  /** A level-up crystal was activated with F: deal the three cards for that level. */
   openLevelUp(level: number) {
     if (this.mode !== 'play' || this.fusing) return;
-    this.mode = 'choose';
     this.fx.ring(this.player.x, this.player.y - 4, 70, E.yellow, 400);
-    const choices = rollChoices(this.run, 'level');
-    ui.choices(
-      '升级',
-      `等级 ${level}`,
-      choices,
-      this.run,
-      (i) => {
-        if (i >= 0) this.takeChoice(choices[i]);
-        this.mode = 'play';
-      },
-      { skip: '跳过这次升级' },
-    );
+    const choices = rollChoices(this.run, 'level', level);
+    const show = () => {
+      this.mode = 'choose';
+      ui.choices(
+        '升级',
+        `等级 ${level}`,
+        choices,
+        this.run,
+        (i) => {
+          if (i < 0) this.mode = 'play';
+          else this.chooseReward(choices[i], () => { this.mode = 'play'; }, show);
+        },
+        { skip: '跳过这次升级' },
+      );
+    };
+    show();
+  }
+
+  /** Resolve the replacement slot before changing the inventory or consuming a ground reward. */
+  chooseReward(c: Choice, onTaken: (taken: Choice) => void, onCancel: () => void) {
+    if (!choiceValid(this.run, c)) {
+      // A floor weapon must never turn into a random reward or disappear when it is already owned.
+      if (c.type === 'weapon-new' && c.instance) {
+        ui.toast('已携带这把武器，地上的武器会保留', 1300);
+        onCancel();
+        return;
+      }
+      c = rollChoices(this.run, 'rare')[0];
+    }
+    const choice = c;
+    if (choice.type === 'weapon-new' && this.run.weapons.length >= MAX_WEAPONS) {
+      const run = this.run;
+      this.mode = 'choose';
+      const incoming = choice.instance ?? { def: WEAPONS[choice.id], level: 1, cd: 0 };
+      ui.weaponSwap(incoming, run, (index) => {
+        if (this.run !== run) return;
+        if (index < 0) onCancel();
+        else onTaken(this.takeChoice(choice, index));
+      });
+    } else onTaken(this.takeChoice(choice));
   }
 
   /** Apply a choice; one that has gone stale (see choiceValid) is swapped for a fresh rare pick. Returns what was given. */
-  takeChoice(c: Choice): Choice {
-    if (!choiceValid(this.run, c)) c = rollChoices(this.run, 'rare')[0];
-    applyChoice(this.run, c);
+  takeChoice(c: Choice, replaceIndex?: number): Choice {
+    if (!choiceValid(this.run, c)) {
+      if (c.type === 'weapon-new' && c.instance) return c;
+      c = rollChoices(this.run, 'rare')[0];
+    }
+    const replaced = applyChoice(this.run, c, replaceIndex);
+    if (replaced) this.dropWeapon(replaced);
     this.time.delayedCall(0, () => this.saveProgress());
     if (c.type === 'spell-new' || c.type === 'spell-up') this.time.delayedCall(350, () => this.checkFusions());
     if (c.type === 'pet') {
@@ -2934,7 +3204,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   checkFusions() {
-    if (this.mode === 'dead' || this.mode === 'end' || this.mode === 'title' || this.fusing) return;
+    if (this.mode === 'dead' || this.mode === 'end' || this.mode === 'title' || this.mode === 'ascend' || this.fusing) return;
     // One at a time: a second fusion that is ready plays after the first one lands.
     const f = fusionsReady(this.run)[0];
     if (f) this.fuse(f);
@@ -3666,6 +3936,7 @@ export class GameScene extends Phaser.Scene {
   drawCursor() {
     const g = this.cursorGfx;
     g.clear();
+    if (this.usesTouchControls() && !this.touch?.firing) return;
     if (this.mode === 'title' || this.mode === 'end') return;
     const x = Math.round(this.aimX);
     const y = Math.round(this.aimY);

@@ -224,6 +224,66 @@ function pack(): Art {
   return [g, C];
 }
 
+function tamer(): Art {
+  const g = G();
+  paw(4, 7, g, 't');
+  g.line(8, 10, 10, 2, 'b').line(9, 10, 11, 2, 'y');
+  g.rect(9, 1, 3, 2, 'Y').set(10, 0, 'w').set(12, 3, 'Y');
+  return [g, C];
+}
+
+function petfield(): Art {
+  const g = G();
+  g.ellipse(6, 6, 6, 5.5, 'c').ellipse(6, 6, 4.6, 4.1, '.');
+  paw(6, 6, g, 'T');
+  g.set(0, 6, 'w').set(12, 6, 'w').set(6, 0, 'w').set(6, 12, 'w');
+  return [g, C];
+}
+
+function wildinstinct(): Art {
+  const g = G();
+  for (let i = 0; i < 3; i++) {
+    const x = 1 + i * 4;
+    g.line(x + 2, 1, x, 8, 'r').line(x + 3, 1, x + 1, 8, 'T').set(x, 9, 'w');
+  }
+  g.line(3, 11, 8, 11, 'O').set(9, 10, 'Y');
+  return [g, C];
+}
+
+function petecho(): Art {
+  const g = G();
+  paw(3, 8, g, 'v');
+  paw(8, 4, g, 'P');
+  g.line(7, 11, 11, 7, 'c').set(11, 8, 'w').set(10, 7, 'w');
+  return [g, C];
+}
+
+function teamwork(): Art {
+  const g = G();
+  g.line(3, 9, 9, 3, 'y').line(3, 3, 9, 9, 'y');
+  paw(3, 3, g, 'T');
+  paw(9, 7, g, 't');
+  g.set(6, 6, 'w').set(5, 6, 'Y').set(6, 5, 'Y');
+  return [g, C];
+}
+
+function packguard(): Art {
+  const g = G();
+  g.rect(1, 1, 11, 6, 'c').tri(1, 6, 11, 6, 6, 12, 'c');
+  g.rect(2, 2, 9, 4, 'k').tri(2, 6, 10, 6, 6, 10, 'k');
+  paw(6, 5, g, 'w');
+  g.set(2, 1, 'w').set(1, 2, 'w');
+  return [g, C];
+}
+
+function beastmaster(): Art {
+  const g = G();
+  g.tri(1, 0, 1, 5, 5, 5, 'y').tri(6, 0, 3, 5, 9, 5, 'Y').tri(11, 0, 7, 5, 11, 5, 'y');
+  g.rect(2, 4, 9, 2, 'y').set(6, 4, 'r').set(1, 0, 'w').set(6, 0, 'w').set(11, 0, 'w');
+  paw(6, 9, g, 'T');
+  return [g, C];
+}
+
 function ember(): Art {
   const g = G();
   g.ellipse(6, 7, 4.5, 4, 'O').ellipse(6, 7, 2.5, 2.2, 'Y').set(6, 7, 'w');
@@ -338,6 +398,13 @@ export const UPGRADE_ICONS: Record<string, () => Art> = {
   sniper: scope,
   bond,
   pack,
+  tamer,
+  petfield,
+  wildinstinct,
+  petecho,
+  teamwork,
+  packguard,
+  beastmaster,
   ember,
   fission,
   chainboom,
