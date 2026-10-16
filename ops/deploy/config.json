@@ -1,0 +1,12 @@
+{
+  "repo_url": "https://github.com/imxv/Adonis.git",
+  "branch": "main",
+  "state_dir": "/root/project/adonis-deploy",
+  "releases_dir": "/root/project/adonis-releases",
+  "current_link": "/root/project/adonis-current",
+  "poll_seconds": 60,
+  "retry_seconds": 300,
+  "keep_releases": 5,
+  "health_url": "http://127.0.0.1:8000",
+  "command_timeout_seconds": 180
+}
