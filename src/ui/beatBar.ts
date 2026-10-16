@@ -74,7 +74,12 @@ export class BeatBar {
     if (g !== 'miss') replay(this.core, g === 'perfect' ? 'hitp' : 'hitg');
   }
 
+  private shown = true;
+
+  /** The beat game belongs to melee weapons: the bar only shows with one in hand. */
   show(on: boolean) {
+    if (on === this.shown) return;
+    this.shown = on;
     this.el.style.display = on ? '' : 'none';
   }
 }

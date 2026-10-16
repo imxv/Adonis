@@ -551,6 +551,19 @@ class AudioEngine {
     });
   }
 
+  /** A melee finisher landed on the beat: a heavy hit and a bright chord on top. */
+  finisher() {
+    this.safe(() => {
+      if (!this.gate('finisher', 120)) return;
+      const t = Tone.now();
+      this.sub.triggerAttackRelease('D1', 0.3, this.at(this.sub), 1);
+      const n = this.at(this.boomNoise);
+      this.sweep(this.boomFilter, 4200, 300, n, 0.3);
+      this.boomNoise.triggerAttackRelease(0.25, n, 0.8);
+      [0, 4, 7].forEach((d, i) => this.fuseBell.triggerAttackRelease(this.note(d, 1), 0.5, t + 0.02 + i * 0.015, 0.6));
+    });
+  }
+
   /** The style meter went up a rank. */
   rankUp(rank: number) {
     this.safe(() => {

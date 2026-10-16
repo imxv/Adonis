@@ -316,8 +316,9 @@ class UI implements LayerHost {
   }
 
   /** Every frame of play: move the beat bar with the music. */
-  beatFrame(beat: number, phase: number, fight: boolean, streak: number) {
-    this.beats?.frame(beat, phase, fight, streak);
+  beatFrame(beat: number, phase: number, fight: boolean, streak: number, melee: boolean) {
+    this.beats?.show(melee);
+    if (melee) this.beats?.frame(beat, phase, fight, streak);
   }
 
   /** A press was judged against the beat. */

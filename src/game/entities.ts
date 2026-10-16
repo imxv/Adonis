@@ -53,6 +53,10 @@ export interface Proj {
   homing?: number;
   gravity?: number;
   spin?: number;
+  /** Wall bounces left (throwing stars). */
+  bounce?: number;
+  /** Shards it bursts into when it stops (ice lance). */
+  split?: number;
   dist?: number;
   maxDist?: number;
   returning?: boolean;
@@ -217,7 +221,7 @@ export interface Telegraph {
 }
 
 export interface Visual {
-  kind: 'beam' | 'chain' | 'bolt' | 'slash';
+  kind: 'beam' | 'chain' | 'bolt' | 'slash' | 'thrust';
   pts: number[];
   width: number;
   t: number;

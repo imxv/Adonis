@@ -55,6 +55,16 @@ export function buildCommonTextures(scene: Phaser.Scene) {
     tesla: ['..yyyy........', '.DDDDDDDDDDy..', 'DDcDcDcDcDDDyw', '.DDDDDDDDDDy..', '..BB..........', '..BB..........'],
     flamer: ['..OO..........', '.DDDDDDDDDDy..', 'OODDDDDDDDDDYO', '.DDDDDDDDDDy..', '..BB..........'],
     sword: ['....y............', 'bbbbyggggggggggw.', 'bbbbyGGGGGGGGGGGw', '....y............'],
+    spear: ['..............r.gw...', 'bbbbbbbbbbbbbbyGGGwww', '..............r.gw...'],
+    hammer: ['...........GGGG.', '..........GgwggG', 'rrbbbbbbbbGgggGD', '..........GgggGD', '...........DDD..'],
+    daggers: ['..y.....', 'bbyggggw', '..y.....'],
+    scythe: ['....wgggggggggg....', '......GGGGGGGGGgg..', '..............GGgG.', '................GG.', 'bbbbbbbbbbbbbbbbbbD'],
+    bow: ['....bb.....', '....w.b....', '....w..b...', '....w...b..', '....w...b..', '....w....b.', '....w....b.', '....w....b.', '....w...b..', '....w...b..', '....w..b...', '....w.b....', '....bb.....'],
+    'bow-drawn': ['..bb.......', '..w.b......', '.w...b.....', '.w....b....', 'w.....b....', 'w......b...', 'GGGGGGGbGGw', 'w......b...', 'w.....b....', '.w....b....', '.w...b.....', '..w.b......', '..bb.......'],
+    shuriken: ['..g..', '.gDg.', 'gDwDg', '.gDg.', '..g..'],
+    gatling: ['....gggggggggg.', 'DDDDGGGGGGGGGGw', 'DDDDggggggggggg', 'DDDDGGGGGGGGGGw', '.yy.DD.........', '.yy............'],
+    'gatling-b': ['....GGGGGGGGGG.', 'DDDDggggggggggw', 'DDDDGGGGGGGGGGG', 'DDDDggggggggggw', '.yy.DD.........', '.yy............'],
+    frostlance: ['..........cc..', 'DDDDkkkkkkkcwc', 'DDDDDDkkkkkcc.', '..BB..........', '..BB..........'],
   };
   for (const [id, rows] of Object.entries(guns)) {
     const c = Grid.ascii(rows).render();
@@ -68,6 +78,11 @@ export function buildCommonTextures(scene: Phaser.Scene) {
   add(scene, 'b-shell', Grid.ascii(['.LL.', 'LllL', 'LllL', '.LL.']).render());
   add(scene, 'b-blade', Grid.ascii(guns.chakram).render());
   add(scene, 'b-arrow', Grid.ascii(['bbbbbgw', 'G....g.']).render({ outline: E.ink }));
+  add(scene, 'b-shuriken', Grid.ascii(['...g...', '...G...', '..GwG..', 'gGwDwGg', '..GwG..', '...G...', '...g...']).render());
+  add(scene, 'b-icicle', Grid.ascii(['.ccw...', 'kcccwww', '.ccw...']).render({ outline: E.blueD }));
+  // Spent brass and shotgun shells.
+  add(scene, 'casing', Grid.ascii(['Yy']).render({ outline: false, margin: 0 }));
+  add(scene, 'casing-shell', Grid.ascii(['rrY', 'RRy']).render({ outline: false, margin: 0 }));
   add(scene, 'b-snipe', Grid.ascii(['wwwwwwwY']).render({ outline: E.orange }));
   add(scene, 'b-rocket', Grid.ascii(['r.....', 'rLLLlw', 'rLLLlw', 'r.....']).render());
   add(scene, 'b-flame', Grid.ascii(['..YY..', '.YwwY.', 'YwwwwY', 'YwwwwY', '.YwwY.', '..YY..']).render({ outline: E.orange }));

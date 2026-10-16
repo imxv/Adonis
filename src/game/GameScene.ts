@@ -6,7 +6,7 @@ import { audio } from '../audio/audio';
 import { ENEMIES, AFFIXES, PETS, type Affix, type EnemyKind } from '../data/enemies';
 import { SPELLS, SPELL_ORDER } from '../data/spells';
 import { UPGRADE_BY_ID } from '../data/upgrades';
-import { WEAPON_ORDER, magSize, reloadTime, weaponLevelCount, weaponLevelDamage, type WeaponInstance } from '../data/weapons';
+import { WEAPON_ORDER, magSize, reloadTime, weaponLevelCount, weaponLevelDamage, type MeleeMove, type MoveKind, type WeaponInstance } from '../data/weapons';
 import { E } from '../pixel/palette';
 import { K, buildCommonTextures, buildKitTextures, buildLevel, textTexture } from '../styles/textures';
 import type { StyleKit } from '../styles/types';
@@ -162,10 +162,15 @@ export class GameScene extends Phaser.Scene {
   fusing = false;
   /** The beat game: timing against the music, the on-beat streak, the style rank. */
   rhythm = new Rhythm();
-  /** A fire press on the beat powers up the next shot, if it comes within a few frames. */
-  private beatShot = { mult: 1, until: 0 };
-  /** Extra damage for the shot being fired right now. */
+  /** A judged melee press: the swing that follows within a few frames carries its grade. */
+  private beatShot: { grade: Grade; until: number } = { grade: 'miss', until: 0 };
+  /** Where the melee combo is: the next move, when the last swing was, and the move being animated. */
+  private melee = { step: 0, last: -9, anim: undefined as undefined | { move: MoveKind; t: number; dur: number; dir: number; hand: number } };
+  /** Extra damage for the swing being made right now, and its beat grade. */
   private shotBoost = 1;
+  private swingGrade: Grade | undefined;
+  /** Casings in the air right now; a gatling would bury the floor otherwise. */
+  private casings = 0;
   /** When the dash key went down, to judge it against the beat. */
   private dashPressAt = 0;
   private lastRank = 0;
@@ -219,8 +224,8 @@ export class GameScene extends Phaser.Scene {
       ui.toast(this.autoFire ? '自动射击 开' : '自动射击 关', 900);
     });
     kb.on('keydown-Q', () => this.switchGun());
-    kb.on('keydown-R', (e: KeyboardEvent) => {
-      if (this.mode === 'play') this.reloadOnBeat(e.timeStamp);
+    kb.on('keydown-R', () => {
+      if (this.mode === 'play') this.startReload(this.run.weapons[this.run.held]);
     });
     kb.on('keydown-E', (e: KeyboardEvent) => this.useSkill(e.timeStamp));
     kb.on('keydown-SPACE', (e: KeyboardEvent) => (this.dashPressAt = e.timeStamp));
@@ -230,10 +235,10 @@ export class GameScene extends Phaser.Scene {
       this.pointerMoved = true;
       const at = p.event?.timeStamp ?? performance.now();
       if (p.rightButtonDown()) this.useSkill(at);
-      else if (p.leftButtonDown() && this.mode === 'play') {
-        // Fire pressed on the beat: the next shot hits harder.
+      else if (p.leftButtonDown() && this.mode === 'play' && this.meleeHeld()) {
+        // A melee swing pressed on the beat hits harder, and a finisher on the beat goes off in full.
         const g = this.beatAct(at);
-        if (g !== 'miss') this.beatShot = { mult: g === 'perfect' ? 2 : 1.5, until: performance.now() + 160 };
+        this.beatShot = { grade: g, until: performance.now() + 160 };
       }
     });
     this.input.on('wheel', () => this.switchGun());
@@ -978,7 +983,7 @@ export class GameScene extends Phaser.Scene {
     // The clock runs whenever enemies move, so their on-beat attacks never see a stale beat.
     this.rhythm.update(realDt, this.kit.audio.bpm);
     if (this.mode === 'play') {
-      ui.beatFrame(this.rhythm.beat, this.rhythm.phase, !!this.active, this.rhythm.streak);
+      ui.beatFrame(this.rhythm.beat, this.rhythm.phase, !!this.active, this.rhythm.streak, this.meleeHeld());
       const rank = this.rhythm.rankIndex();
       if (rank > this.lastRank) {
         audio.rankUp(rank);
@@ -1132,8 +1137,10 @@ export class GameScene extends Phaser.Scene {
       p.dashCd = 0.9 * this.run.mods.dashCooldown;
       audio.dash();
       this.fx.dust(p.x, p.y, 6);
-      const g = this.beatAct(this.dashPressAt || performance.now());
-      if (g !== 'miss') this.beatDash(p.x, p.y, g === 'perfect');
+      if (this.meleeHeld()) {
+        const g = this.beatAct(this.dashPressAt || performance.now());
+        if (g !== 'miss') this.beatDash(p.x, p.y, g === 'perfect');
+      }
     }
     if (p.dashT > 0) {
       p.dashT -= dt;
@@ -1180,8 +1187,8 @@ export class GameScene extends Phaser.Scene {
   useSkill(at = performance.now()) {
     const p = this.player;
     if (this.mode !== 'play' || !p || p.skillCd > 0) return;
-    // On the beat it lasts longer.
-    const g = this.beatAct(at);
+    // With a melee weapon in hand, on the beat it lasts longer.
+    const g = this.meleeHeld() ? this.beatAct(at) : 'miss';
     p.skillT = g === 'perfect' ? 6 : g === 'good' ? 5 : 4;
     p.skillCd = 14;
     audio.levelUp();
@@ -1208,23 +1215,6 @@ export class GameScene extends Phaser.Scene {
     for (const e of this.enemies) {
       if (!e.dead && dist2(e.x, e.y, x, y) < 40 * 40) this.damageEnemy(e, (perfect ? 8 : 5) * this.damageMult(), { src: '节拍冲刺', kx: e.x - x, ky: e.y - y, knock: 260 });
     }
-  }
-
-  /** R on the beat: a perfect reload is instant and loads hotter rounds; a good one takes half the time. */
-  reloadOnBeat(at: number) {
-    const run = this.run;
-    const w = run.weapons[run.held];
-    if (!w?.def.mag || (w.reloadT ?? 0) > 0 || (w.ammo ?? 0) >= magSize(w, run.mods.mag)) return;
-    const g = this.beatAct(at);
-    this.startReload(w);
-    if (g === 'perfect') {
-      w.reloadT = 0;
-      w.ammo = magSize(w, run.mods.mag);
-      w.hot = true;
-      audio.reload(true);
-      this.reloadDone();
-      this.fx.callout(this.player.x, this.player.y - 30, '完美换弹', E.yellow);
-    } else if (g === 'good') w.reloadT = (w.reloadT ?? 0) * 0.5;
   }
 
   fireRateMult() {
@@ -1257,12 +1247,16 @@ export class GameScene extends Phaser.Scene {
         }
       }
       const active = i === run.held || dual;
+      if (w.def.spinTo) {
+        const turning = active && firing && !(w.reloadT! > 0);
+        w.spin = turning ? Math.min(1, (w.spin ?? 0) + dt / 1.4) : Math.max(0, (w.spin ?? 0) - dt * 1.2);
+      }
       w.cd -= dt * rate;
       if (active && firing && w.cd <= 0 && !(w.reloadT! > 0)) {
         if (mag && (w.ammo ?? 0) <= 0) this.startReload(w);
         else {
           this.fire(w, i !== run.held);
-          w.cd += w.def.cooldown;
+          w.cd += w.def.spinTo ? lerp(w.def.cooldown, w.def.spinTo, w.spin ?? 0) : w.def.cooldown;
           if (w.cd < 0) w.cd = 0;
           if (mag) {
             w.ammo = (w.ammo ?? mag) - 1;
@@ -1277,13 +1271,12 @@ export class GameScene extends Phaser.Scene {
     if (!w?.def.mag || (w.reloadT ?? 0) > 0) return;
     if ((w.ammo ?? 0) >= magSize(w, this.run.mods.mag)) return;
     w.reloadT = reloadTime(w, this.run.mods.reload);
-    w.hot = false;
     audio.reload(false);
   }
 
   damageMult() {
     const m = this.run.mods;
-    let d = m.damage * this.shotBoost * this.rhythm.damageMult();
+    let d = m.damage * this.shotBoost;
     if (this.run.hp <= this.run.mods.maxHp / 2) d *= 1 + m.desperate;
     return d;
   }
@@ -1296,17 +1289,23 @@ export class GameScene extends Phaser.Scene {
   }
 
   fire(w: WeaponInstance, offhand = false) {
-    const onBeat = performance.now() <= this.beatShot.until;
+    if (w.def.kind !== 'slash') {
+      this.fireShot(w, offhand);
+      return;
+    }
+    // Melee keeps time: a swing pressed on the beat hits harder, and the on-beat streak adds to every swing.
+    const grade: Grade | undefined = performance.now() <= this.beatShot.until ? this.beatShot.grade : undefined;
     this.beatShot.until = 0;
-    this.shotBoost = (onBeat ? this.beatShot.mult : 1) * (w.hot ? 1.25 : 1);
-    const before = this.pproj.length;
+    this.swingGrade = grade;
+    this.shotBoost = (grade === 'perfect' ? 1.5 : grade === 'good' ? 1.25 : 1) * this.rhythm.damageMult();
     this.fireShot(w, offhand);
     this.shotBoost = 1;
-    if (!onBeat) return;
-    for (const q of this.pproj.slice(before)) q.sprite.setTint(hexToNum(E.yellow)).setScale(q.sprite.scaleX * 1.35, q.sprite.scaleY * 1.35);
-    const [mx, my] = this.muzzle(offhand);
-    this.fx.ring(mx, my, 12, E.yellow, 180, 1);
-    this.fx.sparks(mx, my, 5, 'gold');
+    this.swingGrade = undefined;
+  }
+
+  /** The gun in hand is a melee weapon: the beat game is on. */
+  meleeHeld(): boolean {
+    return this.run?.weapons[this.run.held]?.def.kind === 'slash';
   }
 
   private fireShot(w: WeaponInstance, offhand = false) {
@@ -1331,12 +1330,15 @@ export class GameScene extends Phaser.Scene {
           const aa = a + (i - (count - 1) / 2) * 0.09;
           const pr = this.spawnProj('bolt', ox, oy, aa, speed, range / speed, def.size * area, dmg, pierce, knock, def.name, def.proj);
           if (def.element) pr.element = def.element;
+          if (def.bounce) pr.bounce = def.bounce;
+          if (def.split) pr.split = def.split;
+          if (def.id === 'shuriken') pr.spin = 26;
           if (def.tracer) {
             const len = raycast(this.dungeon, ox, oy, Math.cos(aa), Math.sin(aa), range).len;
             this.visuals.push({ kind: 'beam', pts: [ox, oy, ox + Math.cos(aa) * len, oy + Math.sin(aa) * len], width: 1, t: 0, dur: 0.08, color: hexToNum(E.yellow) });
           }
         }
-        this.recoil(a, def.id === 'sniper' ? 80 : 12);
+        this.recoil(a, def.id === 'sniper' ? 80 : def.id === 'gatling' ? 6 : 12);
         break;
       case 'spread': {
         const n = def.count + extra * 2;
@@ -1396,9 +1398,10 @@ export class GameScene extends Phaser.Scene {
         break;
       }
       case 'slash':
-        this.slash(p.x, p.y - 4, a, def.range * area, ((def.spreadDeg * Math.PI) / 180) * 0.5, dmg, knock, count, pierce, def.name);
+        this.meleeAttack(w, a, dmg, area, knock, count, pierce);
         break;
     }
+    if (def.casing) this.ejectCasing(ox, oy, a, def.casing);
     if (def.kind !== 'slash' && def.kind !== 'flame') {
       this.fx.muzzle(ox, oy, a);
       this.light.flash(ox, oy, 26 + (def.shake ?? 0) * 200, E.yellow, 0.07);
@@ -1409,32 +1412,170 @@ export class GameScene extends Phaser.Scene {
     audio.shoot(def.kind);
   }
 
-  /** The knight's sword: an arc that hits everything in front and cuts enemy bullets out of the air. */
-  slash(x: number, y: number, a: number, r: number, half: number, dmg: number, knock: number, count: number, waves: number, src: string) {
-    this.player.punch = 1;
-    const n = Math.min(3, count);
-    for (let k = 0; k < n; k++) {
-      const aa = a + (k - (n - 1) / 2) * 0.5;
-      this.visuals.push({ kind: 'slash', pts: [x, y, aa, r, half], width: 3, t: 0, dur: 0.14, color: hexToNum(E.cyan) });
-      for (const e of this.enemies) {
-        if (e.dead) continue;
-        if (dist(x, y, e.x, e.y - 3) > r + e.r) continue;
-        if (Math.abs(angleDiff(aa, Math.atan2(e.y - 3 - y, e.x - x))) > half + 0.25) continue;
-        this.damageEnemy(e, dmg, { src, kx: e.x - x, ky: e.y - y, knock, ignoreShield: true });
+  /**
+   * One move of a melee weapon's combo. Swings that follow each other closely walk through the combo and the last
+   * move is the finisher; a pause drops it. A finisher pressed on the beat goes off in full: wider, harder, louder.
+   */
+  meleeAttack(w: WeaponInstance, a: number, dmg: number, area: number, knock: number, count: number, waves: number) {
+    const def = w.def;
+    const p = this.player;
+    const moves: MeleeMove[] = def.combo ?? [{ move: 'arc', arc: def.spreadDeg, reach: 1, dmg: 1, dir: 1 }];
+    if (this.time0 - this.melee.last > Math.max(0.95, def.cooldown * 3)) this.melee.step = 0;
+    const i = this.melee.step % moves.length;
+    const mv = moves[i];
+    const finisher = moves.length > 1 && i === moves.length - 1;
+    this.melee.step = finisher ? 0 : i + 1;
+    this.melee.last = this.time0;
+    const grade = this.swingGrade;
+    const full = finisher && (grade === 'perfect' || grade === 'good');
+    const x = p.x;
+    const y = p.y - 4;
+    const r = def.range * area * mv.reach * (full ? 1.3 : 1);
+    const hit = dmg * mv.dmg * (full ? 1.5 : 1);
+    const kb = knock * (finisher ? 1.4 : 1);
+    const src = def.name;
+    const tint = hexToNum(full ? E.yellow : finisher ? E.magenta : E.cyan);
+    const anim = (move: MoveKind, dur: number, dir = 1) => (this.melee.anim = { move, t: 0, dur, dir, hand: i % 2 });
+    p.punch = 1;
+    switch (mv.move) {
+      case 'arc': {
+        const half = ((mv.arc ?? def.spreadDeg) * Math.PI) / 360;
+        const n = Math.min(3, count);
+        for (let k = 0; k < n; k++) {
+          const aa = a + (k - (n - 1) / 2) * 0.5;
+          this.visuals.push({ kind: 'slash', pts: [x, y, aa, r, half, mv.dir ?? 1], width: 3, t: 0, dur: 0.14, color: tint });
+          this.meleeHit(x, y, aa, r, half, hit, kb, src);
+          if (waves > 0) this.swordWave(x, y, aa, hit, waves, kb, src);
+        }
+        anim('arc', 0.16, mv.dir ?? 1);
+        break;
       }
-      for (const b of this.eproj) {
-        if (b.dead || dist(x, y, b.x, b.y) > r + 6) continue;
-        if (Math.abs(angleDiff(aa, Math.atan2(b.y - y, b.x - x))) > half + 0.25) continue;
-        this.fx.sparks(b.x, b.y, 4, 'gold');
-        this.killProj(b, true);
+      case 'thrust':
+        this.visuals.push({ kind: 'thrust', pts: [x, y, a, r, 3], width: 3, t: 0, dur: 0.1, color: tint });
+        this.meleeHit(x, y, a, r, 0.26, hit, kb, src);
+        if (waves > 0) this.swordWave(x, y, a, hit, waves, kb, src);
+        anim('thrust', 0.12);
+        break;
+      case 'smash': {
+        // Brought down from overhead: a short arc and a thud where it lands.
+        const half = ((mv.arc ?? 90) * Math.PI) / 360;
+        this.visuals.push({ kind: 'slash', pts: [x, y, a, r, half, 1], width: 4, t: 0, dur: 0.16, color: hexToNum(E.yellow) });
+        this.meleeHit(x, y, a, r, half, hit, kb, src);
+        const ix = x + Math.cos(a) * r * 0.8;
+        const iy = y + Math.sin(a) * r * 0.8 + 4;
+        this.fx.dust(ix, iy, 6);
+        this.fx.sparks(ix, iy, 6, 'white');
+        this.fx.ring(ix, iy, 16, E.white, 200, 1);
+        this.fx.shake(0.08);
+        anim('smash', 0.18);
+        break;
       }
-      for (const o of this.obstacles) if (!o.dead && o.kind !== 'pillar' && dist(x, y, o.x, o.y) < r + o.r) this.damageObstacle(o, dmg);
-      // Pierce upgrades turn the swing into a flying sword wave.
-      if (waves > 0) {
-        const pr = this.spawnProj('bolt', x + Math.cos(aa) * 10, y + Math.sin(aa) * 10, aa, 230, 0.55, 3, dmg * 0.6, waves + 2, knock * 0.4, src, 'b-wave');
-        pr.r = 7;
+      case 'spin':
+        this.visuals.push({ kind: 'slash', pts: [x, y, a, r, Math.PI, 1], width: 4, t: 0, dur: 0.2, color: tint });
+        this.meleeHit(x, y, a, r, Math.PI, hit, kb, src);
+        anim('spin', 0.22);
+        break;
+      case 'slam':
+        // The head comes down and the ground shakes outward all around.
+        this.fx.ring(x, y + 4, r, full ? E.yellow : E.white, 380, 3);
+        this.fx.ring(x, y + 4, r * 0.55, E.white, 260, 2);
+        this.fx.dust(x, y + 4, 14);
+        this.meleeHit(x, y, a, r, Math.PI, hit, kb * 1.3, src);
+        this.crack(x, y + 5, r * 0.7);
+        this.fx.shake(full ? 0.35 : 0.2);
+        anim('slam', 0.24);
+        break;
+      case 'lunge':
+        // Charge forward and run the spear through everything on the way.
+        p.dashX = Math.cos(a);
+        p.dashY = Math.sin(a);
+        p.dashT = 0.13;
+        p.iframes = Math.max(p.iframes, 0.2);
+        this.visuals.push({ kind: 'thrust', pts: [x, y, a, r + 30, 5], width: 5, t: 0, dur: 0.16, color: tint });
+        this.meleeHit(x, y, a, r + 30, 0.3, hit, kb, src);
+        this.fx.dust(p.x, p.y, 6);
+        anim('thrust', 0.18);
+        break;
+      case 'cross':
+        for (const s of [-1, 1]) {
+          const aa = a + s * 0.45;
+          this.visuals.push({ kind: 'slash', pts: [x, y, aa, r, 0.55, s], width: 3, t: 0, dur: 0.16, color: tint });
+          this.meleeHit(x, y, aa, r, 0.55, hit * 0.6, kb, src);
+        }
+        anim('cross', 0.2);
+        break;
+      case 'whirl':
+        // Two full turns: four sweeps all around, following the knight.
+        for (let k = 0; k < 4; k++) {
+          this.time.delayedCall(k * 90, () => {
+            if (this.mode !== 'play') return;
+            const px = this.player.x;
+            const py = this.player.y - 4;
+            this.visuals.push({ kind: 'slash', pts: [px, py, a + k * Math.PI, r, Math.PI, 1], width: 3, t: 0, dur: 0.12, color: tint });
+            this.meleeHit(px, py, a, r, Math.PI, hit, kb * 0.6, src);
+          });
+        }
+        anim('whirl', 0.38);
+        break;
+    }
+    if (finisher) {
+      this.fx.callout(p.x, p.y - 30, full ? `节拍·${mv.name ?? '终结'}` : (mv.name ?? '终结'), full ? E.yellow : E.white, full);
+      if (full) {
+        this.fx.flash(E.yellow, 0.18, 200);
+        this.fx.ring(x, y, r + 10, E.yellow, 300, 2);
+        this.fx.sparks(x, y, 14, 'gold');
+        this.stop(0.06);
+        audio.finisher();
       }
     }
+    if (grade === 'perfect' || grade === 'good') this.fx.sparks(x + Math.cos(a) * r * 0.7, y + Math.sin(a) * r * 0.7, 6, 'gold');
+  }
+
+  /** Hit everything within `half` of angle `a` out to `r` (all around when half is pi), and cut enemy bullets down. */
+  meleeHit(x: number, y: number, a: number, r: number, half: number, dmg: number, knock: number, src: string) {
+    const all = half >= Math.PI - 0.01;
+    for (const e of this.enemies) {
+      if (e.dead) continue;
+      const d = dist(x, y, e.x, e.y - 3);
+      if (d > r + e.r) continue;
+      if (!all && Math.abs(angleDiff(a, Math.atan2(e.y - 3 - y, e.x - x))) > half + 0.12 + Math.min(0.5, e.r / Math.max(d, 1))) continue;
+      this.damageEnemy(e, dmg, { src, kx: e.x - x, ky: e.y - y, knock, ignoreShield: true });
+    }
+    for (const b of this.eproj) {
+      if (b.dead || dist(x, y, b.x, b.y) > r + 6) continue;
+      if (!all && Math.abs(angleDiff(a, Math.atan2(b.y - y, b.x - x))) > half + 0.25) continue;
+      this.fx.sparks(b.x, b.y, 4, 'gold');
+      this.killProj(b, true);
+    }
+    for (const o of this.obstacles) if (!o.dead && o.kind !== 'pillar' && dist(x, y, o.x, o.y) < r + o.r) this.damageObstacle(o, dmg);
+  }
+
+  /** Pierce upgrades send a flying blade wave out of each swing. */
+  swordWave(x: number, y: number, a: number, dmg: number, waves: number, knock: number, src: string) {
+    const pr = this.spawnProj('bolt', x + Math.cos(a) * 10, y + Math.sin(a) * 10, a, 230, 0.55, 3, dmg * 0.6, waves + 2, knock * 0.4, src, 'b-wave');
+    pr.r = 7;
+  }
+
+  /** Cracks in the floor where a hammer came down. */
+  crack(x: number, y: number, r: number) {
+    const g = this.add.graphics();
+    g.lineStyle(1, 0x181425, 0.7);
+    for (let k = 0; k < 7; k++) {
+      let a = rand(0, TAU);
+      let px = x;
+      let py = y;
+      g.beginPath();
+      g.moveTo(px, py);
+      for (let s = 0; s < 4; s++) {
+        a += rand(-0.5, 0.5);
+        px += Math.cos(a) * r * 0.25;
+        py += Math.sin(a) * r * 0.18;
+        g.lineTo(Math.round(px), Math.round(py));
+      }
+      g.strokePath();
+    }
+    this.decals?.draw(g);
+    g.destroy();
   }
 
   recoil(a: number, amount: number) {
@@ -1476,6 +1617,50 @@ export class GameScene extends Phaser.Scene {
     p.sprite.destroy();
     p.shadow?.destroy();
     if (!silent && (p.kind === 'bolt' || p.kind === 'pellet' || p.kind === 'orb')) this.fx.sparks(p.x, p.y, 3, 'gold');
+  }
+
+  /** An ice lance bursts into a ring of shards where it stops. */
+  shatter(p: Proj, x: number, y: number) {
+    const n = p.split ?? 0;
+    p.split = 0;
+    const a0 = Math.atan2(p.vy, p.vx);
+    for (let i = 0; i < n; i++) {
+      const a = a0 + Math.PI + ((i - (n - 1) / 2) / n) * 4.4;
+      const s = this.spawnProj('shard', x - Math.cos(a0) * 3, y - Math.sin(a0) * 3, a, 210, 0.35, 2.5, p.dmg * 0.35, 0, 20, p.src);
+      s.element = 'ice';
+      s.sprite.setRotation(a);
+    }
+    this.fx.sparks(x, y, 8, 'ice');
+    this.fx.ring(x, y, 14, E.cyan, 180, 1);
+  }
+
+  /** A spent casing kicks out of the gun, tumbles to the floor and fades. */
+  ejectCasing(x: number, y: number, a: number, kind: 'brass' | 'shell') {
+    if (this.casings >= 36) return;
+    this.casings++;
+    const img = this.add.image(Math.round(x), Math.round(y), kind === 'shell' ? 'casing-shell' : 'casing').setDepth(DEPTH.proj - 0.5);
+    const tx = x - Math.cos(a) * rand(5, 10) + rand(-3, 3);
+    const top = y - rand(6, 11);
+    const floor = y + rand(5, 9);
+    this.tweens.add({ targets: img, x: tx, duration: 420 });
+    this.tweens.add({ targets: img, angle: rand(240, 540) * (Math.random() < 0.5 ? -1 : 1), duration: 420 });
+    this.tweens.add({
+      targets: img,
+      y: top,
+      duration: 150,
+      ease: 'Quad.easeOut',
+      onComplete: () => this.tweens.add({ targets: img, y: floor, duration: 270, ease: 'Bounce.easeOut' }),
+    });
+    this.tweens.add({
+      targets: img,
+      alpha: 0,
+      delay: 900,
+      duration: 300,
+      onComplete: () => {
+        img.destroy();
+        this.casings--;
+      },
+    });
   }
 
   /** Rockets blow up on whatever stops them. */
@@ -1541,13 +1726,16 @@ export class GameScene extends Phaser.Scene {
         else if (k > 0.3) p.sprite.setTint(0xff9a30);
       } else if (p.kind === 'rocket') {
         if (Math.random() < 0.7) this.fx.dust(p.x - p.vx * 0.03, p.y - p.vy * 0.03, 1);
-      }
+      } else if (p.spin) p.sprite.rotation += dt * p.spin;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       p.life -= dt;
       if (p.life <= 0) {
         if (p.kind === 'rocket') this.detonate(p);
-        else this.killProj(p, p.kind === 'flame' || p.kind === 'axe');
+        else {
+          if (p.split) this.shatter(p, p.x, p.y);
+          this.killProj(p, p.kind === 'flame' || p.kind === 'axe');
+        }
         continue;
       }
       // Walls stop shots. Blades bounce back; axes are lobbed over everything.
@@ -1562,8 +1750,23 @@ export class GameScene extends Phaser.Scene {
         } else if (p.kind === 'rocket') {
           this.detonate(p, p.x - p.vx * dt, p.y - p.vy * dt);
           continue;
+        } else if ((p.bounce ?? 0) > 0) {
+          // Throwing stars glance off walls: flip whichever way the wall was hit.
+          const bx = p.x - p.vx * dt;
+          const by = p.y - p.vy * dt;
+          const hitX = solidAt(d, p.x, by);
+          const hitY = solidAt(d, bx, p.y);
+          if (hitX || !hitY) p.vx = -p.vx;
+          if (hitY || !hitX) p.vy = -p.vy;
+          p.x = bx;
+          p.y = by;
+          p.bounce!--;
+          p.hit.clear();
+          p.life = Math.max(p.life, 0.5);
+          this.fx.sparks(p.x, p.y, 2, 'white');
         } else {
           if (p.kind !== 'flame') this.fx.sparks(p.x - p.vx * dt, p.y - p.vy * dt, 2, 'gold');
+          if (p.split) this.shatter(p, p.x - p.vx * dt, p.y - p.vy * dt);
           this.killProj(p, true);
           continue;
         }
@@ -1607,6 +1810,7 @@ export class GameScene extends Phaser.Scene {
           p.pierce--;
           continue;
         }
+        if (p.split) this.shatter(p, p.x, p.y);
         this.killProj(p);
         break;
       }
@@ -2553,6 +2757,50 @@ export class GameScene extends Phaser.Scene {
 
   // ---------------------------------------------------------------- drawing
 
+  /** Rotation and forward push for the melee weapon in hand, from the move being played out. */
+  meleePose(dt: number, left: boolean): [number, number] {
+    const m = this.melee.anim;
+    if (!m) return [0, 0];
+    m.t += dt;
+    const k = Math.min(1, m.t / m.dur);
+    const e = 1 - (1 - k) * (1 - k);
+    const flip = left ? -1 : 1;
+    let swing = 0;
+    let reach = 0;
+    switch (m.move) {
+      case 'arc':
+        swing = (-1.3 + 2.6 * e) * m.dir * flip;
+        break;
+      case 'smash':
+        swing = (-2.2 + 2.4 * e) * flip;
+        break;
+      case 'slam':
+        swing = (k < 0.4 ? -2.6 * (k / 0.4) : -2.6 + 2.9 * ((k - 0.4) / 0.6)) * flip;
+        break;
+      case 'spin':
+        swing = e * TAU * flip;
+        break;
+      case 'whirl':
+        swing = k * TAU * 2 * flip;
+        break;
+      case 'cross':
+        swing = (k < 0.5 ? -1 + 4 * k : 1 - 4 * (k - 0.5)) * flip;
+        break;
+      default:
+        reach = Math.sin(k * Math.PI) * 9;
+    }
+    if (k >= 1) this.melee.anim = undefined;
+    return [swing, reach];
+  }
+
+  /** The picture of a weapon in hand right now: a bow drawn between shots, a gatling's barrels turning. */
+  gunKey(w: WeaponInstance): string {
+    const id = w.def.id;
+    if (id === 'bow') return this.player.punch > 0.35 ? 'gun-bow' : 'gun-bow-drawn';
+    if (id === 'gatling' && (w.spin ?? 0) > 0.05) return Math.floor(this.time0 * (8 + 34 * (w.spin ?? 0))) % 2 ? 'gun-gatling-b' : 'gun-gatling';
+    return `gun-${id}`;
+  }
+
   drawWorld(dt: number) {
     this.sortDecor();
     const p = this.player;
@@ -2569,11 +2817,14 @@ export class GameScene extends Phaser.Scene {
       const kick = p.punch * 2;
       const gx = handX - Math.cos(p.aim) * kick;
       const gy = handY - Math.sin(p.aim) * kick;
+      // Melee weapons act out the combo move; guns just kick back.
+      const melee = held?.def.kind === 'slash';
+      const [swing, reach] = melee ? this.meleePose(dt, left) : [0, 0];
+      const hand = this.melee.anim?.hand ?? 0;
       if (held) {
-        // The sword sweeps through its arc; guns just kick back.
-        const swing = held.def.kind === 'slash' ? (p.punch - 0.5) * 2.4 * (left ? -1 : 1) : 0;
-        p.gun.setTexture(`gun-${held.def.id}`).setOrigin(held.def.grip[0], held.def.grip[1]);
-        p.gun.setPosition(Math.round(held.def.kind === 'slash' ? handX : gx), Math.round(held.def.kind === 'slash' ? handY : gy));
+        const lead = held.def.id === 'daggers' && hand === 1 ? 0 : reach;
+        p.gun.setTexture(this.gunKey(held)).setOrigin(held.def.grip[0], held.def.grip[1]);
+        p.gun.setPosition(Math.round(melee ? handX + Math.cos(p.aim) * lead : gx), Math.round(melee ? handY + Math.sin(p.aim) * lead : gy));
         // Reloading tips the muzzle down; a fresh swap swings the gun up from the hip.
         const reloading = !!held.def.mag && (held.reloadT ?? 0) > 0;
         const tilt = reloading ? (left ? -0.75 : 0.75) : 0;
@@ -2583,8 +2834,14 @@ export class GameScene extends Phaser.Scene {
         p.gun.setRotation(p.aim + swing + tilt + flourish).setScale(1, 1 - sw * 0.7).setFlipY(left).setDepth(Math.sin(p.aim) < -0.3 ? DEPTH.player - 0.1 : DEPTH.gun);
       }
       const dual = p.skillT > 0 && run.weapons.length > 1;
-      p.gun2.setVisible(dual && this.mode === 'play');
-      if (dual) {
+      // The twin daggers: the second one rides in the off hand and takes every other stab.
+      const offDagger = held?.def.id === 'daggers' && !dual;
+      p.gun2.setVisible((dual || offDagger) && this.mode === 'play');
+      if (offDagger) {
+        const lead = hand === 1 ? reach : 0;
+        p.gun2.setTexture('gun-daggers').setOrigin(held.def.grip[0], held.def.grip[1]);
+        p.gun2.setPosition(Math.round(handX - (left ? -4 : 4) + Math.cos(p.aim) * lead), Math.round(handY + 2 + Math.sin(p.aim) * lead)).setRotation(p.aim - swing * 0.6).setFlipY(left);
+      } else if (dual) {
         const off = run.weapons[(run.held + 1) % run.weapons.length];
         p.gun2.setTexture(`gun-${off.def.id}`).setOrigin(off.def.grip[0], off.def.grip[1]);
         p.gun2.setPosition(Math.round(gx - (left ? -5 : 5)), Math.round(gy + 2)).setRotation(p.aim).setFlipY(left);
@@ -2673,12 +2930,25 @@ export class GameScene extends Phaser.Scene {
     this.drawReload(dt);
     for (const v of this.visuals) {
       const k = 1 - v.t / v.dur;
+      if (v.kind === 'thrust') {
+        const [x, y, a, r, w] = v.pts;
+        const ext = r * Math.min(1, (1 - k) * 3 + 0.3);
+        const cx = Math.cos(a);
+        const cy = Math.sin(a);
+        vg.fillStyle(v.color, 0.55 * k);
+        vg.fillTriangle(x - cy * w, y + cx * w, x + cy * w, y - cx * w, x + cx * ext, y + cy * ext);
+        vg.fillStyle(0xffffff, 0.95 * k);
+        vg.fillTriangle(x - cy * w * 0.4, y + cx * w * 0.4, x + cy * w * 0.4, y - cx * w * 0.4, x + cx * ext, y + cy * ext);
+        continue;
+      }
       if (v.kind === 'slash') {
-        const [x, y, a, r, half] = v.pts;
+        const [x, y, a, r, half, dir = 1] = v.pts;
         const sweep = 1 - k;
+        const span = half * 2 * Math.min(1, sweep * 2.5);
         vg.lineStyle(Math.max(1, Math.round(4 * k)), 0xffffff, 0.95 * k);
         vg.beginPath();
-        vg.arc(x, y, r * (0.8 + 0.2 * sweep), a - half, a - half + half * 2 * Math.min(1, sweep * 2.5));
+        if (dir >= 0) vg.arc(x, y, r * (0.8 + 0.2 * sweep), a - half, a - half + span);
+        else vg.arc(x, y, r * (0.8 + 0.2 * sweep), a + half - span, a + half);
         vg.strokePath();
         vg.lineStyle(1, v.color, 0.8 * k);
         vg.beginPath();
