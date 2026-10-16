@@ -34,6 +34,34 @@ export const SELF_MOVING = new Set(['jackalDash', 'iaido', 'blink']);
 
 const toward = (e: Enemy, x: number, y: number) => Math.atan2(y - e.y, x - e.x);
 
+/** Styles whose strikes burst out of the floor as spikes of their own material (the rest strike with light). */
+const SPIKY: Record<string, string> = { forest: E.greenD, glacier: '#9fe6f5', desert: E.tan, volcano: E.orange, factory: E.greyM, garden: E.pink, reef: E.magenta };
+
+/** What a landed strike leaves for a moment: a row of spikes bursting up and sinking back, or sparks of light. */
+function erupt(s: GameScene, pts: [number, number][], color: string) {
+  const tint = SPIKY[s.kit.id];
+  pts.forEach(([x, y], i) => {
+    if (!tint) {
+      s.fx.sparks(x, y - 4, 2, 'gold');
+      return;
+    }
+    const sp = s.add
+      .image(x + rand(-2, 2), y + 3, 'spike')
+      .setOrigin(0.5, 1)
+      .setDepth(DEPTH.enemy - 0.2)
+      .setTint(hexToNum(i % 3 === 1 ? color : tint))
+      .setScale(rand(0.8, 1.25), 0);
+    s.tweens.add({ targets: sp, scaleY: rand(0.9, 1.4), duration: 90, delay: i * 14, ease: 'Back.easeOut' });
+    s.tweens.add({ targets: sp, alpha: 0, scaleY: 0.2, delay: 360 + i * 14, duration: 240, onComplete: () => sp.destroy() });
+  });
+}
+
+/** Points every ~11 px along a segment. */
+function along(x1: number, y1: number, x2: number, y2: number): [number, number][] {
+  const n = Math.max(1, Math.floor(Math.hypot(x2 - x1, y2 - y1) / 11));
+  return Array.from({ length: n + 1 }, (_, i) => [x1 + ((x2 - x1) * i) / n, y1 + ((y2 - y1) * i) / n] as [number, number]);
+}
+
 /** A line strike: a warning that fills out, then whatever stands on it is hit. */
 function strikeLine(s: GameScene, x1: number, y1: number, x2: number, y2: number, w: number, delay: number, color: string, after?: () => void) {
   s.telegraphs.push({
@@ -49,6 +77,7 @@ function strikeLine(s: GameScene, x1: number, y1: number, x2: number, y2: number
       const p = s.player;
       if (s.mode === 'play' && segCircle(x1, y1, x2, y2, p.x, p.y - 4, p.r + w / 2)) s.hurtPlayer(1, (x1 + x2) / 2, (y1 + y2) / 2);
       s.visuals.push({ kind: 'beam', pts: [x1, y1, x2, y2], width: Math.max(2, Math.round(w * 0.6)), t: 0, dur: 0.2, color: hexToNum(color) });
+      erupt(s, along(x1, y1, x2, y2), color);
       after?.();
     },
   });
@@ -68,6 +97,9 @@ function strikeCircle(s: GameScene, x: number, y: number, r: number, delay: numb
       if (s.mode === 'play' && Math.hypot(p.x - x, p.y - y) < r + p.r) s.hurtPlayer(1, x, y);
       s.fx.ring(x, y, r, color, 260, 2);
       s.fx.dust(x, y, 6);
+      const pts: [number, number][] = [[x, y]];
+      for (let i = 0; i < 6; i++) pts.push([x + Math.cos((i / 6) * TAU) * r * 0.6, y + Math.sin((i / 6) * TAU) * r * 0.45]);
+      erupt(s, pts, color);
       after?.();
     },
   });

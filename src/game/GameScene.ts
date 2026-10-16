@@ -924,7 +924,8 @@ export class GameScene extends Phaser.Scene {
     const growth = 1 + 0.015 * Math.max(0, this.run.xpLevel - 5);
     const scaleHp = (1.5 + level * 0.95 + depth * 0.12) * growth * (mini ? 0.5 : 1) * this.run.diff.hp;
     const affix: Affix | undefined = elite ? rng.pick(Object.keys(AFFIXES) as Affix[]) : undefined;
-    const hp = def.hp * scaleHp * (elite ? 5 : 1) * (affix === 'tough' ? 1.4 : 1);
+    // Elites take x4: with the sturdier base that is what they had before, so only the rank and file got tougher.
+    const hp = def.hp * scaleHp * (elite ? 4 : 1) * (affix === 'tough' ? 1.4 : 1);
     const size = elite ? 1.6 : mini ? 0.8 : 1;
     const sprite = this.add.image(Math.round(x), Math.round(y), K(`en-${kind}-a`, this.kit)).setDepth(DEPTH.enemy).setOrigin(0.5, 0.8).setScale(size);
     const shadow = this.add.image(x, y, 'shadow').setDepth(DEPTH.shadow).setScale(size * 0.8);

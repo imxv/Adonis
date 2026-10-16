@@ -420,15 +420,17 @@ class AudioEngine {
   bossGather(dur: number) {
     if (!this.gate('bossGather', 250)) return;
     this.safe(() => {
-      const t0 = Tone.getContext().currentTime + 0.02;
+      const t0 = this.at(this.riseNoise, 0.02);
       this.riseNoise.envelope.attack = dur * 0.8;
       this.sweep(this.riseFilter, 220, 1900, t0, dur);
       this.riseNoise.triggerAttack(t0, 0.55);
       this.riseNoise.triggerRelease(t0 + dur);
-      const t = t0 + dur;
+      // Nothing may start this noise again before it has been let go.
+      this.tm.set(this.riseNoise, t0 + dur);
+      const t = this.at(this.whoosh, dur + 0.02);
       this.sweep(this.whooshFilter, 2600, 500, t, 0.22);
       this.whoosh.triggerAttackRelease(0.22, t, 0.7);
-      this.thump.triggerAttackRelease('G1', 0.14, t, 0.6);
+      this.thump.triggerAttackRelease('G1', 0.14, this.at(this.thump, dur + 0.02), 0.6);
     });
   }
 

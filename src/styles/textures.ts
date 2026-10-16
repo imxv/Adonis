@@ -98,6 +98,10 @@ export function buildCommonTextures(scene: Phaser.Scene) {
   add(scene, 'b-book', Grid.ascii(['PPPPPT', 'PyyyPT', 'PyPyPT', 'PyyyPT', 'PPPPPT']).render());
   add(scene, 'b-knife', Grid.ascii(['bbgggw', 'bbGGG.']).render());
   add(scene, 'b-sword', Grid.ascii(['.y.......', 'byggggggw', '.y.GGGGG.']).render());
+  // A spike that bursts from the floor where a guardian's strike lands, tinted to the style's material.
+  const spike = new Grid(5, 12);
+  spike.tri(0, 11, 4, 11, 2, 0, 'w').tri(2, 0, 4, 11, 2, 11, 'g').set(1, 9, 'g');
+  add(scene, 'spike', spike.render({ colors: { w: E.white, g: E.grey } }));
   add(scene, 'b-meteor', Grid.ascii(['......rr.', '.....rOOr', '....rOYYO', '...rOYwYO', '..rOYYYO.', '.rOOOOr..', 'rrr.r....']).render());
 
   // Spell icons for cards and HUD.

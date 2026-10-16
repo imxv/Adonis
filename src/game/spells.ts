@@ -98,7 +98,7 @@ function zap(s: GameScene, x: number, y: number, e: Enemy, dmg: number, src: str
  * Spells back the weapons up rather than replace them: they hit at a fixed fraction of their listed power and take
  * only half of what the shared damage and attack-rate upgrades give the weapons.
  */
-const SPELL_POWER = 0.6;
+const SPELL_POWER = 0.7;
 
 export function updateSpells(s: GameScene, dt: number) {
   const run = s.run;
