@@ -630,8 +630,12 @@ export class GameScene extends Phaser.Scene {
       for (const p of r.decor) {
         const x = p.x * T + T / 2;
         const y = p.y * T + T + 1;
-        this.decor.push(this.add.image(x, y, K(`deco-${p.v}`, kit)).setOrigin(0.5, 1).setDepth(DEPTH.obstacle));
-        const l = arts[p.v].light;
+        // Two visual variants share each original solid tile without changing the route or RNG.
+        const alternate = ((Math.imul(p.x, 73856093) ^ Math.imul(p.y, 19349663) ^ r.seed) >>> 8) % 2;
+        const extra = kit.id === 'forest' ? [3, 5, 4][p.v] : p.v + 3;
+        const variant = alternate && extra < arts.length ? extra : p.v;
+        this.decor.push(this.add.image(x, y, K(`deco-${variant}`, kit)).setOrigin(0.5, 1).setDepth(DEPTH.obstacle));
+        const l = arts[variant].light;
         if (l) this.light.addStatic(x + l.dx, y + l.dy, l.r, l.color);
       }
     }

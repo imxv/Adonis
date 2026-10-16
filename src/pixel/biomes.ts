@@ -72,7 +72,7 @@ export const BIOMES: Biome[] = [
     en: 'FOREST RUINS',
     subtitle: '藤蔓吞没了旧王的回廊',
     palette: { ...common, bg: '#3e8948', bg2: '#265c42', mid: E.green, wall: E.slate, danger: E.hot, extra: [E.amber, E.green, E.greenDD] },
-    px: { floor: 'grass', floorCols: ['#3e8948', '#367a40', '#63c74d', '#265c42'], wall: 'brick', wallTop: '#3a4466', wallFace: '#5a6988', wallDark: '#262b44', slime: E.green, bat: E.purple, piglet: E.brownL, robe: E.brown, goblin: E.green, stone: E.greyM, glow: E.yellow },
+    px: { floor: 'grass', floorCols: ['#3e8948', '#367a40', '#63c74d', '#265c42'], wall: 'brick', wallTop: '#354b42', wallFace: '#6c7c69', wallDark: '#2a3c36', slime: E.green, bat: E.purple, piglet: E.brownL, robe: E.brown, goblin: E.green, stone: E.greyM, glow: E.yellow },
     overlay: { grain: 0, vignette: 0.35 },
     fonts,
     frame: 'pixel',

@@ -12,6 +12,7 @@ import { Grid } from '../pixel/draw';
 import { E } from '../pixel/palette';
 import { K, buildKitTextures, buildLevel } from '../styles/textures';
 import { themeProps } from '../pixel/themeProps';
+import { DECO_NAMES } from '../pixel/decor';
 
 /** A picture for the codex: a data URL with its pixel size. */
 export interface Pic {
@@ -318,8 +319,8 @@ export function buildCodex(scene: Phaser.Scene): CodexTab[] {
       icon: tex(K('pillar', forest)),
       tag: '障碍',
       tagColor: E.grey,
-      desc: '每种画风三种，成对靠墙摆放：宫殿的大理石像和石柱、古堡的盔甲和烛台、森林的古树和巨菇、雪原的雪松和雪人……打不坏，会挡路也会挡子弹，怪物会绕开走。烛台、石灯笼、熔岩石自己会发光。墙上的油画、锁链、藤蔓和地上的杂物只是装饰。',
-      gallery: { title: '各画风的装饰', pics: BIOMES.flatMap((k) => [0, 1, 2].map((i) => tex(K(`deco-${i}`, k)))) },
+      desc: '十种画风各有六种场景摆件，成对靠墙摆放：冰封石门、沙漠遗物、蒸汽机械、庭院竹簇等各有特色。打不坏，会挡路也会挡子弹，怪物会绕开走。部分摆件会发光。地面的冰纹、沙丘、铺装、落花与小碎片只是装饰，不会挡路。',
+      gallery: { title: '各画风的装饰', pics: BIOMES.flatMap((k) => DECO_NAMES[k.id].map((_, i) => tex(K(`deco-${i}`, k)))) },
     },
     { id: 'chest', name: '宝箱', icon: tex('chest'), tag: '奖励', tagColor: E.yellow, desc: '走过去就会打开，直接给一件奖励：法术升级、稀有加成，满足条件时是法术进化。' },
     { id: 'chest-w', name: '武器箱', icon: tex('chest-w'), tag: '奖励', tagColor: E.cyan, desc: '钢制的箱子，打开后从三把武器里挑一把，也可以都不要。清房、尸潮房和守卫都可能掉落。' },
@@ -348,7 +349,13 @@ function postcard(scene: Phaser.Scene, kit: Biome, canvasOf: (key: string) => HT
   const h = 6;
   const tiles = new Uint8Array(w * h).fill(FLOOR);
   for (let x = 0; x < w; x++) tiles[x] = tiles[w + x] = WALL;
-  const fake = { w, h, tiles, blocked: new Set<number>(), rooms: [], byId: new Map(), torches: [[2 * T + 8, T + 4], [7 * T + 8, T + 4]] } as unknown as Dungeon;
+  const room = {
+    id: 'postcard', gx: 0, gy: 0, depth: 0, type: 'start', seed: 7,
+    doors: { up: false, down: false, left: false, right: false }, cleared: true, visited: true, seen: true,
+    x0: 0, y0: 2, x1: w, y1: h, shape: 'rect', gates: [], props: [], traps: [], decor: [],
+  };
+  const fake = { w, h, tiles, blocked: new Set<number>(), rooms: [room], byId: new Map(), start: room, boss: room,
+    torches: [[2 * T + 8, T + 4], [7 * T + 8, T + 4]] } as unknown as Dungeon;
   const base = canvasOf(buildLevel(scene, kit, fake, 7, `codex-level@${kit.id}`));
   const c = document.createElement('canvas');
   c.width = base.width;

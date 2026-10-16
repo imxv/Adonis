@@ -17,20 +17,33 @@ export interface ThemeProps {
 const C = { w: E.white, g: E.grey, G: E.greyM, D: E.slate, d: E.slateD, n: E.navy, k: E.ink, y: E.amber, Y: E.yellow, O: E.orange, r: E.red, R: E.redD, p: E.pink, b: E.brownL, B: E.brown, x: E.brownD, t: E.tan, T: E.cream, c: E.cyan, K: E.blue, Q: E.blueD, l: E.green, L: E.greenD, M: E.greenDD, P: E.magenta, v: E.purple };
 
 function stump(): Grid {
-  const g = new Grid(14, 13);
-  g.rect(1, 4, 12, 8, 'B').rect(1, 4, 2, 8, 'b').rect(11, 4, 2, 8, 'x');
-  g.ellipse(7, 4, 6, 2.5, 't').ellipse(7, 4, 4, 1.5, 'T').ellipse(7, 4, 2, 0.8, 't').set(7, 4, 'b');
-  g.rect(0, 11, 3, 2, 'B').rect(11, 11, 3, 2, 'x');
-  g.set(3, 7, 'l').set(4, 6, 'l').set(9, 9, 'L').set(2, 10, 'l');
+  const g = new Grid(17, 15);
+  g.ellipse(8, 8, 5.5, 5, 'B').rect(3, 5, 10, 7, 'B').rect(3, 6, 2, 6, 'b').rect(11, 6, 2, 7, 'x');
+  g.tri(4, 9, 0, 14, 7, 14, 'B').tri(11, 9, 16, 14, 9, 14, 'x');
+  g.line(4, 11, 2, 14, 'b').line(8, 11, 7, 14, 'x').line(12, 12, 14, 14, 'B');
+  // An uneven rim, a broken bark prong and a hollow knot replace the boxy edge.
+  g.ellipse(8, 4, 5.5, 2.5, 'b').ellipse(8, 4, 4.5, 1.5, 't');
+  g.ellipse(8, 4, 3, 1, 'b').ellipse(8, 4, 1.5, 0.5, 'T').set(8, 4, 'B');
+  g.rect(3, 1, 2, 4, 'B').set(3, 0, 'b').set(4, 2, 't').set(12, 3, 'x');
+  g.line(8, 5, 10, 6, 'B').line(5, 7, 6, 10, 'x').rect(9, 8, 2, 3, 'x').set(9, 8, 'b');
+  g.rect(3, 11, 4, 2, 'M').rect(4, 10, 2, 1, 'L').set(4, 11, 'l');
+  g.set(11, 13, 'L').set(12, 13, 'M').rect(13, 10, 3, 1, 't').rect(14, 9, 2, 1, 'T');
   return g;
 }
 
 function sporePod(): Grid {
-  const g = new Grid(12, 14);
-  g.rect(5, 11, 2, 3, 'L');
-  g.ellipse(6, 6, 5, 5.5, 'l').ellipse(5, 4, 2.5, 2.5, 'L').ellipse(7, 8, 3, 2.5, 'M');
-  for (const [x, y] of [[3, 3], [8, 5], [4, 8], [7, 10], [9, 2]]) g.set(x, y, 'Y');
-  g.set(6, 0, 'l').set(5, 1, 'l').set(4, 4, 'w');
+  const g = new Grid(16, 17);
+  g.rect(7, 9, 3, 7, 't').rect(9, 10, 1, 6, 'b').rect(7, 11, 1, 3, 'T');
+  g.ellipse(8, 6, 6.5, 5, 'M').ellipse(7, 4.5, 5.5, 3.5, 'L').ellipse(6, 3, 2.5, 1.5, 'l');
+  g.rect(3, 9, 10, 2, 'M').rect(4, 10, 8, 1, 't');
+  for (const x of [4, 6, 10, 12]) g.line(x, 9, 8, 11, 'b');
+  // Bright pustules and a split crown signal an explosive mushroom.
+  g.rect(7, 0, 3, 1, 'M').set(8, 1, 'Y').set(8, 2, 'M');
+  for (const [x, y] of [[4, 4], [10, 3], [7, 7], [12, 6]]) g.rect(x, y, 2, 1, 'Y').set(x, y + 1, 'l');
+  g.set(4, 3, 'T').set(10, 2, 'T');
+  g.rect(2, 14, 2, 2, 't').ellipse(3, 13, 2.5, 2, 'L').set(3, 12, 'Y');
+  g.rect(12, 15, 2, 2, 'b').ellipse(13, 14, 2, 1.5, 'M').set(12, 13, 'l');
+  g.rect(4, 16, 8, 1, 'M').set(5, 15, 'L').set(10, 15, 'L');
   return g;
 }
 

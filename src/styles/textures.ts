@@ -11,7 +11,8 @@ import { POSES, guardianArt } from '../pixel/bossArt';
 import { DAVID_COLORS, david, temple, terrace } from '../pixel/david';
 import type { Biome } from '../pixel/biomes';
 import { FLOOR, PROP, T, VOID, WALL, tileAt, type Dungeon } from '../game/dungeon';
-import { decoArt, paintFloor, paintWall } from '../pixel/decor';
+import { decoArt, paintWall } from '../pixel/decor';
+import { paintBiomeFloor } from '../pixel/biomeFloor';
 
 export const K = (name: string, kit: Biome) => `${name}@${kit.id}`;
 
@@ -571,7 +572,7 @@ export function buildLevel(scene: Phaser.Scene, kit: Biome, d: Dungeon, seed: nu
   const ctx = c.getContext('2d')!;
   const rng = new Rng(seed);
   const px = kit.px;
-  const [base, alt, d1, d2] = px.floorCols;
+  const [base] = px.floorCols;
   const P = (x: number, y: number, col: string, w = 1, h = 1) => {
     ctx.fillStyle = col;
     ctx.fillRect(x, y, w, h);
@@ -588,49 +589,8 @@ export function buildLevel(scene: Phaser.Scene, kit: Biome, d: Dungeon, seed: nu
       const x = tx * T;
       const y = ty * T;
       if (floorish(t)) {
-        const odd = (tx + ty) % 2 === 1;
-        switch (px.floor) {
-          case 'checker':
-          case 'marble':
-            P(x, y, odd ? alt : base, T, T);
-            if (px.floor === 'marble' && rng.chance(0.3)) {
-              let vx = x + rng.int(0, 15);
-              for (let k = 0; k < 9; k++) {
-                P(vx, y + k + rng.int(0, 5), odd ? d2 : d1);
-                vx += rng.int(-1, 1);
-              }
-            }
-            break;
-          case 'metal':
-            P(x, y, rng.chance(0.12) ? alt : base, T, T);
-            P(x, y, d2, T, 1);
-            P(x, y, d2, 1, T);
-            P(x + 1, y + 1, mix(base, '#ffffff', 0.15), 14, 1);
-            for (const [rx, ry] of [[2, 2], [13, 2], [2, 13], [13, 13]]) P(x + rx, y + ry, d1);
-            break;
-          default:
-            P(x, y, base, T, T);
-            for (let k = 0; k < 4; k++) P(x + rng.int(0, 15), y + rng.int(0, 15), alt);
-            const r = rng.next();
-            if (px.floor === 'grass' && r < 0.3) {
-              const gx = x + rng.int(2, 12);
-              const gy = y + rng.int(4, 12);
-              P(gx, gy, d1);
-              P(gx + 2, gy, d1);
-              P(gx + 1, gy - 1, d1);
-            } else if (px.floor === 'grass' && r < 0.34) P(x + rng.int(2, 13), y + rng.int(2, 13), rng.pick([E.yellow, E.white, E.pink]));
-            else if (px.floor === 'sand' && r < 0.3) for (let k = 0; k < 9; k++) P(x + 3 + k, y + 7 + (k % 4 < 2 ? 0 : 1), d2);
-            else if (px.floor === 'ice' && r < 0.15) P(x + rng.int(2, 11), y + rng.int(2, 13), d1, 3, 1);
-            else if (px.floor === 'lava' && r < 0.2) {
-              let lx = x + rng.int(2, 13);
-              let ly = y + rng.int(2, 8);
-              for (let k = 0; k < 7; k++) {
-                P(lx, ly, k % 3 === 0 ? E.amber : d1);
-                lx += rng.int(-1, 1);
-                ly += 1;
-              }
-            } else if (px.floor === 'paper' && r < 0.12) P(x + 2, y + 2, d2, 12, 12);
-        }
+        // Large theme-specific terrain is applied in a separate, seeded pass below.
+        P(x, y, base, T, T);
       } else if (t === WALL) {
         const below = at(tx, ty + 1);
         if (floorish(below)) {
@@ -669,33 +629,7 @@ export function buildLevel(scene: Phaser.Scene, kit: Biome, d: Dungeon, seed: nu
       }
     }
   }
-  // Floor clutter for the biome.
-  for (let ty = 0; ty < d.h; ty++) for (let tx = 0; tx < d.w; tx++) if (at(tx, ty) === FLOOR) paintFloor(P, kit.id, tx * T, ty * T, rng);
-
-  // The palace lays a red runner down the middle of each room.
-  if (kit.id === 'palace') {
-    for (const r of d.rooms) {
-      const cx = Math.floor((r.x0 + r.x1) / 2) * T + 8;
-      const x0 = cx - 13;
-      for (let ty = r.y0; ty < r.y1; ty++) {
-        for (let tx = Math.floor(x0 / T); tx <= Math.floor((x0 + 25) / T); tx++) {
-          if (at(tx, ty) !== FLOOR) continue;
-          const lo = Math.max(tx * T, x0);
-          const hi = Math.min(tx * T + T, x0 + 26);
-          P(lo, ty * T, E.redD, hi - lo, T);
-        }
-        if (at(Math.floor(cx / T), ty) !== FLOOR) continue;
-        P(x0, ty * T, E.amber, 1, T);
-        P(x0 + 25, ty * T, E.amber, 1, T);
-        P(x0 + 2, ty * T, E.red, 1, T);
-        P(x0 + 23, ty * T, E.red, 1, T);
-        // Gold lozenges down the centre.
-        P(cx - 1, ty * T + 6, E.amber, 2, 4);
-        P(cx - 2, ty * T + 7, E.amber, 4, 2);
-        P(cx - 1, ty * T + 7, E.yellow, 1, 1);
-      }
-    }
-  }
+  paintBiomeFloor(P, kit.id, d, seed);
 
   // Trap fixtures are part of the floor: spike plates and saw slots, visible before the traps arm.
   for (const r of d.rooms) {

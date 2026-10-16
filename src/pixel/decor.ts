@@ -1,9 +1,11 @@
 import { Grid } from './draw';
 import { E, mix } from './palette';
 import type { Rng } from '../core/rng';
+import { forestDecor, paintForestWall } from './forestDecor';
+import { extraBiomeDecor, EXTRA_DECO_NAMES } from './biomeDecor';
 
 /*
- * Biome dressing. Three standing pieces per biome (statues, trees, lanterns...) that block like a wall tile
+ * Biome dressing. Standing pieces (statues, trees, lanterns...) that block like a wall tile
  * and do nothing else, plus painters for wall decorations (murals, chains, vines...) and floor clutter,
  * which are baked straight into the level image.
  */
@@ -18,52 +20,6 @@ export interface DecoArt {
 const STONE = { S: E.white, s: E.grey, D: E.greyM, d: E.slate };
 const LEAF = { L: E.green, l: E.greenD, d: E.greenDD };
 const BARK = { h: E.brownL, b: E.brown, B: E.brownD };
-
-// ---------------------------------------------------------------- forest
-
-function tree(): DecoArt {
-  const g = new Grid(18, 27);
-  g.rect(7, 16, 4, 11, 'b').rect(7, 16, 1, 11, 'h').rect(10, 16, 1, 11, 'B');
-  g.set(6, 26, 'b').set(11, 26, 'B').set(5, 26, 'B').set(12, 26, 'B').set(8, 21, 'B').set(9, 19, 'h');
-  g.ellipse(9, 10, 8, 7, 'l');
-  g.ellipse(4, 12, 3.5, 3, 'l').ellipse(14, 12, 3.5, 3, 'l');
-  g.ellipse(12, 13, 4, 3, 'd').ellipse(5, 15, 3, 1.5, 'd').ellipse(9, 16, 3, 1, 'd');
-  g.ellipse(6, 6, 3.5, 3, 'L').ellipse(10, 4, 3, 2, 'L').ellipse(3, 10, 1.5, 1.5, 'L');
-  for (const [x, y] of [[12, 8], [7, 11], [14, 10], [4, 8], [10, 12]]) g.set(x, y, 'L');
-  for (const [x, y] of [[8, 9], [13, 6], [5, 13], [11, 15]]) g.set(x, y, 'd');
-  g.set(13, 9, 'r').set(6, 12, 'r').set(9, 7, 'r');
-  return { g, colors: { ...LEAF, ...BARK, r: E.red } };
-}
-
-function ruin(): DecoArt {
-  const g = new Grid(14, 20);
-  g.rect(0, 16, 14, 4, 's').rect(0, 16, 14, 1, 'S').rect(13, 16, 1, 4, 'd');
-  g.rect(2, 3, 10, 13, 's').rect(2, 3, 2, 13, 'S').rect(11, 3, 1, 13, 'D');
-  g.rect(5, 3, 1, 13, 'D').rect(8, 3, 1, 13, 'D');
-  // A broken top.
-  for (const [x, y] of [[2, 3], [3, 3], [4, 3], [2, 4], [9, 3], [10, 3], [11, 3], [11, 4], [10, 4]]) g.set(x, y, '.');
-  g.set(6, 2, 's').set(7, 1, 's').set(7, 2, 'S').set(8, 2, 's');
-  g.line(7, 7, 9, 10, 'd').line(4, 11, 5, 13, 'd');
-  // Moss over the top and running down.
-  g.rect(3, 4, 8, 1, 'l').rect(5, 3, 3, 1, 'L').set(6, 2, 'L').set(7, 1, 'L');
-  for (const [x, len] of [[3, 4], [6, 2], [9, 5], [10, 2]]) g.rect(x, 5, 1, len, 'l');
-  g.set(1, 15, 'L').set(2, 15, 'l').set(11, 15, 'L').set(12, 15, 'l').set(4, 19, 'l');
-  return { g, colors: { ...STONE, ...LEAF } };
-}
-
-function mushroom(): DecoArt {
-  const g = new Grid(16, 18);
-  g.rect(5, 9, 5, 9, 'T').rect(5, 9, 1, 9, 'w').rect(9, 9, 1, 9, 'u');
-  g.ellipse(7.5, 6, 7.5, 5, 'r');
-  g.rect(1, 9, 14, 1, 'R').rect(3, 10, 10, 1, 'u');
-  g.ellipse(5, 3, 3, 1.5, 'p').set(9, 2, 'p');
-  g.ellipse(11, 7, 3, 1.5, 'R');
-  for (const [x, y] of [[4, 5], [9, 3], [12, 6], [7, 7], [2, 7]]) g.rect(x, y, 2, 1, 'W').set(x, y + 1, 'W');
-  // A little one beside it.
-  g.rect(12, 15, 2, 3, 'T').ellipse(12.5, 14, 2.5, 1.5, 'r').set(12, 13, 'W');
-  g.rect(3, 17, 9, 1, 'l');
-  return { g, colors: { T: E.cream, w: E.white, u: E.tan, r: E.red, R: E.redD, p: E.pink, W: E.white, l: E.greenD } };
-}
 
 // ---------------------------------------------------------------- glacier
 
@@ -414,44 +370,45 @@ function hydrant(): DecoArt {
   return { g, colors: { r: E.red, p: E.pink, R: E.redD, D: E.slate, y: E.yellow, c: E.blueD } };
 }
 
-/** The three standing pieces of each biome; index 0 is its signature piece. */
+/** Standing pieces of each biome; index 0 is its signature piece. */
 export function decoArt(biome: string): DecoArt[] {
   switch (biome) {
     case 'forest':
-      return [tree(), ruin(), mushroom()];
+      return forestDecor();
     case 'glacier':
-      return [pine(), iceShards(), snowman()];
+      return [pine(), iceShards(), snowman(), ...extraBiomeDecor(biome)];
     case 'desert':
-      return [cactus(), obelisk(), urn()];
+      return [cactus(), obelisk(), urn(), ...extraBiomeDecor(biome)];
     case 'volcano':
-      return [spire(), magmaRock(), deadTree()];
+      return [spire(), magmaRock(), deadTree(), ...extraBiomeDecor(biome)];
     case 'factory':
-      return [boiler(), gear(), valve()];
+      return [boiler(), gear(), valve(), ...extraBiomeDecor(biome)];
     case 'castle':
-      return [armor(), tomb(), candelabra()];
+      return [armor(), tomb(), candelabra(), ...extraBiomeDecor(biome)];
     case 'garden':
-      return [stoneLantern(), bonsai(), scholarRock()];
+      return [stoneLantern(), bonsai(), scholarRock(), ...extraBiomeDecor(biome)];
     case 'reef':
-      return [coral(), clam(), anchor()];
+      return [coral(), clam(), anchor(), ...extraBiomeDecor(biome)];
     case 'neon':
-      return [neonSign(), vending(), hydrant()];
+      return [neonSign(), vending(), hydrant(), ...extraBiomeDecor(biome)];
     default:
-      return [statue(), column(), orangeTree()];
+      return [statue(), column(), orangeTree(), ...extraBiomeDecor(biome)];
   }
 }
 
-export const DECO_NAMES: Record<string, [string, string, string]> = {
-  forest: ['古树', '长苔的断柱', '巨菇'],
-  glacier: ['雪松', '冰晶簇', '雪人'],
-  desert: ['仙人掌', '方尖碑', '陶罐'],
-  volcano: ['黑曜石尖塔', '熔岩石', '焦木'],
-  factory: ['锅炉', '齿轮架', '蒸汽阀'],
-  castle: ['盔甲', '墓碑', '烛台'],
-  garden: ['石灯笼', '盆景', '太湖石'],
-  palace: ['大理石像', '石柱', '橘树盆栽'],
-  reef: ['珊瑚', '巨蚌', '沉船铁锚'],
-  neon: ['霓虹招牌', '自动售货机', '消防栓'],
+export const DECO_NAMES: Record<string, string[]> = {
+  forest: ['古树', '长苔的断柱', '巨菇簇', '白桦树', '开花灌木', '倒木'],
+  glacier: ['雪松', '冰晶簇', '雪人', ...EXTRA_DECO_NAMES.glacier],
+  desert: ['仙人掌', '方尖碑', '陶罐', ...EXTRA_DECO_NAMES.desert],
+  volcano: ['黑曜石尖塔', '熔岩石', '焦木', ...EXTRA_DECO_NAMES.volcano],
+  factory: ['锅炉', '齿轮架', '蒸汽阀', ...EXTRA_DECO_NAMES.factory],
+  castle: ['盔甲', '墓碑', '烛台', ...EXTRA_DECO_NAMES.castle],
+  garden: ['石灯笼', '盆景', '太湖石', ...EXTRA_DECO_NAMES.garden],
+  palace: ['大理石像', '石柱', '橘树盆栽', ...EXTRA_DECO_NAMES.palace],
+  reef: ['珊瑚', '巨蚌', '沉船铁锚', ...EXTRA_DECO_NAMES.reef],
+  neon: ['霓虹招牌', '自动售货机', '消防栓', ...EXTRA_DECO_NAMES.neon],
 };
+
 
 // ---------------------------------------------------------------- painted onto the level
 
@@ -464,15 +421,7 @@ export type Paint = (x: number, y: number, col: string, w?: number, h?: number) 
 export function paintWall(P: Paint, biome: string, x: number, y: number, k: number, rng: Rng, face: string): boolean {
   switch (biome) {
     case 'forest': {
-      // Vines hanging from the top with leaves, and a moss line at the foot.
-      for (const vx of [2, 6, 11]) {
-        const len = rng.int(5, 13);
-        for (let j = 0; j < len; j++) P(x + vx + (j % 5 === 4 ? 1 : 0), y + j, j % 3 === 0 ? E.green : E.greenD);
-        P(x + vx - 1, y + Math.floor(len / 2), E.green);
-        P(x + vx + 1, y + len - 1, E.green);
-      }
-      P(x, y + 14, E.greenD, 16, 1);
-      P(x + 3, y + 13, E.greenD, 4, 1);
+      paintForestWall(P, x, y, k, rng);
       return true;
     }
     case 'glacier': {
