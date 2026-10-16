@@ -87,7 +87,8 @@ export function spawnBoss(s: GameScene, kind: 'guardian' | 'boar'): Enemy {
 }
 
 export function bossDeath(s: GameScene, e: Enemy) {
-  s.slow(0.22, 1.5);
+  // The camera drifts over to the fallen guardian while time hangs (the bullet time comes with the room clear).
+  s.camFocus = { x: e.x, y: e.y - 16, t: 2.4 };
   s.light.darkT = 0;
   s.fx.flash('#ffffff', 0.75, 1000);
   s.fx.shake(1);

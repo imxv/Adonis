@@ -36,6 +36,8 @@ class AudioEngine {
   private fuseSub!: Tone.MembraneSynth;
   private fuseNoise!: Tone.NoiseSynth;
   private fuseFilter!: Tone.Filter;
+  /** The music bus's low-pass: wide open, closed down while time slows. */
+  private musicLP!: Tone.Filter;
   private fuseBell!: Tone.PolySynth;
 
   private kit?: StyleKit;
@@ -69,7 +71,8 @@ class AudioEngine {
     this.verb.connect(master);
     this.sfx = new Tone.Gain(this.vol.sfx).connect(master);
     this.sfx.connect(verbSend);
-    this.music = new Tone.Gain(this.vol.music).connect(master);
+    this.musicLP = new Tone.Filter({ frequency: 18000, type: 'lowpass', rolloff: -12 }).connect(master);
+    this.music = new Tone.Gain(this.vol.music).connect(this.musicLP);
     this.music.connect(verbSend);
 
     this.pop = new Tone.MembraneSynth({ pitchDecay: 0.018, octaves: 2.5, envelope: { attack: 0.001, decay: 0.07, sustain: 0, release: 0.03 } }).connect(this.sfx);
@@ -184,6 +187,23 @@ class AudioEngine {
     } catch {
       // A dropped sound is fine; a thrown frame is not.
     }
+  }
+
+  /** Bullet time: the music sinks as if under water, holds, and surfaces again, with one long soft breath of air. */
+  slowmo(hold: number, out: number) {
+    this.safe(() => {
+      const f = this.musicLP.frequency;
+      const t = Tone.now();
+      f.cancelScheduledValues(t);
+      f.setValueAtTime(Math.max(400, Number(f.value)), t);
+      f.exponentialRampToValueAtTime(520, t + 0.14);
+      f.setValueAtTime(520, t + 0.14 + hold);
+      f.exponentialRampToValueAtTime(18000, t + 0.14 + hold + out);
+      const w = this.at(this.whoosh);
+      this.sweep(this.whooshFilter, 2600, 240, w, 0.55);
+      this.whoosh.triggerAttackRelease(0.55, w, 0.5);
+      this.thump.triggerAttackRelease('C1', 0.4, this.at(this.thump), 0.5);
+    });
   }
 
   private sweep(filter: Tone.Filter, from: number, to: number, t: number, dur: number) {

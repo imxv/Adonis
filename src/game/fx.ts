@@ -145,6 +145,11 @@ export class Fx {
     this.rays.push({ x, y, r, t: 0, dur: dur / 1000, color: hexToNum(color) });
   }
 
+  /** Bullet time reaches the particles too. */
+  setTimeScale(k: number) {
+    for (const em of [this.emStyle, this.emPetal, this.emDust, ...Object.values(this.emSpark)]) if (em) em.timeScale = k;
+  }
+
   setKit(kit: StyleKit) {
     this.kit = kit;
     this.emStyle?.destroy();

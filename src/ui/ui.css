@@ -685,6 +685,53 @@ body {
   animation: bump 0.14s steps(3);
 }
 
+/* Bullet time: letterbox bars slide in over the HUD's edges while the world loses its colour. */
+.cinema {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.cinema::before,
+.cinema::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 24px;
+  background: #07060b;
+  transition: transform 0.36s steps(6);
+}
+
+.cinema::before {
+  top: 0;
+  transform: translateY(-100%);
+  box-shadow: 0 1px 0 rgba(254, 231, 97, 0.5);
+}
+
+.cinema::after {
+  bottom: 0;
+  transform: translateY(100%);
+  box-shadow: 0 -1px 0 rgba(254, 231, 97, 0.5);
+}
+
+.cinema.on::before,
+.cinema.on::after {
+  transform: none;
+  transition-duration: 0.12s;
+  transition-timing-function: steps(3);
+}
+
+canvas {
+  transition: filter 0.5s;
+}
+
+canvas.bt {
+  filter: saturate(0.25) contrast(1.12) brightness(0.92);
+  transition: filter 0.12s;
+}
+
 /* Room clear: a dark band sweeps open across the upper screen, the grade slams onto it, a light runs over it. */
 .clearbanner {
   position: absolute;

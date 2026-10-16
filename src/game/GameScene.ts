@@ -160,6 +160,10 @@ export class GameScene extends Phaser.Scene {
   hitstop = 0;
   slowT = 0;
   slowScale = 1;
+  /** Bullet time: time sinks to `low` fast, holds, then eases back to full speed. */
+  bt?: { t: number; low: number; hold: number; out: number };
+  /** Somewhere the camera leans toward for a moment (a fallen boss). */
+  camFocus?: { x: number; y: number; t: number };
   pendingLevelUps = 0;
   /** Floor dangers left by bosses (lava pools): hurt the knight while it stands in them. */
   ehazards: { x: number; y: number; r: number; t: number; color: number }[] = [];
@@ -1070,7 +1074,9 @@ export class GameScene extends Phaser.Scene {
     this.run.score += grade.points;
     // The room falls quiet: a beat of slow motion, a flash, a ring of gold, a fanfare and the clear banner.
     const p = this.player;
-    this.slow(0.3, 0.45);
+    if (bossDown) this.bulletTime(0.1, 1.5, 1.0);
+    else this.bulletTime(0.18, 0.6, 0.55);
+    this.fx.implode(p.x, p.y - 6, 150, E.white, 380, 1);
     this.fx.flash(E.white, 0.22, 320);
     this.fx.ring(p.x, p.y - 6, 110, E.yellow, 650, 2);
     this.fx.ring(p.x, p.y - 6, 60, E.white, 420, 1);
@@ -1108,7 +1114,7 @@ export class GameScene extends Phaser.Scene {
 
   update(_t: number, dms: number) {
     const realDt = Math.min(dms, 50) / 1000;
-    this.fx.update(realDt);
+    this.fx.update(realDt * this.slowScale);
     if (!this.kit || !this.player) return;
     const ptr = this.input.activePointer;
     const wp = this.cameras.main.getWorldPoint(ptr.x, ptr.y);
@@ -1124,10 +1130,28 @@ export class GameScene extends Phaser.Scene {
       this.hitstop -= realDt;
       return;
     }
-    if (this.slowT > 0) {
+    if (this.bt) {
+      const b = this.bt;
+      b.t += realDt;
+      const IN = 0.1;
+      if (b.t < IN) this.slowScale = 1 - (1 - b.low) * (b.t / IN);
+      else if (b.t < IN + b.hold) this.slowScale = b.low;
+      else {
+        const u = Math.min(1, (b.t - IN - b.hold) / b.out);
+        this.slowScale = b.low + (1 - b.low) * u * u * (3 - 2 * u);
+      }
+      if (b.t >= IN + b.hold + b.out) {
+        this.bt = undefined;
+        this.slowScale = 1;
+      }
+    } else if (this.slowT > 0) {
       this.slowT -= realDt;
       if (this.slowT <= 0) this.slowScale = 1;
     }
+    // Everything in the world keeps the same clock: tweens, timers and particles slow down with it.
+    this.tweens.timeScale = this.slowScale;
+    this.time.timeScale = this.slowScale;
+    this.fx.setTimeScale(this.slowScale);
     const dt = realDt * this.slowScale;
     this.time0 += dt;
     if (this.mode === 'play') this.run.elapsed += realDt;
@@ -1183,9 +1207,21 @@ export class GameScene extends Phaser.Scene {
       nx = clamp((ptr.x - cam.width / 2) / (cam.width / 2), -1, 1);
       ny = clamp((ptr.y - cam.height / 2) / (cam.height / 2), -1, 1);
     }
+    let fx = p.x + nx * LEAN_X;
+    let fy = p.y - 6 + ny * LEAN_Y;
+    const cf = this.camFocus;
+    if (cf) {
+      cf.t -= dt;
+      if (cf.t <= 0) this.camFocus = undefined;
+      else {
+        const w = Math.min(1, cf.t * 2) * 0.65;
+        fx += (cf.x - fx) * w;
+        fy += (cf.y - fy) * w;
+      }
+    }
     const f = 1 - Math.exp(-dt * 7);
-    this.camX += (p.x + nx * LEAN_X - this.camX) * f;
-    this.camY += (p.y - 6 + ny * LEAN_Y - this.camY) * f;
+    this.camX += (fx - this.camX) * f;
+    this.camY += (fy - this.camY) * f;
     const kd = Math.exp(-dt * 24);
     this.kickX *= kd;
     this.kickY *= kd;
@@ -1243,8 +1279,21 @@ export class GameScene extends Phaser.Scene {
   }
 
   slow(scale: number, sec: number) {
+    this.bt = undefined;
     this.slowScale = scale;
     this.slowT = sec;
+  }
+
+  /**
+   * The settling moment after a won fight: time drops to `low` within a tenth of a second, hangs there for `hold`,
+   * then eases back over `out`. Bars close in, the world drains of colour and the music sinks, while the clear
+   * banner plays at full speed on top of it.
+   */
+  bulletTime(low: number, hold: number, out: number) {
+    this.slowT = 0;
+    this.bt = { t: 0, low, hold, out };
+    audio.slowmo(hold, out);
+    ui.cinema((0.1 + hold + out * 0.6) * 1000);
   }
 
   pointer() {

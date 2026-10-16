@@ -367,6 +367,25 @@ class UI implements LayerHost {
   }
 
   /** A room is cleared: a banner sweeps open with the grade stamped on it, the points, and how the fight went. */
+  private cine?: HTMLElement;
+  private cineTimer = 0;
+
+  /** Bullet time: black bars close in from above and below and the world drains of colour; the UI stays bright. */
+  cinema(ms: number) {
+    if (!this.cine?.isConnected) {
+      this.cine = el('div', 'cinema');
+      this.hud.after(this.cine);
+    }
+    const c = this.cine;
+    c.classList.add('on');
+    this.canvas?.classList.add('bt');
+    clearTimeout(this.cineTimer);
+    this.cineTimer = window.setTimeout(() => {
+      c.classList.remove('on');
+      this.canvas?.classList.remove('bt');
+    }, ms);
+  }
+
   roomClear(o: { rank: Rank; points: number; secs: number; kills: number; combo: number; boss: boolean }) {
     this.root.querySelectorAll('.clearbanner, .stamp').forEach((x) => x.remove());
     const node = el('div', 'clearbanner');
