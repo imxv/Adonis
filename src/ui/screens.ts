@@ -70,9 +70,13 @@ export class MenuNav {
     return from;
   }
 
+  /** Called whenever the highlight moves (the title page uses it to change the caption under its painting). */
+  onFocus?: (i: number) => void;
+
   select(i: number) {
     this.sel = i;
     this.rows.forEach((r, k) => r.classList.toggle('sel', k === i));
+    this.onFocus?.(i);
   }
 
   /** Returns true if the key was a menu key. */

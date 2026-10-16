@@ -1033,15 +1033,246 @@ body {
   margin-top: auto;
 }
 
-.title .scene {
+.tl-story {
+  margin-top: 6px;
   display: flex;
-  align-items: flex-end;
-  gap: 18px;
-  margin-bottom: 12px;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
 }
 
-.title .scene .vs {
-  margin-bottom: 14px;
+/* ---- the title painting: a framed night, layered for parallax */
+
+.painting {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.pt-canvas {
+  position: relative;
+  width: 220px;
+  height: 128px;
+  overflow: hidden;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.pt-frame {
+  position: absolute;
+  left: -4px;
+  top: -4px;
+  width: 228px;
+  height: 136px;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px #000, inset 0 0 0 2px #feae34, inset 0 0 0 3px #fee761, inset 0 0 0 4px #b86f50, 0 0 0 1px #000;
+}
+
+.pt-canvas > div,
+.pt-canvas > i {
+  position: absolute;
+}
+
+/* Banded night: hard steps instead of a smooth gradient, like the rest of the pixel art. */
+.pt-sky {
+  inset: 0;
+  background: linear-gradient(#0b0a12 0 22%, #181425 22% 40%, #262b44 40% 55%, #3e2731 55% 68%, #68386c 68% 78%, #a22633 78% 100%);
+}
+
+.pt-stars {
+  inset: 0;
+}
+
+.pt-stars i {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  background: #fff;
+  animation: twinkle 3s steps(3) infinite;
+}
+
+.pt-moon {
+  left: 148px;
+  top: 6px;
+  animation: moonPulse 4s steps(4) infinite alternate;
+}
+
+.pt-moon .halo {
+  position: absolute;
+  left: -14px;
+  top: -14px;
+  width: 69px;
+  height: 69px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(228, 59, 68, 0.38) 0 40%, rgba(228, 59, 68, 0.2) 40% 58%, rgba(228, 59, 68, 0.08) 58% 70%, transparent 70%);
+}
+
+.pt-moon img {
+  position: relative;
+}
+
+@keyframes moonPulse {
+  from { transform: translateY(0); }
+  to { transform: translateY(2px); }
+}
+
+.pt-moon.pulse {
+  animation: moonHit 0.5s steps(5);
+}
+
+@keyframes moonHit {
+  0% { transform: scale(1.15); filter: brightness(1.6); }
+  100% { transform: none; filter: none; }
+}
+
+.pt-ruins {
+  left: -10px;
+  bottom: 18px;
+}
+
+.pt-cliff {
+  left: -10px;
+  bottom: -2px;
+}
+
+.pt-petals {
+  inset: 0;
+}
+
+.pt-petals i {
+  position: absolute;
+  top: -6px;
+  animation: drift 6s linear infinite;
+}
+
+@keyframes drift {
+  0% { transform: translate(0, 0); opacity: 0; }
+  10% { opacity: 1; }
+  100% { transform: translate(-60px, 140px); opacity: 0.2; }
+}
+
+.pt-knight {
+  left: 34px;
+  bottom: 20px;
+}
+
+.pt-knight .f {
+  display: block;
+}
+
+.pt-knight .f.b {
+  position: absolute;
+  left: 0;
+  top: 0;
+  animation: frameB 0.9s steps(1) infinite;
+}
+
+@keyframes frameB {
+  0%, 49% { opacity: 0; }
+  50%, 100% { opacity: 1; }
+}
+
+.pt-knight .glint {
+  position: absolute;
+  right: -6px;
+  top: 2px;
+  opacity: 0;
+}
+
+.pt-knight.hop {
+  animation: hop 0.5s steps(6);
+}
+
+.pt-knight.hop .glint {
+  animation: twinkle 0.5s steps(4);
+}
+
+@keyframes hop {
+  0%, 100% { transform: none; }
+  40% { transform: translateY(-9px); }
+  70% { transform: translateY(-3px); }
+}
+
+.pt-vs {
+  left: 100px;
+  bottom: 44px;
+}
+
+.pt-boar {
+  right: 10px;
+  bottom: 18px;
+}
+
+/* The boar faces the knight, so it is mirrored; its eye and breath follow. */
+.pt-boar > img {
+  transform: scaleX(-1);
+}
+
+.pt-boar .eye {
+  position: absolute;
+  left: 18px;
+  top: 26px;
+  width: 4px;
+  height: 2px;
+  background: #ff0044;
+  animation: blink 2.6s steps(1) infinite;
+}
+
+.pt-boar .steam {
+  position: absolute;
+  left: 2px;
+  top: 30px;
+  width: 4px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.6);
+  opacity: 0;
+}
+
+.pt-boar.angry {
+  animation: shake 0.4s steps(6);
+}
+
+.pt-boar.angry .eye {
+  animation: none;
+  box-shadow: 0 0 0 1px #ff0044, 0 0 4px 2px rgba(255, 0, 68, 0.6);
+}
+
+.pt-boar.angry .steam {
+  animation: steam 0.6s steps(6);
+}
+
+@keyframes shake {
+  0%, 100% { transform: none; }
+  20% { transform: translateX(-2px); }
+  40% { transform: translateX(2px); }
+  60% { transform: translateX(-1px); }
+  80% { transform: translateX(1px); }
+}
+
+@keyframes steam {
+  0% { opacity: 1; transform: translate(0, 0) scale(1); }
+  100% { opacity: 0; transform: translate(-10px, -6px) scale(3); }
+}
+
+.pt-pop {
+  position: absolute;
+  pointer-events: none;
+  animation: petalPop 0.8s steps(8) forwards;
+}
+
+@keyframes petalPop {
+  0% { transform: translate(0, 0); opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)); opacity: 0; }
+}
+
+.pt-caption {
+  margin-top: 7px;
+  min-height: 12px;
+}
+
+.pt-caption.in {
+  animation: rowIn 0.3s steps(5) both;
 }
 
 .title .ver {

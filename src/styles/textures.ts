@@ -207,6 +207,54 @@ export function buildCommonTextures(scene: Phaser.Scene) {
     icon(`upg-${id}`, c);
   }
 
+  // Title painting: the anemone moon, a ruined keep on the skyline, the cliff in front, a petal.
+  const emblem = new Grid(39, 39);
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2 - Math.PI / 2;
+    emblem.ellipse(19 + Math.cos(a) * 10, 19 + Math.sin(a) * 10, 8, 8, 'r');
+  }
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2 - Math.PI / 2;
+    emblem.ellipse(19 + Math.cos(a) * 14, 19 + Math.sin(a) * 14, 3.5, 3.5, 'p');
+    emblem.ellipse(19 + Math.cos(a) * 12.5, 19 + Math.sin(a) * 12.5 - 1, 1.5, 1.5, 'P');
+    const b = a + Math.PI / 6;
+    emblem.line(19 + Math.cos(b) * 6, 19 + Math.sin(b) * 6, 19 + Math.cos(b) * 16, 19 + Math.sin(b) * 16, 'R');
+  }
+  emblem.ellipse(19, 19, 7, 7, 'w').ellipse(19, 19, 5, 5, 'n');
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    emblem.set(Math.round(19 + Math.cos(a) * 6), Math.round(19 + Math.sin(a) * 6), 'v');
+  }
+  emblem.set(17, 17, 'v').set(18, 17, 'P');
+  icon('emblem', emblem.render({ colors: { r: E.red, p: E.pink, P: '#ffb0a8', R: E.redD, w: E.white, n: E.ink, v: E.purple } }));
+
+  const sky = new Rng(11);
+  const ruins = new Grid(240, 44);
+  // Rolling hills, then the broken keep: towers, a gate, crenellations, some lit windows.
+  for (let x = 0; x < 240; x++) {
+    const h = 30 + Math.round(Math.sin(x * 0.045) * 4 + Math.sin(x * 0.13) * 2);
+    ruins.rect(x, h, 1, 44 - h, 'h');
+  }
+  for (const [x, w, top] of [[22, 10, 8], [36, 26, 18], [66, 8, 4], [78, 22, 16], [104, 12, 10], [150, 9, 12], [162, 30, 20], [196, 10, 6]] as [number, number, number][]) {
+    ruins.rect(x, top, w, 44 - top, 'k');
+    for (let c = x; c < x + w; c += 3) ruins.rect(c, top - 2, 2, 2, 'k');
+    for (let n = 0; n < 2; n++) if (sky.chance(0.7)) ruins.set(x + sky.int(1, w - 2), top + sky.int(4, 14), 'y');
+  }
+  ruins.rect(178, 24, 6, 20, '.').ellipse(181, 24, 3, 3, '.');
+  icon('ruins', ruins.render({ outline: false, margin: 0, colors: { h: '#2b2238', k: '#1d1a2b', y: E.amber } }));
+
+  const cliff = new Grid(240, 26);
+  for (let x = 0; x < 240; x++) {
+    const top = 6 + Math.round(Math.sin(x * 0.07) * 2 + Math.sin(x * 0.21));
+    cliff.rect(x, top, 1, 26 - top, 'k');
+    cliff.set(x, top, 'h');
+    if (sky.chance(0.12)) cliff.set(x, top - 1, 'g');
+    if (sky.chance(0.05)) cliff.set(x, top - 2, 'g');
+  }
+  icon('cliff', cliff.render({ outline: false, margin: 0, colors: { k: E.ink, h: '#3a2a38', g: E.greenDD } }));
+  icon('knight-b', scene.textures.get('knight-b').getSourceImage() as HTMLCanvasElement);
+  icon('petal', Grid.ascii(['.rr', 'rRr', 'rr.']).render({ outline: false }));
+
   // Leaderboard: a crown for first place, medals for second and third, a sparkle.
   const crown = ['Y....Y....Y', 'YY..YYY..YY', 'YYYYYYYYYYY', 'YrYYYcYYYrY', 'YYYYYYYYYYY', 'yyyyyyyyyyy'];
   icon('crown', Grid.ascii(crown).render({ colors: { Y: E.yellow, y: E.amber, r: E.red, c: E.cyan } }));

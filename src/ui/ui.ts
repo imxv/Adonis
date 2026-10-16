@@ -16,6 +16,7 @@ import { $, diamond, el, icon, px, pxBlock } from './pxhtml';
 import { MenuNav, confirmBox, menuRow, openBoard, openCodex, openHelp, openSettings, type Layer, type LayerHost } from './screens';
 import { WeaponCards, type GunView } from './weaponCards';
 import { BeatBar } from './beatBar';
+import { TitlePainting } from './titleArt';
 import type { Grade, Rank } from '../game/rhythm';
 
 /** The UI is laid out on the same 480x270 pixel grid as the game and zoomed with it. */
@@ -572,12 +573,14 @@ class UI implements LayerHost {
         <div class="hint">${px('↑↓ 选择　Enter 确认', DIM)}</div>
       </div>
       <div class="tl-right">
-        <div class="scene">${icon('knight', 3)}<div class="vs">${px('VS', DIM, { small: true })}</div>${icon('boar', 2)}</div>
-        ${px('他一次次死去，又一次次重生。', GREY)}
-        ${px('这一次，穿过五层地牢，去见那头野猪。', GREY)}
+        <div class="tl-story">${px('他一次次死去，又一次次重生。', DIM)}${px('这一次，穿过五层地牢，去见那头野猪。', DIM)}</div>
       </div>
       <div class="ver">${px('v0.5', E.slate, { small: true, outline: false })}</div>`;
-    const note = save ? `第${['一', '二', '三'][save.level] ?? save.level + 1}层 Lv${save.xpLevel}` : '没有存档';
+    // The painting: a framed night with the anemone moon, the knight and the boar; it answers the mouse and the menu.
+    const painting = new TitlePainting();
+    ov.querySelector('.tl-right')!.prepend(painting.el);
+    ov.addEventListener('mousemove', (e) => painting.look(e.clientX, e.clientY));
+    const note = save ? `第${FLOOR_NAMES[save.level] ?? save.level + 1}层 Lv${save.xpLevel}` : '没有存档';
     const rows = [menuRow('继续游戏', { note }), menuRow('开始冒险'), menuRow('排行榜'), menuRow('游戏说明'), menuRow('图鉴'), menuRow('设置')];
     ['continue', 'new', 'board', 'guide', 'codex', 'settings'].forEach((k, i) => (rows[i].dataset.k = k));
     ov.querySelector('.menu')!.append(...rows);
@@ -601,6 +604,7 @@ class UI implements LayerHost {
       },
       [!save],
     );
+    nav.onFocus = (i) => painting.setCaption(i);
     nav.select(save ? 0 : 1);
     const layer = this.push(ov, (e) => nav.key(e));
   }
