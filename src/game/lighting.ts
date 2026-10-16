@@ -115,9 +115,13 @@ export class Lighting {
     this.flashes.push({ x, y, r, color: hexToNum(color), t: 0, dur });
   }
 
+  /** Seconds of near darkness left (a boss snuffed the lights). */
+  darkT = 0;
+
   update(s: GameScene, dt: number) {
     if (!this.enabled || !s.kit) return;
     this.t += dt;
+    this.darkT -= dt;
     const cam = s.cameras.main;
     const ox = cam.scrollX - M;
     const oy = cam.scrollY - M;
@@ -129,7 +133,8 @@ export class Lighting {
     rt.clear();
     rt.beginDraw();
     const white = s.textures.get('__WHITE').getSourceImage() as HTMLCanvasElement;
-    rt.stamp('__WHITE', undefined, 0, 0, { originX: 0, originY: 0, scaleX: W / white.width, scaleY: H / white.height, tint: this.ambient, alpha: 1, blendMode: Phaser.BlendModes.NORMAL, skipBatch: true });
+    const ambient = this.darkT > 0 ? 0x1a1626 : this.ambient;
+    rt.stamp('__WHITE', undefined, 0, 0, { originX: 0, originY: 0, scaleX: W / white.width, scaleY: H / white.height, tint: ambient, alpha: 1, blendMode: Phaser.BlendModes.NORMAL, skipBatch: true });
     const add = (x: number, y: number, r: number, color: number, alpha = 1, key = 'light') => {
       const lx = x - ox;
       const ly = y - oy;

@@ -146,6 +146,8 @@ export interface Enemy {
 }
 
 export interface BossState {
+  /** Saw gears orbiting a steam colossus. */
+  saws?: Proj[];
   phase: 1 | 2;
   queue: string[];
   cooldown: number;
@@ -247,6 +249,8 @@ export interface Telegraph {
   tier?: number;
   /** Lightning strikes already thrown down by an elite summon. */
   strikes?: number;
+  /** Line strikes: how wide the strike is. */
+  w?: number;
   /** Summons: how the monster will arrive, and its colour for the puddle it oozes out of. */
   style?: SpawnStyle;
   color?: number;

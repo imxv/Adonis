@@ -9,6 +9,7 @@ import { freshStatus, type BossState, type Enemy } from './entities';
 import { DEPTH } from './fx';
 import type { GameScene } from './GameScene';
 import { turnToward } from './enemyAI';
+import { GUARDIAN_SKILLS, SELF_MOVING, runSkill } from './bossSkills';
 
 const GOLDEN = Math.PI * (3 - Math.sqrt(5));
 
@@ -77,7 +78,8 @@ export function spawnBoss(s: GameScene, kind: 'guardian' | 'boar'): Enemy {
     boss,
   };
   s.enemies.push(e);
-  ui.banner(kind === 'boar' ? '宿 敌' : '守 卫', name, kind === 'boar' ? 'THE BOAR' : 'THE GUARDIAN', kind === 'boar' ? '那头撞死阿多尼斯的野猪' : `${kit.name}的守门者`, 1800);
+  // The guardian is the style's subtitle come to life, so its banner says it again.
+  ui.banner(kind === 'boar' ? '宿 敌' : '守 卫', name, kind === 'boar' ? 'THE BOAR' : 'THE GUARDIAN', kind === 'boar' ? '那头撞死阿多尼斯的野猪' : `「${kit.subtitle}」`, 1800);
   audio.roar();
   s.fx.shake(0.6);
   s.fx.flash(E.white, 0.35, 400);
@@ -86,6 +88,7 @@ export function spawnBoss(s: GameScene, kind: 'guardian' | 'boar'): Enemy {
 
 export function bossDeath(s: GameScene, e: Enemy) {
   s.slow(0.22, 1.5);
+  s.light.darkT = 0;
   s.fx.flash('#ffffff', 0.75, 1000);
   s.fx.shake(1);
   audio.explode(true);
@@ -160,8 +163,11 @@ function guardian(s: GameScene, e: Enemy, b: BossState, dt: number) {
     ty = clamp(p.y + Math.sin(a) * 90, R.y0 + 56, R.y1 - 48);
   }
   const k = b.phase === 1 ? 1.4 : 0.8;
-  e.vx = Math.max(-80, Math.min(80, (tx - e.x) * k));
-  e.vy = Math.max(-80, Math.min(80, (ty - e.y) * k));
+  if (SELF_MOVING.has(b.pattern)) e.vx = e.vy = 0;
+  else {
+    e.vx = Math.max(-80, Math.min(80, (tx - e.x) * k));
+    e.vy = Math.max(-80, Math.min(80, (ty - e.y) * k));
+  }
 
   // Rotating arms: warn, then live.
   if (b.armWarn > 0) {
@@ -182,7 +188,9 @@ function guardian(s: GameScene, e: Enemy, b: BossState, dt: number) {
   b.cooldown -= dt;
   if (!b.pattern && b.cooldown <= 0) {
     if (!b.queue.length) {
-      b.queue = s.run.rng.shuffle(b.phase === 1 ? ['ring', 'fan', 'sweep', 'summon', 'ring', 'fan'] : ['spiral', 'fan', 'sweep', 'ring', 'summon', 'spiral']);
+      // Each style's guardian has its own moves, drawn from its subtitle.
+      const own = GUARDIAN_SKILLS[s.kit.id];
+      b.queue = s.run.rng.shuffle(own ? [...own[b.phase - 1]] : b.phase === 1 ? ['ring', 'fan', 'sweep', 'summon', 'ring', 'fan'] : ['spiral', 'fan', 'sweep', 'ring', 'summon', 'spiral']);
     }
     b.pattern = b.queue.shift()!;
     b.pt = 0;
@@ -194,6 +202,7 @@ function guardian(s: GameScene, e: Enemy, b: BossState, dt: number) {
     b.pattern = '';
     b.cooldown = b.phase === 1 ? 1.1 : 0.7;
   };
+  if (runSkill(s, e, b, dt, b.pattern, done)) return;
   switch (b.pattern) {
     case 'ring': {
       if (b.pt >= b.step * 0.4) {

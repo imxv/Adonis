@@ -7,6 +7,7 @@ import * as P from '../pixel/props';
 import * as MS from '../pixel/monsters';
 import { UPGRADE_ICONS } from '../pixel/upgradeIcons';
 import { themeProps } from '../pixel/themeProps';
+import { guardianArt } from '../pixel/bossArt';
 import type { Biome } from '../pixel/biomes';
 import { FLOOR, PROP, T, VOID, WALL, tileAt, type Dungeon } from '../game/dungeon';
 import { decoArt, paintFloor, paintWall } from '../pixel/decor';
@@ -415,20 +416,6 @@ function boar(): Grid {
   return g;
 }
 
-function golem(): Grid {
-  const g = new Grid(30, 30);
-  g.ellipse(15, 18, 9, 8, '1');
-  g.rect(10, 3, 10, 9, '1');
-  g.ellipse(5, 12, 4, 4, '2').ellipse(24, 12, 4, 4, '2');
-  g.rect(2, 14, 5, 10, '2').rect(23, 14, 5, 10, '2');
-  g.ellipse(4, 25, 3, 3, '1').ellipse(25, 25, 3, 3, '1');
-  g.rect(9, 24, 4, 6, '2').rect(17, 24, 4, 6, '2');
-  g.rect(12, 7, 2, 2, '4').rect(16, 7, 2, 2, '4');
-  g.ellipse(15, 18, 2, 2, '4');
-  g.line(13, 13, 11, 16, 'o').line(19, 20, 21, 23, 'o').line(8, 18, 10, 20, 'o');
-  return g;
-}
-
 // ---------------------------------------------------------------- per-biome art
 
 export function buildKitTextures(scene: Phaser.Scene, kit: Biome) {
@@ -468,7 +455,8 @@ export function buildKitTextures(scene: Phaser.Scene, kit: Biome) {
   add(scene, K('prop-crate', kit), tp.crate[0].render({ colors: tp.crate[1] }));
   add(scene, K('prop-barrel', kit), tp.keg[0].render({ colors: tp.keg[1] }));
   add(scene, K('pillar', kit), decoArt(kit.id)[0].g.render({ colors: decoArt(kit.id)[0].colors }));
-  add(scene, K('boss-guardian', kit), golem().render({ roles: { 1: ramp(px.stone), 2: ramp(mix(px.stone, E.ink, 0.25)), 4: [px.glow, px.glow, px.glow] } }));
+  const [boss, bossColors] = guardianArt(kit.id);
+  add(scene, K('boss-guardian', kit), boss.render({ colors: bossColors }));
   add(scene, K('pt', kit), particle(kit));
   add(scene, K('door', kit), door(kit));
 }

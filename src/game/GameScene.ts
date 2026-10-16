@@ -161,6 +161,8 @@ export class GameScene extends Phaser.Scene {
   slowT = 0;
   slowScale = 1;
   pendingLevelUps = 0;
+  /** Floor dangers left by bosses (lava pools): hurt the knight while it stands in them. */
+  ehazards: { x: number; y: number; r: number; t: number; color: number }[] = [];
   /** Dendro Cores grown by Bloom, waiting to burst. */
   cores: Core[] = [];
   /** A horde room's altar, waiting for the player to step on it. */
@@ -389,6 +391,8 @@ export class GameScene extends Phaser.Scene {
     this.altar?.parts.forEach((o) => o.destroy());
     this.altar = undefined;
     clearCores(this);
+    this.ehazards = [];
+    this.light.darkT = 0;
     this.hazards = [];
     this.telegraphs = [];
     this.visuals = [];
@@ -1149,6 +1153,11 @@ export class GameScene extends Phaser.Scene {
     this.updatePickups(dt);
     this.updateHazards(dt);
     updateCores(this, dt);
+    for (const h of this.ehazards) {
+      h.t -= dt;
+      if (this.mode === 'play' && dist2(this.player.x, this.player.y, h.x, h.y) < h.r * h.r) this.hurtPlayer(1, h.x, h.y);
+    }
+    this.ehazards = this.ehazards.filter((h) => h.t > 0);
     this.updateTraps(dt);
     this.updateTelegraphs(dt);
     if (this.mode === 'play') this.updateRoom(dt);
@@ -1983,6 +1992,20 @@ export class GameScene extends Phaser.Scene {
 
     for (const p of this.eproj) {
       if (p.dead) continue;
+      if (p.homing) {
+        const sp = Math.hypot(p.vx, p.vy);
+        const cur = Math.atan2(p.vy, p.vx);
+        const na = cur + clamp(angleDiff(cur, Math.atan2(pl.y - 4 - p.y, pl.x - p.x)), -p.homing * dt, p.homing * dt);
+        p.vx = Math.cos(na) * sp;
+        p.vy = Math.sin(na) * sp;
+        p.sprite.setRotation(na);
+      }
+      if (p.split && p.life < 0.15) {
+        for (let i = 0; i < p.split; i++) this.spawnEnemyBullet(p.x, p.y, (i / p.split) * TAU + p.x, 90);
+        this.fx.ring(p.x, p.y, 14, E.white, 160, 1);
+        this.killProj(p, true);
+        continue;
+      }
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       p.life -= dt;
@@ -3083,9 +3106,21 @@ export class GameScene extends Phaser.Scene {
         g.fillStyle(hexToNum(E.yellow), 0.15 * k);
         g.fillCircle(t.x, t.y, t.r! * k);
       } else if (t.kind === 'line') {
-        g.lineStyle(2 + 4 * k, danger, 0.25 + 0.35 * Math.abs(Math.sin(t.t * 20)));
+        // A thin warning that fills out to the strike's width as it comes due.
+        const w = t.w ?? 6;
+        g.lineStyle(Math.max(1, (2 + 4 * k) * (w / 6)), danger, 0.2 + 0.35 * Math.abs(Math.sin(t.t * 20)));
         g.lineBetween(t.x, t.y, t.x2!, t.y2!);
+        if (t.w) {
+          g.lineStyle(1, danger, 0.8);
+          g.lineBetween(t.x, t.y, t.x2!, t.y2!);
+        }
       }
+    }
+    for (const h of this.ehazards) {
+      g.fillStyle(h.color, 0.35 + 0.1 * Math.sin(this.time0 * 10));
+      g.fillCircle(h.x, h.y, h.r);
+      g.lineStyle(1, h.color, 0.9);
+      g.strokeCircle(h.x, h.y, h.r);
     }
     for (const h of this.hazards) {
       const life = h.dur ? Math.min(1, h.t / 0.3, (h.dur - h.t) / 0.2 + 0.2) : 1;

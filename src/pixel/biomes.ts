@@ -76,7 +76,7 @@ export const BIOMES: Biome[] = [
     overlay: { grain: 0, vignette: 0.35 },
     fonts,
     frame: 'pixel',
-    bossNames: { guardian: '苔石巨像', boar: '林中野猪' },
+    bossNames: { guardian: '藤蔓古王', boar: '林中野猪' },
     audio: { root: 'D3', scale: SCALES.dorian, bpm: 92, lead: 'pluck', perc: 'soft', brightness: 0.6 },
   },
   {
@@ -89,7 +89,7 @@ export const BIOMES: Biome[] = [
     overlay: { grain: 0, vignette: 0.3 },
     fonts,
     frame: 'pixel',
-    bossNames: { guardian: '冰霜傀儡', boar: '雪原野猪' },
+    bossNames: { guardian: '霜骨巨人', boar: '雪原野猪' },
     audio: { root: 'E4', scale: SCALES.majorPenta, bpm: 100, lead: 'glass', perc: 'none', brightness: 0.85 },
   },
   {
@@ -102,7 +102,7 @@ export const BIOMES: Biome[] = [
     overlay: { grain: 0, vignette: 0.3 },
     fonts,
     frame: 'pixel',
-    bossNames: { guardian: '狮身守卫', boar: '沙暴野猪' },
+    bossNames: { guardian: '冥犬守墓者', boar: '沙暴野猪' },
     audio: { root: 'E3', scale: SCALES.phrygian, bpm: 96, lead: 'pluck', perc: 'taiko', brightness: 0.55 },
   },
   {
@@ -141,7 +141,7 @@ export const BIOMES: Biome[] = [
     overlay: { grain: 0, vignette: 0.55 },
     fonts,
     frame: 'pixel',
-    bossNames: { guardian: '石像鬼', boar: '亡灵野猪' },
+    bossNames: { guardian: '画中伯爵', boar: '亡灵野猪' },
     audio: { root: 'D3', scale: SCALES.aeolian, bpm: 88, lead: 'glass', perc: 'soft', brightness: 0.55 },
   },
   {
@@ -154,7 +154,7 @@ export const BIOMES: Biome[] = [
     overlay: { grain: 0, vignette: 0.25 },
     fonts,
     frame: 'pixel',
-    bossNames: { guardian: '石狮守护', boar: '山神野猪' },
+    bossNames: { guardian: '落花剑圣', boar: '山神野猪' },
     audio: { root: 'D4', scale: SCALES.gong, bpm: 84, lead: 'pluck', perc: 'none', brightness: 0.55 },
   },
   {
@@ -180,7 +180,7 @@ export const BIOMES: Biome[] = [
     overlay: { grain: 0, vignette: 0.45 },
     fonts,
     frame: 'pixel',
-    bossNames: { guardian: '珊瑚巨像', boar: '深渊野猪' },
+    bossNames: { guardian: '沉钟海妖', boar: '深渊野猪' },
     audio: { root: 'C3', scale: SCALES.dorian, bpm: 86, lead: 'glass', perc: 'soft', brightness: 0.5 },
   },
   {
