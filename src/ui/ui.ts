@@ -12,7 +12,7 @@ import { DIFFICULTIES } from '../data/difficulty';
 import { RARITY_INFO as RARITY } from '../data/upgrades';
 import type { SavedRun } from '../save';
 import type { CodexTab } from './codex';
-import { $, diamond, el, icon, px, pxBlock } from './pxhtml';
+import { $, diamond, el, icon, px, pxBlock, wrap } from './pxhtml';
 import { MenuNav, confirmBox, menuRow, openBoard, openCodex, openHelp, openSettings, type Layer, type LayerHost } from './screens';
 import { WeaponCards, type GunView } from './weaponCards';
 import { BeatBar } from './beatBar';
@@ -103,6 +103,16 @@ export interface EndInfo {
 }
 
 const fmtTime = (secs: number) => `${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, '0')}`;
+
+/** A card's description: at most four lines, the last cut short with an ellipsis if the text runs on. */
+function cardLines(text: string): string {
+  const lines = wrap(text, 110);
+  if (lines.length > 4) {
+    lines.length = 4;
+    lines[3] = `${lines[3].slice(0, -1)}…`;
+  }
+  return `<div class="lines">${lines.map((l) => px(l, DIM)).join('')}</div>`;
+}
 
 class UI implements LayerHost {
   root!: HTMLElement;
@@ -500,63 +510,56 @@ class UI implements LayerHost {
     return icon(d.icon, scale);
   }
 
-  /** Level-up picker: arrow keys or mouse move the red diamond, 1-4 / Enter / click choose. */
   /**
-   * A pick-one panel. Arrow keys or the mouse move the red diamond; 1-4, Enter or a click choose.
-   * With `skip`, a last row lets you take nothing (also Esc); onPick then gets -1.
+   * A pick-one panel of tall cards. The cards are dealt face down and flip over one after another; the one under the
+   * mouse or the arrow keys rises and glows; 1-3, Enter or a click takes it, and it flares while the others fall away.
+   * With `skip`, a line under the cards lets you take nothing (also Esc); onPick then gets -1.
    */
   choices(title: string, sub: string, items: Choice[], run: RunState, onPick: (i: number) => void, o: { tag?: string; skip?: string } = {}) {
     if (this.choiceKeys) window.removeEventListener('keydown', this.choiceKeys);
     this.root.querySelectorAll('.overlay.picker').forEach((x) => x.remove());
     const ov = el('div', 'overlay picker');
-    const box = el('div', 'lvlup panel');
-    box.innerHTML = `<div class="head"><span class="tagred">${px(o.tag ?? 'LEVEL UP', E.white, { small: true, outline: false })}</span>${px(title, E.yellow, { scale: 2 })}${px(sub, GREY)}</div>`;
-    const rows: HTMLElement[] = [];
-    const values: number[] = [];
-    let sel = 0;
-    const select = (i: number) => {
-      sel = i;
-      rows.forEach((r, k) => r.classList.toggle('sel', k === i));
-    };
-    const addRow = (row: HTMLElement, value: number) => {
-      const k = rows.length;
-      row.addEventListener('mouseenter', () => {
-        if (sel !== k) audio.hover();
-        select(k);
-      });
-      row.addEventListener('click', () => pick(value));
-      box.appendChild(row);
-      rows.push(row);
-      values.push(value);
-    };
+    ov.innerHTML = `<div class="pk-head"><span class="tagred">${px(o.tag ?? 'LEVEL UP', E.white, { small: true, outline: false })}</span>${px(title, E.yellow, { scale: 2 })}${px(sub, GREY)}</div>`;
+    const table = el('div', 'pk-cards');
+    ov.appendChild(table);
+    const cards: HTMLElement[] = [];
     items.forEach((c, i) => {
       const d = this.describe(c, run);
-      const opt = el('div', 'opt');
-      opt.innerHTML = `<div class="cur">${diamond()}</div>
-        <div class="ic ${d.rarity}">${this.iconFor(d, (ICON_SIZE[d.icon]?.[0] ?? 99) * 2 <= 32 ? 2 : 1)}</div>
-        <div class="txt"><div class="l1">${px(d.name, E.white)}${d.tag ? px(d.tag, d.tagColor, {}, 'tag') : ''}</div>${pxBlock(d.desc, DIM, 286)}</div>
-        <div class="k">${px(String(i + 1), DIM, { small: true })}</div>`;
-      addRow(opt, i);
+      // On a card a new gun is described by its own line; the stat glossary is for the pause page.
+      if (c.type === 'weapon-new') d.desc = WEAPONS[c.id].desc;
+      const [w, h] = ICON_SIZE[d.icon] ?? [16, 16];
+      const scale = Math.max(1, Math.min(3, Math.floor(46 / Math.max(w, h, 1))));
+      const card = el('div', `pk-card ${d.rarity}`);
+      card.style.setProperty('--i', String(i));
+      card.style.setProperty('--tilt', `${(i - (items.length - 1) / 2) * 7}deg`);
+      card.innerHTML = `<div class="pk-tilt">
+          <div class="pk-back"><i></i></div>
+          <div class="pk-face">
+            <div class="pk-ribbon">${d.tag ? px(d.tag, d.tagColor) : ''}</div>
+            <div class="pk-art"><div class="pk-halo"></div>${d.icon.startsWith('glyph:') ? this.iconFor(d) : icon(d.icon, scale)}</div>
+            <div class="pk-name">${pxBlock(d.name, E.white, 112)}</div>
+            <div class="pk-rule"></div>
+            <div class="pk-desc">${cardLines(d.desc)}</div>
+            <div class="pk-key">${px(String(i + 1), E.white, { small: true })}</div>
+            <i class="pk-shine"></i>
+          </div>
+        </div>`;
+      table.appendChild(card);
+      cards.push(card);
     });
+    let skipEl: HTMLElement | undefined;
     if (o.skip) {
-      const row = el('div', 'opt skip');
-      row.innerHTML = `<div class="cur">${diamond()}</div><div class="txt">${px(o.skip, GREY)}</div><div class="k">${px('Esc', DIM, { small: true })}</div>`;
-      addRow(row, -1);
+      skipEl = el('div', 'pk-skip');
+      skipEl.innerHTML = `${px(o.skip, GREY)}${px('Esc', DIM, { small: true })}`;
+      ov.appendChild(skipEl);
     }
-    select(0);
-    ov.appendChild(box);
+    const count = cards.length + (skipEl ? 1 : 0);
+    let sel = 0;
     let done = false;
-    const onKey = (e: KeyboardEvent) => {
-      const n = Number(e.key) - 1;
-      if (n >= 0 && n < items.length) pick(n);
-      else if (e.key === 'Escape' && o.skip) pick(-1);
-      else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
-        select((sel + 1) % rows.length);
-        audio.hover();
-      } else if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
-        select((sel + rows.length - 1) % rows.length);
-        audio.hover();
-      } else if (e.key === 'Enter' || e.key === ' ') pick(values[sel]);
+    const select = (i: number) => {
+      sel = i;
+      cards.forEach((c, k) => c.classList.toggle('sel', k === i));
+      skipEl?.classList.toggle('sel', i === cards.length);
     };
     const pick = (i: number) => {
       if (done) return;
@@ -564,13 +567,45 @@ class UI implements LayerHost {
       this.closedAt = performance.now();
       window.removeEventListener('keydown', onKey);
       if (this.choiceKeys === onKey) this.choiceKeys = undefined;
-      ov.remove();
-      audio.select();
-      onPick(i);
+      ov.classList.add('closing');
+      cards.forEach((c, k) => c.classList.add(k === i ? 'chosen' : 'away'));
+      if (i >= 0) audio.cardPick();
+      else audio.select();
+      const finish = () => {
+        ov.remove();
+        onPick(i);
+      };
+      // The chosen card flares and lifts away before play resumes (the playtest bot skips the wait).
+      if ((window as unknown as { __fastUi?: boolean }).__fastUi) finish();
+      else window.setTimeout(finish, i >= 0 ? 560 : 280);
     };
+    cards.forEach((card, k) => {
+      card.addEventListener('mouseenter', () => {
+        if (done) return;
+        if (sel !== k) audio.hover();
+        select(k);
+      });
+      card.addEventListener('click', () => pick(k));
+    });
+    skipEl?.addEventListener('mouseenter', () => !done && select(cards.length));
+    skipEl?.addEventListener('click', () => pick(-1));
+    const onKey = (e: KeyboardEvent) => {
+      const n = Number(e.key) - 1;
+      if (n >= 0 && n < cards.length) pick(n);
+      else if (e.key === 'Escape' && skipEl) pick(-1);
+      else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D' || e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+        select((sel + 1) % count);
+        audio.hover();
+      } else if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A' || e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+        select((sel + count - 1) % count);
+        audio.hover();
+      } else if (e.key === 'Enter' || e.key === ' ') pick(sel === cards.length ? -1 : sel);
+    };
+    select(0);
     this.choiceKeys = onKey;
     window.addEventListener('keydown', onKey);
     this.root.appendChild(ov);
+    audio.deal(cards.length);
   }
 
   /** When a pick panel last closed, so the same Esc press doesn't also open the pause menu. */

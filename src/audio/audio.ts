@@ -450,6 +450,25 @@ class AudioEngine {
     });
   }
 
+  /** Cards dealt onto the table: a soft flick for each, a beat apart. */
+  deal(n: number) {
+    this.safe(() => {
+      for (let i = 0; i < n; i++) {
+        const t = this.at(this.whoosh, i * 0.09);
+        this.sweep(this.whooshFilter, 1800, 4200, t, 0.06);
+        this.whoosh.triggerAttackRelease(0.06, t, 0.45);
+      }
+    });
+  }
+
+  /** A card taken: a bright rising chime. */
+  cardPick() {
+    this.safe(() => {
+      const t = Tone.now();
+      [0, 4, 7, 12].forEach((d, i) => this.sparkle.triggerAttackRelease(this.note(d, 2), 0.18, t + i * 0.05, 0.7));
+    });
+  }
+
   /** A heavy footfall. */
   step() {
     if (!this.gate('step', 150)) return;

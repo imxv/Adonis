@@ -337,13 +337,14 @@ export function rollChoices(run: RunState, kind: 'level' | 'rare' | 'weapon' | '
     // Steps toward a fusion float to the front half the time, so pairs actually come together.
     const sc = rng.shuffle(spellChoices(run));
     if (rng.chance(0.5)) sc.sort((x, y) => Number(towardFusion(run, y)) - Number(towardFusion(run, x)));
-    const wantSpells = run.spells.length < 2 ? 2 : rng.chance(0.6) ? 1 : 0;
+    const wantSpells = run.spells.length < 2 ? 2 : rng.chance(0.55) ? 1 : 0;
     out.push(...sc.slice(0, Math.max(0, wantSpells - (out.length ? 0 : 0))));
   }
   const pool = availableUpgrades(run, kind === 'rare' ? 'rare' : undefined);
   const used = new Set<string>();
   let guard = 0;
-  const target = kind === 'level' ? 4 : 3;
+  // Three cards, always.
+  const target = 3;
   while (out.length < target && guard++ < 60) {
     const cand = pool.filter((u) => !used.has(u.id));
     if (!cand.length) break;

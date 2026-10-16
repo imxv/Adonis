@@ -16,6 +16,7 @@ import { settings } from '../settings';
 import { DIRS, DIR_VEC } from './dirs';
 import { bossDeath, spawnBoss, updateBoss } from './boss';
 import { animateBoss } from './bossAnim';
+import { dropLevelToken, packLevelTokens, updateLevelTokens, type LevelToken } from './levelTokens';
 import { T, collide, generateDungeon, openSpot, randomFloorIn, raycast, roomAt, roomCenter, solidAt, type DRoom, type Dungeon } from './dungeon';
 import { updateEnemyAI } from './enemyAI';
 import { FlowField } from './flow';
@@ -170,7 +171,9 @@ export class GameScene extends Phaser.Scene {
   bt?: { t: number; low: number; hold: number; out: number };
   /** Somewhere the camera leans toward for a moment (a fallen boss). */
   camFocus?: { x: number; y: number; t: number };
-  pendingLevelUps = 0;
+  /** Level-up crystals waiting on the floor, and the ones carried down from the floor above. */
+  levelTokens: LevelToken[] = [];
+  carryTokens: number[] = [];
   /** Floor dangers left by bosses (lava pools): hurt the knight while it stands in them. */
   ehazards: { x: number; y: number; r: number; t: number; color: number }[] = [];
   /** Dendro Cores grown by Bloom, waiting to burst. */
@@ -369,7 +372,7 @@ export class GameScene extends Phaser.Scene {
     this.pets = [];
     this.run = saved ? restoreRun(saved) : newRun(this.params);
     this.combo = 0;
-    this.pendingLevelUps = 0;
+    this.carryTokens = [];
     this.fusing = false;
     this.rhythm.reset();
     this.lastRank = 0;
@@ -384,6 +387,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   clearLevel() {
+    this.carryTokens.push(...packLevelTokens(this));
     for (const e of this.enemies) this.destroyEnemy(e);
     this.enemies = [];
     for (const p of [...this.pproj, ...this.eproj]) this.killProj(p, true);
@@ -500,7 +504,9 @@ export class GameScene extends Phaser.Scene {
     if (!first) cam.fadeIn(420, 255, 255, 255);
     if (saved && d.boss.cleared) this.spawnTrapdoor(...roomCenter(d.boss));
     if (saved) this.time.delayedCall(800, () => this.checkFusions());
-    if (this.pendingLevelUps > 0) this.time.delayedCall(700, () => this.openLevelUp());
+    // Crystals carried down the trapdoor land beside the knight.
+    const carried = this.carryTokens.splice(0);
+    carried.forEach((lv, i) => this.time.delayedCall(700 + i * 150, () => dropLevelToken(this, lv, i, carried.length)));
     this.saveProgress();
   }
 
@@ -1198,6 +1204,7 @@ export class GameScene extends Phaser.Scene {
     this.updateEnemies(dt);
     updatePets(this, dt);
     this.updatePickups(dt);
+    updateLevelTokens(this, dt);
     this.updateHazards(dt);
     updateCores(this, dt);
     for (const h of this.ehazards) {
@@ -2863,7 +2870,6 @@ export class GameScene extends Phaser.Scene {
       (i) => {
         if (i >= 0) this.takeChoice(choices[i]);
         this.mode = 'play';
-        if (this.pendingLevelUps > 0) this.time.delayedCall(120, () => this.openLevelUp());
       },
       { tag: 'WEAPON', skip: '都不要，跳过' },
     );
@@ -2872,32 +2878,31 @@ export class GameScene extends Phaser.Scene {
   gainXp(v: number) {
     const run = this.run;
     run.xp += v;
+    // Each level drops a crystal; walking into one is what opens the cards.
+    const levels: number[] = [];
     while (run.xp >= run.xpNext) {
       run.xp -= run.xpNext;
       run.xpLevel++;
       run.xpNext = xpForLevel(run.xpLevel);
-      this.pendingLevelUps++;
+      levels.push(run.xpLevel);
     }
-    if (this.pendingLevelUps > 0 && this.mode === 'play') this.openLevelUp();
+    levels.forEach((lv, i) => dropLevelToken(this, lv, i, levels.length));
   }
 
-  openLevelUp() {
-    if (this.pendingLevelUps <= 0 || this.mode !== 'play' || this.fusing) return;
+  /** A level-up crystal was touched: deal the three cards for that level. */
+  openLevelUp(level: number) {
+    if (this.mode !== 'play' || this.fusing) return;
     this.mode = 'choose';
-    audio.levelUp();
     this.fx.ring(this.player.x, this.player.y - 4, 70, E.yellow, 400);
-    this.fx.flash(E.white, 0.2, 240);
     const choices = rollChoices(this.run, 'level');
     ui.choices(
       '升级',
-      `等级 ${this.run.xpLevel - this.pendingLevelUps + 1}`,
+      `等级 ${level}`,
       choices,
       this.run,
       (i) => {
         if (i >= 0) this.takeChoice(choices[i]);
-        this.pendingLevelUps--;
         this.mode = 'play';
-        if (this.pendingLevelUps > 0) this.time.delayedCall(120, () => this.openLevelUp());
       },
       { skip: '跳过这次升级' },
     );
@@ -3015,7 +3020,6 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(800, () => {
       this.fusing = false;
       this.checkFusions();
-      this.openLevelUp();
     });
   }
 

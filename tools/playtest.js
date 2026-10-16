@@ -68,9 +68,12 @@ function path(fx, fy, gx, gy) {
   return out.reverse();
 }
 
-/** Next thing to walk to: trapdoor, chest, pedestal, then the nearest unfinished room (boss last). */
+/** Next thing to walk to: a level-up crystal, the trapdoor, a chest, a pedestal, then the nearest unfinished room (boss last). */
 function goal() {
   const p = s.player;
+  // Level-up crystals first: walking into one is what opens the cards.
+  const tok = s.levelTokens?.find((k) => !k.dead && k.landed);
+  if (tok) return [tok.x, tok.y];
   if (s.trapdoor) return [s.trapdoor.img.x, s.trapdoor.img.y];
   const chest = s.pickups.find((q) => (q.kind === 'chest' || q.kind === 'wchest') && !q.dead);
   if (chest) return [chest.x, chest.y];
@@ -211,6 +214,8 @@ export function fireWith(id, frames = 12) {
 }
 
 export async function start({ click = true } = {}) {
+  // Pick panels close at once instead of playing their exit animation, so stepped frames never wait on a timer.
+  window.__fastUi = true;
   await wait(800);
   if (click) {
     // Main menu: "开始冒险", then confirm if it asks to overwrite a saved run.

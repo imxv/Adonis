@@ -70,6 +70,11 @@ export function buildCommonTextures(scene: Phaser.Scene) {
     gatling: ['....gggggggggg.', 'DDDDGGGGGGGGGGw', 'DDDDggggggggggg', 'DDDDGGGGGGGGGGw', '.yy.DD.........', '.yy............'],
     'gatling-b': ['....GGGGGGGGGG.', 'DDDDggggggggggw', 'DDDDGGGGGGGGGGG', 'DDDDggggggggggw', '.yy.DD.........', '.yy............'],
     frostlance: ['..........cc..', 'DDDDkkkkkkkcwc', 'DDDDDDkkkkkcc.', '..BB..........', '..BB..........'],
+    // The element guns: a water gun with its tank, a folding fan, a stubby crystal mortar, a seed gun in leafing wood.
+    tide: ['....cccc......', '.KKKkkkkkkkkcw', 'KKKKkkkkkkkkkc', '.KKKkkkkkkkkcw', '..bb..........', '..bb..........'],
+    gale: ['.......lll....', '.....llwlwl...', '...lllwlwlwl..', 'bbbLLLLLLLLLLw', '...lllwlwlwl..', '.....llwlwl...', '.......lll....'],
+    quake: ['.........yY..', '..DDDDDDDyYYy', 'DDDDDDDDDDyYY', 'DDDDDDDDDDDy.', '..BB.DD......', '..BB.........'],
+    bramble: ['...l.L........', '..lLLl........', '.bbbbbbbbbbLlw', 'bbbbbbbbbbbbLl', '.bbbbbbbbbbLlw', '..BB..........', '..BB..........'],
   };
   for (const [id, rows] of Object.entries(guns)) {
     const c = Grid.ascii(rows).render();
@@ -98,6 +103,15 @@ export function buildCommonTextures(scene: Phaser.Scene) {
   add(scene, 'b-book', Grid.ascii(['PPPPPT', 'PyyyPT', 'PyPyPT', 'PyyyPT', 'PPPPPT']).render());
   add(scene, 'b-knife', Grid.ascii(['bbgggw', 'bbGGG.']).render());
   add(scene, 'b-sword', Grid.ascii(['.y.......', 'byggggggw', '.y.GGGGG.']).render());
+  // The level-up token: a faceted gold crystal with a white heart, nothing else in the game looks like it.
+  const tok = new Grid(19, 29);
+  tok.tri(9, 0, 0, 10, 18, 10, 'Y').tri(0, 10, 18, 10, 9, 28, 'y');
+  tok.tri(9, 0, 9, 10, 18, 10, 'y').tri(9, 10, 18, 10, 9, 28, 'O');
+  tok.tri(4, 10, 9, 10, 9, 24, 'Y');
+  tok.line(9, 1, 9, 27, 'w').line(1, 10, 17, 10, 'Y').line(2, 10, 8, 10, 'w').tri(9, 3, 4, 10, 9, 10, 'w');
+  tok.set(5, 13, 'w').set(6, 16, 'w').set(12, 5, 'Y').set(13, 13, 'y').set(9, 12, 'w').set(9, 13, 'w');
+  add(scene, 'lvl-token', tok.render({ colors: { w: E.white, Y: E.yellow, y: E.amber, O: E.orange } }));
+
   // A spike that bursts from the floor where a guardian's strike lands, tinted to the style's material.
   const spike = new Grid(5, 12);
   spike.tri(0, 11, 4, 11, 2, 0, 'w').tri(2, 0, 4, 11, 2, 11, 'g').set(1, 9, 'g');

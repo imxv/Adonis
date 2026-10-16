@@ -1087,6 +1087,286 @@ canvas.bt {
   flex-direction: column;
 }
 
+/* ---- pick panel: tall cards dealt face down onto the table, flipped one after another */
+
+.picker {
+  gap: 8px;
+  animation: pkDim 0.15s steps(3) both;
+}
+
+@keyframes pkDim {
+  from { background: rgba(7, 6, 11, 0); }
+}
+
+.pk-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  animation: drop 0.2s steps(4) both;
+}
+
+.pk-cards {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.pk-card {
+  --rc: #8b9bb4;
+  --rd: #3a4466;
+  position: relative;
+  width: 120px;
+  height: 196px;
+  cursor: pointer;
+  animation: pkDeal 0.42s steps(8) calc(var(--i) * 0.09s) both;
+}
+
+.pk-card.rare { --rc: #0099db; --rd: #124e89; }
+.pk-card.epic { --rc: #b55088; --rd: #68386c; }
+.pk-card.legendary { --rc: #feae34; --rd: #be4a2f; }
+
+@keyframes pkDeal {
+  0% { transform: translateY(90px) rotate(var(--tilt)) scale(0.85); opacity: 0; }
+  55% { transform: translateY(-8px) rotate(0deg) scale(1.02); opacity: 1; }
+  100% { transform: none; opacity: 1; }
+}
+
+.pk-tilt {
+  position: absolute;
+  inset: 0;
+  transition: transform 0.12s steps(3);
+}
+
+.pk-card.sel .pk-tilt {
+  transform: translateY(-9px);
+}
+
+.pk-back,
+.pk-face {
+  position: absolute;
+  inset: 0;
+}
+
+/* The back: a dark weave with a red diamond, showing until the card turns over. */
+.pk-back {
+  display: grid;
+  place-items: center;
+  background: repeating-linear-gradient(45deg, #1d1a2b 0 4px, #262b44 4px 8px);
+  box-shadow: inset 0 0 0 1px #000, inset 0 0 0 2px #a22633, inset 0 0 0 3px #1d1a2b, 0 0 0 1px #000;
+  animation: pkBack 0.5s steps(6) calc(var(--i) * 0.09s + 0.22s) both;
+}
+
+.pk-back i {
+  width: 14px;
+  height: 14px;
+  background: #e43b44;
+  box-shadow: 0 0 0 1px #000, inset 0 0 0 3px #a22633;
+  transform: rotate(45deg);
+}
+
+@keyframes pkBack {
+  0% { transform: scaleX(1); }
+  50%, 100% { transform: scaleX(0); }
+}
+
+.pk-face {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px 4px 0;
+  overflow: hidden;
+  background: #141221;
+  box-shadow: inset 0 0 0 1px #000, inset 0 0 0 2px var(--rc), inset 0 0 0 3px var(--rd), 0 0 0 1px #000;
+  animation: pkFace 0.5s steps(6) calc(var(--i) * 0.09s + 0.22s) both;
+}
+
+@keyframes pkFace {
+  0%, 50% { transform: scaleX(0); }
+  100% { transform: scaleX(1); }
+}
+
+.pk-card.sel .pk-face {
+  box-shadow: inset 0 0 0 1px #000, inset 0 0 0 2px var(--rc), inset 0 0 0 3px var(--rd), 0 0 0 1px #000, 0 0 0 2px var(--rc), 0 7px 0 1px rgba(0, 0, 0, 0.45);
+}
+
+.pk-ribbon {
+  align-self: stretch;
+  margin: -1px -1px 0;
+  height: 15px;
+  display: grid;
+  place-items: center;
+  background: var(--rd);
+  box-shadow: inset 0 -1px 0 var(--rc);
+}
+
+.pk-art {
+  position: relative;
+  width: 100%;
+  height: 48px;
+  margin-top: 3px;
+  display: grid;
+  place-items: center;
+}
+
+.pk-halo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 46px;
+  height: 46px;
+  margin: -23px 0 0 -23px;
+  border-radius: 50%;
+  background: var(--rc);
+  opacity: 0.16;
+  box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.03);
+  animation: pkHalo 1.6s steps(4) infinite alternate;
+}
+
+@keyframes pkHalo {
+  from { transform: scale(0.88); }
+  to { transform: scale(1.05); }
+}
+
+.pk-art img {
+  position: relative;
+}
+
+.pk-card.sel .pk-art img {
+  animation: pkBob 0.8s steps(2) infinite;
+}
+
+@keyframes pkBob {
+  50% { transform: translateY(-2px); }
+}
+
+.pk-name {
+  margin-top: 2px;
+}
+
+.pk-name .lines,
+.pk-desc .lines {
+  align-items: center;
+}
+
+.pk-rule {
+  width: 70%;
+  height: 1px;
+  margin: 4px 0;
+  background: var(--rd);
+  box-shadow: 0 1px 0 #000;
+}
+
+/* Up to four lines (each is 18px with its outline); the strip under them is kept for the key. */
+.pk-desc {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  max-height: 72px;
+  overflow: hidden;
+}
+
+.pk-key {
+  position: absolute;
+  left: 50%;
+  bottom: 5px;
+  width: 13px;
+  height: 13px;
+  margin-left: -6px;
+  display: grid;
+  place-items: center;
+  background: var(--rd);
+  box-shadow: inset 0 0 0 1px var(--rc), 0 0 0 1px #000;
+}
+
+/* Light runs over epic and legendary cards now and then, and over any card the moment it is chosen to look at. */
+.pk-shine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -30px;
+  width: 12px;
+  background: rgba(255, 255, 255, 0.16);
+  transform: skewX(-20deg);
+  pointer-events: none;
+}
+
+.pk-card.epic .pk-shine,
+.pk-card.legendary .pk-shine {
+  animation: pkShine 2.6s steps(14) 1s infinite;
+}
+
+.pk-card.sel .pk-shine {
+  animation: pkShine 0.9s steps(10) 1;
+}
+
+@keyframes pkShine {
+  0% { left: -30px; }
+  40%, 100% { left: 140px; }
+}
+
+/* Taken: the card flares, rises and fades while the others fall away. */
+.pk-card.chosen .pk-tilt {
+  animation: pkChosen 0.55s steps(9) forwards;
+}
+
+@keyframes pkChosen {
+  0% { transform: translateY(-9px) scale(1); filter: none; }
+  25% { transform: translateY(-14px) scale(1.12); filter: brightness(1.9); }
+  60% { transform: translateY(-18px) scale(1.06); filter: brightness(1.2); opacity: 1; }
+  100% { transform: translateY(-40px) scale(0.9); filter: none; opacity: 0; }
+}
+
+.pk-card.chosen::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  box-shadow: 0 0 0 2px var(--rc);
+  animation: pkBurst 0.4s steps(6) forwards;
+}
+
+@keyframes pkBurst {
+  from { transform: scale(1); opacity: 1; }
+  to { transform: scale(1.35); opacity: 0; }
+}
+
+.pk-card.away .pk-tilt {
+  animation: pkAway 0.3s steps(5) forwards;
+}
+
+@keyframes pkAway {
+  to { transform: translateY(50px) rotate(var(--tilt)); opacity: 0; }
+}
+
+.picker.closing {
+  pointer-events: none;
+  animation: pkUndim 0.45s steps(5) 0.1s forwards;
+}
+
+@keyframes pkUndim {
+  to { background: rgba(7, 6, 11, 0); }
+}
+
+.picker.closing .pk-head,
+.picker.closing .pk-skip {
+  opacity: 0;
+  transition: opacity 0.15s steps(3);
+}
+
+.pk-skip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  box-shadow: inset 0 0 0 1px #1d1a2b;
+  cursor: pointer;
+  animation: drop 0.2s steps(4) 0.4s both;
+}
+
+.pk-skip.sel {
+  background: #1d1a2b;
+  box-shadow: inset 0 0 0 1px var(--hot);
+}
+
 /* Main menu: logo and menu on the left, the knight facing the boar on the right. */
 .title {
   background: #07060b;

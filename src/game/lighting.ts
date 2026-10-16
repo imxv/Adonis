@@ -102,7 +102,13 @@ export class Lighting {
   }
 
   addStatic(x: number, y: number, r: number, color: string) {
-    this.statics.push({ x, y, r, color: hexToNum(color), flicker: 0 });
+    const l = { x, y, r, color: hexToNum(color), flicker: 0 };
+    this.statics.push(l);
+    return l;
+  }
+
+  removeStatic(l: object) {
+    this.statics = this.statics.filter((x) => x !== l);
   }
 
   clearStatic() {
