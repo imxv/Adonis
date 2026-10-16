@@ -11,6 +11,8 @@ import type { SpellId } from './data/spells';
 export interface SavedRun {
   v: 1;
   savedAt: number;
+  /** The hero of this run; saves from before heroes existed were the knight's. */
+  hero?: string;
   seed: number;
   diff: DifficultyId;
   styles: string[];

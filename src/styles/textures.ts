@@ -39,6 +39,9 @@ export function buildCommonTextures(scene: Phaser.Scene) {
   add(scene, 'knight-a', sprite(S.KNIGHT_A).render());
   add(scene, 'knight-b', sprite(S.KNIGHT_B).render());
   icon('knight', scene.textures.get('knight-a').getSourceImage() as HTMLCanvasElement);
+  add(scene, 'adonis-a', sprite(S.ADONIS_A).render());
+  add(scene, 'adonis-b', sprite(S.ADONIS_B).render());
+  icon('adonis', scene.textures.get('adonis-a').getSourceImage() as HTMLCanvasElement);
   const shieldRows = ['GgggggG', 'GgwgggG', 'GgggggG', 'GgggggG', '.GgggG.', '..GgG..', '...G...'];
   icon('armor', Grid.ascii(shieldRows).render());
   // Empty and flash versions for the HUD: a lost shield or heart flashes white, then goes dark.

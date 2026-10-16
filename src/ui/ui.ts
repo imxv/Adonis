@@ -1,5 +1,6 @@
 import { RARITY_INFO, UPGRADE_BY_ID } from '../data/upgrades';
 import { WEAPONS, STAT_MEANING, MAX_WEAPON_LEVEL } from '../data/weapons';
+import { HEROES, HERO_ORDER, type HeroId } from '../data/heroes';
 import { FUSE_LEVEL, SPELLS, fusionOf, spellName, type FusionId } from '../data/spells';
 import { PETS } from '../data/enemies';
 import type { StyleKit } from '../styles/types';
@@ -77,7 +78,7 @@ const RANK_COLOR: Record<Rank, string> = { D: E.greyM, C: E.green, B: E.cyan, A:
 export interface TitleActions {
   save: () => SavedRun | null;
   onContinue: () => void;
-  onNew: () => void;
+  onNew: (hero: HeroId) => void;
   codex: () => CodexTab[];
 }
 
@@ -608,6 +609,84 @@ class UI implements LayerHost {
     audio.deal(cards.length);
   }
 
+  /**
+   * Choosing the hero of a new run: a tall card each, dealt and flipped like the pick cards, with the hero, a line about
+   * them, their first weapon and their perk. 1-2, the arrows and Enter or a click choose; Esc goes back to the menu.
+   */
+  heroSelect(onPick: (hero: HeroId) => void) {
+    const ov = el('div', 'overlay picker heroes');
+    ov.innerHTML = `<div class="pk-head"><span class="tagred">${px('HERO', E.white, { small: true, outline: false })}</span>${px('选择角色', E.yellow, { scale: 2 })}${px('谁走进这幅画', GREY)}${px('Esc 返回', DIM)}</div>`;
+    const table = el('div', 'pk-cards');
+    ov.appendChild(table);
+    const cards = HERO_ORDER.map((id, i) => {
+      const h = HEROES[id];
+      const w = WEAPONS[h.weapon];
+      const card = el('div', `pk-card hero ${i === 0 ? 'legendary' : 'rare'}`);
+      card.style.setProperty('--i', String(i));
+      card.style.setProperty('--tilt', `${(i - (HERO_ORDER.length - 1) / 2) * 7}deg`);
+      card.innerHTML = `<div class="pk-tilt">
+          <div class="pk-back"><i></i></div>
+          <div class="pk-face">
+            <div class="pk-ribbon">${px(h.title, i === 0 ? E.yellow : E.cyan)}</div>
+            <div class="pk-art hero-art"><div class="pk-halo"></div>${icon(h.tex, 4)}</div>
+            <div class="pk-name">${px(h.name, E.white)}</div>
+            <div class="pk-rule"></div>
+            <div class="pk-desc">${pxBlock(h.desc, DIM, 136)}</div>
+            <div class="hero-row">${icon(`gun-${h.weapon}`)}${px(`初始武器 ${w?.name ?? ''}`, GREY)}</div>
+            <div class="hero-perk">${pxBlock(h.perk, E.green, 136)}</div>
+            <div class="pk-key">${px(String(i + 1), E.white, { small: true })}</div>
+            <i class="pk-shine"></i>
+          </div>
+        </div>`;
+      table.appendChild(card);
+      return card;
+    });
+    let sel = 0;
+    let done = false;
+    const select = (i: number) => {
+      sel = i;
+      cards.forEach((c, k) => c.classList.toggle('sel', k === i));
+    };
+    const pick = (i: number) => {
+      if (done) return;
+      done = true;
+      cards.forEach((c, k) => c.classList.add(k === i ? 'chosen' : 'away'));
+      ov.classList.add('closing');
+      audio.cardPick();
+      const go = () => {
+        this.close(layer);
+        onPick(HERO_ORDER[i]);
+      };
+      if ((window as unknown as { __fastUi?: boolean }).__fastUi) go();
+      else window.setTimeout(go, 560);
+    };
+    const back = () => {
+      if (done) return;
+      done = true;
+      audio.select();
+      this.close(layer, 150);
+    };
+    cards.forEach((card, k) => {
+      card.addEventListener('mouseenter', () => {
+        if (done || sel === k) return;
+        audio.hover();
+        select(k);
+      });
+      card.addEventListener('click', () => pick(k));
+    });
+    select(0);
+    const layer = this.push(ov, (e) => {
+      const n = Number(e.key) - 1;
+      if (n >= 0 && n < cards.length) pick(n);
+      else if (e.key === 'Escape') back();
+      else if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'a', 'A', 'd', 'D', 'w', 'W', 's', 'S'].includes(e.key)) {
+        select((sel + 1) % cards.length);
+        audio.hover();
+      } else if (e.key === 'Enter' || e.key === ' ') pick(sel);
+    });
+    audio.deal(cards.length);
+  }
+
   /** When a pick panel last closed, so the same Esc press doesn't also open the pause menu. */
   closedAt = 0;
 
@@ -665,8 +744,10 @@ class UI implements LayerHost {
         audio.select();
         if (i === 0) leave(a.onContinue);
         else if (i === 1) {
-          if (a.save()) confirmBox(this, '已有一局存档。开始新的冒险会覆盖它，确定吗？', () => leave(a.onNew));
-          else leave(a.onNew);
+          // A new run starts with choosing who walks into the painting.
+          const choose = () => this.heroSelect((hero) => leave(() => a.onNew(hero)));
+          if (a.save()) confirmBox(this, '已有一局存档。开始新的冒险会覆盖它，确定吗？', choose);
+          else choose();
         } else if (i === 2) openBoard(this);
         else if (i === 3) openHelp(this);
         else if (i === 4) openCodex(this, (tabs ??= a.codex()));
@@ -700,7 +781,7 @@ class UI implements LayerHost {
     ];
     const elems = (['fire', 'ice', 'shock'] as const).filter((k) => m.elements[k] > 0).map((k) => `${{ fire: '火', ice: '冰', shock: '电' }[k]} ${Math.round(m.elements[k] * 100)}%`);
     const row = (n: number, max: number, full: string, empty: string) => `<div class="icons">${Array.from({ length: max }, (_, i) => icon(i < n ? full : empty)).join('')}</div>`;
-    const hero = `<div class="ps-hero">${icon('knight', 2)}<div class="ps-bars">${row(Math.max(0, run.hp), m.maxHp, 'heart', 'heart-empty')}${row(run.armor, m.maxArmor, 'armor', 'armor-empty')}${bar('xp', run.xp, run.xpNext, `LV${run.xpLevel}`)}</div></div>`;
+    const hero = `<div class="ps-hero">${icon(HEROES[run.hero]?.tex ?? 'adonis', 2)}<div class="ps-bars">${row(Math.max(0, run.hp), m.maxHp, 'heart', 'heart-empty')}${row(run.armor, m.maxArmor, 'armor', 'armor-empty')}${bar('xp', run.xp, run.xpNext, `LV${run.xpLevel}`)}</div></div>`;
     const statGrid = `<div class="ps-stats">${stats.map(([k, v]) => `<div class="st">${px(k, DIM)}${px(v, E.white, { small: true })}</div>`).join('')}</div>${elems.length ? `<div class="ps-line">${px('元素', DIM)}${px(elems.join('  '), E.white)}</div>` : ''}`;
     const guns = run.weapons
       .map((w, i) => `<div class="ps-item">${icon(`gun-${w.def.id}`)}${px(w.def.name, E.white)}${px(`Lv${w.level}`, E.yellow, { small: true })}${px(i === run.held ? '主' : '副', i === run.held ? E.cyan : DIM)}${w.def.mag ? px(`弹匣${Math.round(w.def.mag * m.mag)}`, DIM) : ''}</div>`)

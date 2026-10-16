@@ -213,7 +213,7 @@ export function fireWith(id, frames = 12) {
   return s.run.weapons[s.run.held].def.id;
 }
 
-export async function start({ click = true } = {}) {
+export async function start({ click = true, hero = 0 } = {}) {
   // Pick panels close at once instead of playing their exit animation, so stepped frames never wait on a timer.
   window.__fastUi = true;
   await wait(800);
@@ -222,6 +222,9 @@ export async function start({ click = true } = {}) {
     document.querySelector('.overlay.title [data-k="new"]')?.click();
     await wait(100);
     document.querySelector('.overlay.confirm [data-k="yes"]')?.click();
+    await wait(100);
+    // Then the hero: 0 is Adonis, 1 the knight.
+    document.querySelectorAll('.overlay.heroes .pk-card')[hero]?.click();
   }
   await wait(300);
   s = scene();

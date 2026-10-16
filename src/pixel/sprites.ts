@@ -30,6 +30,34 @@ export const KNIGHT_B: SpriteDef = {
   rows: [...KNIGHT_A.rows.slice(0, 13), '....DD...DD...', '...BBB...BB...'],
 };
 
+/**
+ * Adonis, the default hero: the hunter Aphrodite loved. Golden curls with a red anemone tucked behind the ear, a white
+ * chiton under a red cloak pinned at the shoulder, a gold belt, bare legs and sandals. Faces right, like the knight.
+ */
+export const ADONIS_A: SpriteDef = {
+  rows: [
+    '....yYYy......',
+    '...yYYYYy.....',
+    '..yYYyYYYy....',
+    '.rRyYysssy....',
+    '.Rryysssos....',
+    '..ryysssss....',
+    '...yySsssS....',
+    '....yySsS.....',
+    '...rRwwwwg....',
+    '..rRwwwwwwg...',
+    '.RrRwyyyywG...',
+    '.Rr.wwgggG....',
+    '.R...s...s....',
+    '.....s...s....',
+    '....bb..bb....',
+  ],
+};
+
+export const ADONIS_B: SpriteDef = {
+  rows: [...ADONIS_A.rows.slice(0, 12), '.R...s....s...', '....s.....s...', '...bb.....bb..'],
+};
+
 export const SLIME_A: SpriteDef = {
   mirror: true,
   rows: ['.......', '....111', '..11111', '.111111', '.11ew11', '.11ee11', '1111111', '111111o', '1111111', '1111111', '.111111', '..11111'],

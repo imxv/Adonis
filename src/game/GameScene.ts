@@ -17,6 +17,7 @@ import { DIRS, DIR_VEC } from './dirs';
 import { bossDeath, spawnBoss, updateBoss } from './boss';
 import { animateBoss } from './bossAnim';
 import { dropLevelToken, packLevelTokens, updateLevelTokens, type LevelToken } from './levelTokens';
+import { HEROES, type HeroId } from '../data/heroes';
 import { T, collide, generateDungeon, openSpot, randomFloorIn, raycast, roomAt, roomCenter, solidAt, type DRoom, type Dungeon } from './dungeon';
 import { updateEnemyAI } from './enemyAI';
 import { FlowField } from './flow';
@@ -165,6 +166,8 @@ export class GameScene extends Phaser.Scene {
   hitstop = 0;
   slowT = 0;
   slowScale = 1;
+  /** The hero's sprite key prefix (adonis, knight). */
+  heroTex = 'adonis';
   /** While a guardian is acting, the texture its small shots take (its style's own shape). */
   bossShot?: string;
   /** Bullet time: time sinks to `low` fast, holds, then eases back to full speed. */
@@ -290,9 +293,9 @@ export class GameScene extends Phaser.Scene {
         void audio.init();
         this.startRun(saved);
       },
-      onNew: () => {
+      onNew: (hero) => {
         void audio.init();
-        this.startRun();
+        this.startRun(undefined, hero);
       },
       codex: () => buildCodex(this),
     });
@@ -366,11 +369,12 @@ export class GameScene extends Phaser.Scene {
 
   // ---------------------------------------------------------------- run and floors
 
-  startRun(saved?: SavedRun) {
+  startRun(saved?: SavedRun, hero?: HeroId) {
     this.clearLevel();
     this.pets.forEach((p) => p.sprite.destroy());
     this.pets = [];
-    this.run = saved ? restoreRun(saved) : newRun(this.params);
+    this.run = saved ? restoreRun(saved) : newRun(this.params, hero);
+    this.heroTex = HEROES[this.run.hero].tex;
     this.combo = 0;
     this.carryTokens = [];
     this.fusing = false;
@@ -1409,7 +1413,7 @@ export class GameScene extends Phaser.Scene {
     [p.x, p.y] = collide(this.dungeon, p.x, p.y, p.r);
     const moving = Math.hypot(p.vx, p.vy) > 20;
     if (moving) p.walkT += dt;
-    p.sprite.setTexture(moving && Math.floor(p.walkT * 8) % 2 ? 'knight-b' : 'knight-a');
+    p.sprite.setTexture(moving && Math.floor(p.walkT * 8) % 2 ? `${this.heroTex}-b` : `${this.heroTex}-a`);
   }
 
   switchGun() {

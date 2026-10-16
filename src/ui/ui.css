@@ -1367,8 +1367,52 @@ canvas.bt {
   box-shadow: inset 0 0 0 1px var(--hot);
 }
 
+/* Hero cards: wider and taller, the key in the corner of the ribbon. */
+.pk-card.hero {
+  width: 150px;
+  height: 218px;
+}
+
+.pk-card.hero .pk-art {
+  height: 62px;
+}
+
+.pk-card.hero .pk-halo {
+  width: 62px;
+  height: 62px;
+  margin: -31px 0 0 -31px;
+}
+
+.pk-card.hero .pk-desc {
+  max-height: 57px;
+}
+
+.pk-card.hero .pk-key {
+  left: 6px;
+  top: 5px;
+  bottom: auto;
+  margin-left: 0;
+}
+
+.hero-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+}
+
+.hero-perk {
+  margin-top: 1px;
+}
+
+.hero-perk .lines {
+  align-items: center;
+}
+
 /* Main menu: logo and menu on the left, the knight facing the boar on the right. */
 .title {
+  /* Its own stacking context: the menu's z-index sits over the painting, never over panels opened on top. */
+  z-index: 0;
   background: #07060b;
   flex-direction: row;
   justify-content: space-between;

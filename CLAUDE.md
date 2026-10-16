@@ -19,7 +19,7 @@ npm run build      # 类型检查 + 打包到 dist/
 
 调试参数（完整列表见 `docs/spec.md`）：
 - `?styles=castle,forest,volcano&seed=42`：指定画风顺序和随机种子
-- `?god=1`：无敌；`?room=boss`：直接进 Boss 房；`?weapon=rocket`：初始武器；`?light=0`：关光照
+- `?god=1`：无敌；`?room=boss`：直接进 Boss 房；`?weapon=rocket`：初始武器；`?hero=knight`：角色（默认阿多尼斯）；`?light=0`：关光照
 
 自动试玩：在开发服务器页面的控制台里执行 `const pt = await import('/tools/playtest.js'); await pt.start();`，之后 `pt.play(600)` 让机器人打 600 帧，`pt.inspect(x, y, 4)` 放大查看画面。它会暂停真实的游戏循环、手动步进帧，所以在后台标签页里也能用。
 

@@ -414,7 +414,7 @@ function podium(rows: BoardRow[]): string {
       const sparkles = i === 0 ? [0, 1, 2, 3].map((k) => `<i class="spk s${k}">${icon('sparkle')}</i>`).join('') : '';
       if (!r) return `<div class="pd pd${p.place} vacant" style="--d:${i * 120}ms"><div class="pd-name">${px('虚位以待', DIM)}</div><div class="pd-block" style="height:${p.height}px">${px(String(p.place), DIM, { small: true, scale: 2 })}</div></div>`;
       return `<div class="pd pd${p.place} ${r.you ? 'you' : ''}" style="--d:${i * 120}ms">
-        <div class="pd-top">${sparkles}<div class="pd-medal">${icon(p.medal, 2)}</div><div class="pd-av">${icon('knight', 2)}</div></div>
+        <div class="pd-top">${sparkles}<div class="pd-medal">${icon(p.medal, 2)}</div><div class="pd-av">${icon('adonis', 2)}</div></div>
         <div class="pd-name">${px(r.name, r.you ? E.yellow : E.white)}</div>
         <div class="pd-score">${px(String(r.score), p.color, { small: true, scale: i === 0 ? 2 : 1 })}</div>
         <div class="pd-meta">${result(r)}${r.rank ? px(r.rank, STYLE_COLOR[r.rank] ?? GREY, { small: true }) : ''}</div>

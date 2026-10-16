@@ -1,3 +1,4 @@
+import { HEROES, type HeroId } from '../data/heroes';
 import { Rng } from '../core/rng';
 import { baseMods, type Mods, type Tag } from '../core/stats';
 import { RARITY_INFO, UPGRADES, UPGRADE_BY_ID, type Rarity, type UpgradeDef } from '../data/upgrades';
@@ -14,6 +15,7 @@ export const LEVELS = 5;
 export const COMBAT_ROOMS = 4;
 
 export interface RunState {
+  hero: HeroId;
   seed: number;
   diff: Difficulty;
   rng: Rng;
@@ -49,7 +51,8 @@ export function xpForLevel(level: number) {
   return Math.floor(5 + level * 2.8 + Math.pow(level, 1.5) * 0.7);
 }
 
-export function newRun(params: URLSearchParams): RunState {
+export function newRun(params: URLSearchParams, heroId: HeroId = 'adonis'): RunState {
+  const hero = HEROES[(params.get('hero') as HeroId) ?? heroId] ?? HEROES[heroId] ?? HEROES.adonis;
   const seed = Number(params.get('seed')) || Math.floor(Math.random() * 1e9);
   const rng = new Rng(seed);
   const forced = (params.get('styles') ?? '')
@@ -58,12 +61,14 @@ export function newRun(params: URLSearchParams): RunState {
     .filter(Boolean);
   const pool = rng.shuffle([...KITS]).filter((k) => !forced.includes(k));
   const styles = [...forced, ...pool].slice(0, LEVELS);
-  const start = params.get('weapon') || 'pistol';
+  const start = params.get('weapon') || hero.weapon;
   const mods = baseMods();
+  hero.apply(mods);
   const spells: SpellInstance[] = [];
   const startSpell = params.get('spell') as SpellId | null;
   if (startSpell && SPELLS[startSpell]) spells.push(newSpell(startSpell));
   return {
+    hero: hero.id,
     seed,
     diff: DIFFICULTIES[params.get('diff') as DifficultyId] ?? DIFFICULTIES[settings.get().diff] ?? DIFFICULTIES.normal,
     rng,
@@ -96,6 +101,7 @@ export function newRun(params: URLSearchParams): RunState {
 /** The run as plain data for a save; the floor progress is added by the scene. */
 export function snapshotRun(run: RunState): Omit<SavedRun, 'v' | 'savedAt' | 'rooms' | 'at'> {
   return {
+    hero: run.hero,
     seed: run.seed,
     diff: run.diff.id,
     styles: run.styles.map((k) => k.id),
@@ -124,6 +130,7 @@ export function snapshotRun(run: RunState): Omit<SavedRun, 'v' | 'savedAt' | 'ro
 export function restoreRun(s: SavedRun): RunState {
   const styles = s.styles.map((id) => KIT_BY_ID[id]).filter(Boolean);
   return {
+    hero: HEROES[s.hero as HeroId] ? (s.hero as HeroId) : 'knight',
     seed: s.seed,
     diff: DIFFICULTIES[s.diff] ?? DIFFICULTIES.normal,
     rng: new Rng((s.seed ^ (s.kills * 7919 + s.level * 104729)) >>> 0 || 1),
