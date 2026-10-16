@@ -7,7 +7,7 @@ import * as P from '../pixel/props';
 import * as MS from '../pixel/monsters';
 import { UPGRADE_ICONS } from '../pixel/upgradeIcons';
 import { themeProps } from '../pixel/themeProps';
-import { guardianArt } from '../pixel/bossArt';
+import { POSES, guardianArt } from '../pixel/bossArt';
 import type { Biome } from '../pixel/biomes';
 import { FLOOR, PROP, T, VOID, WALL, tileAt, type Dungeon } from '../game/dungeon';
 import { decoArt, paintFloor, paintWall } from '../pixel/decor';
@@ -397,22 +397,34 @@ export function buildCommonTextures(scene: Phaser.Scene) {
   add(scene, 'glow', glow);
 
   // Boss: the boar that killed Adonis, side view facing right.
-  add(scene, 'boss-boar', boar().render({ roles: { 1: ramp('#4a2e2a', '#7a4a3c', E.brownD), 2: ramp(E.pink, '#ffb0a8', E.skinD), 3: ramp(E.brownD, E.brown, E.ink) } }));
+  const boarRoles = { 1: ramp('#4a2e2a', '#7a4a3c', E.brownD), 2: ramp(E.pink, '#ffb0a8', E.skinD), 3: ramp(E.brownD, E.brown, E.ink) };
+  add(scene, 'boss-boar', boar('idle').render({ roles: boarRoles }));
+  for (const pose of ['run', 'windup', 'air'] as const) add(scene, `boss-boar-${pose}`, boar(pose).render({ roles: boarRoles }));
   icon('boar', scene.textures.get('boss-boar').getSourceImage() as HTMLCanvasElement);
   icon('chest', scene.textures.get('chest-open').getSourceImage() as HTMLCanvasElement);
 }
 
-function boar(): Grid {
+/** The boar, side view facing right: standing, mid-gallop, head down before a charge, and legs tucked in a leap. */
+function boar(pose: 'idle' | 'run' | 'windup' | 'air'): Grid {
   const g = new Grid(40, 28);
-  g.ellipse(17, 15, 14, 8, '1');
-  for (let x = 5; x <= 25; x += 3) g.tri(x, 9, x + 3, 9, x + 1, 2 + ((x * 7) % 3), '3');
-  g.ellipse(29, 15, 7, 6, '1');
-  g.tri(25, 9, 28, 3, 30, 9, '3');
-  g.rect(34, 12, 4, 5, '2').set(36, 13, 'e').set(36, 15, 'e');
-  for (const [x, y] of [[33, 18], [34, 18], [35, 17], [36, 16], [36, 15], [37, 14]] as [number, number][]) g.set(x, y, 'w');
-  g.set(30, 12, 'r').set(31, 12, 'r').set(30, 11, 'w');
-  for (const x of [7, 12, 21, 26]) g.rect(x, 20, 3, 6, '3').rect(x, 26, 3, 1, 'B');
-  g.set(2, 12, '3').set(1, 11, '3').set(2, 10, '3');
+  // Head down for the charge: the head and tusks sink, the haunches rise.
+  const hd = pose === 'windup' ? 3 : 0;
+  const rear = pose === 'windup' ? -2 : 0;
+  g.ellipse(17, 15 + rear / 2, 14, 8, '1');
+  for (let x = 5; x <= 25; x += 3) g.tri(x, 9 + (x < 15 ? rear : 0), x + 3, 9, x + 1, (pose === 'windup' ? 0 : 2) + ((x * 7) % 3) + (x < 15 ? rear : 0), '3');
+  g.ellipse(29, 15 + hd, 7, 6, '1');
+  g.tri(25, 9 + hd, 28, 3 + hd, 30, 9 + hd, '3');
+  g.rect(34, 12 + hd, 4, 5, '2').set(36, 13 + hd, 'e').set(36, 15 + hd, 'e');
+  for (const [x, y] of [[33, 18], [34, 18], [35, 17], [36, 16], [36, 15], [37, 14]] as [number, number][]) g.set(x, Math.min(27, y + hd), 'w');
+  g.set(30, 12 + hd, 'r').set(31, 12 + hd, 'r').set(30, 11 + hd, 'w');
+  const legs: Record<typeof pose, [number, number, number][]> = {
+    idle: [[7, 20, 6], [12, 20, 6], [21, 20, 6], [26, 20, 6]],
+    run: [[5, 20, 5], [14, 20, 6], [19, 20, 6], [28, 20, 5]],
+    windup: [[6, 19, 7], [11, 19, 7], [22, 20, 6], [28, 20, 6]],
+    air: [[9, 20, 3], [13, 20, 3], [21, 20, 3], [25, 20, 3]],
+  };
+  for (const [x, y, h] of legs[pose]) g.rect(x, y, 3, h, '3').rect(x, y + h, 3, 1, 'B');
+  g.set(2, 12 + rear, '3').set(1, 11 + rear, '3').set(2, 10 + rear, '3');
   return g;
 }
 
@@ -455,8 +467,15 @@ export function buildKitTextures(scene: Phaser.Scene, kit: Biome) {
   add(scene, K('prop-crate', kit), tp.crate[0].render({ colors: tp.crate[1] }));
   add(scene, K('prop-barrel', kit), tp.keg[0].render({ colors: tp.keg[1] }));
   add(scene, K('pillar', kit), decoArt(kit.id)[0].g.render({ colors: decoArt(kit.id)[0].colors }));
-  const [boss, bossColors] = guardianArt(kit.id);
-  add(scene, K('boss-guardian', kit), boss.render({ colors: bossColors }));
+  // The guardian in four poses for each of its two acts, so it breathes, gathers and strikes instead of sliding.
+  for (const p2 of [false, true]) {
+    for (const pose of POSES) {
+      const a = guardianArt(kit.id, pose, p2);
+      add(scene, K(`boss-guardian-${pose}${p2 ? '-2' : ''}`, kit), a.g.render({ colors: a.colors, roles: a.roles }));
+    }
+  }
+  const still = guardianArt(kit.id);
+  add(scene, K('boss-guardian', kit), still.g.render({ colors: still.colors, roles: still.roles }));
   add(scene, K('pt', kit), particle(kit));
   add(scene, K('door', kit), door(kit));
 }

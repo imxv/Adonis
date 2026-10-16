@@ -60,7 +60,7 @@ export const SPELLS: Record<SpellId, SpellDef> = {
     desc: '向上抛出飞斧，落下时砸穿敌人',
     levels: ['飞斧 +1', '伤害 +40%', '飞斧 +1', '体积 +30%'],
     evolveWith: 'sharp',
-    evolved: { name: '死神镰', desc: '镰刀螺旋扩散，贯穿一切' },
+    evolved: { name: '死神轮舞', desc: '镰刀螺旋扩散，贯穿一切' },
   },
   nova: {
     id: 'nova',

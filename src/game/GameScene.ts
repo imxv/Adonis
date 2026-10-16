@@ -15,6 +15,7 @@ import { ui } from '../ui/ui';
 import { settings } from '../settings';
 import { DIRS, DIR_VEC } from './dirs';
 import { bossDeath, spawnBoss, updateBoss } from './boss';
+import { animateBoss } from './bossAnim';
 import { T, collide, generateDungeon, openSpot, randomFloorIn, raycast, roomAt, roomCenter, solidAt, type DRoom, type Dungeon } from './dungeon';
 import { updateEnemyAI } from './enemyAI';
 import { FlowField } from './flow';
@@ -918,7 +919,10 @@ export class GameScene extends Phaser.Scene {
     const def = ENEMIES[kind];
     const { level, rng } = this.run;
     const depth = this.active?.depth ?? 0;
-    const scaleHp = (1.2 + level * 0.75 + depth * 0.1) * (mini ? 0.5 : 1) * this.run.diff.hp;
+    // Monsters toughen with the floor and with the knight's own growth, so a stack of level-ups never turns a room
+    // into something the spells clear on their own.
+    const growth = 1 + 0.015 * Math.max(0, this.run.xpLevel - 5);
+    const scaleHp = (1.5 + level * 0.95 + depth * 0.12) * growth * (mini ? 0.5 : 1) * this.run.diff.hp;
     const affix: Affix | undefined = elite ? rng.pick(Object.keys(AFFIXES) as Affix[]) : undefined;
     const hp = def.hp * scaleHp * (elite ? 5 : 1) * (affix === 'tough' ? 1.4 : 1);
     const size = elite ? 1.6 : mini ? 0.8 : 1;
@@ -2577,6 +2581,7 @@ export class GameScene extends Phaser.Scene {
       if (a.enter) this.entrance(a, sp, dt);
       markAura(this, a);
       a.shadow.setPosition(Math.round(a.x), Math.round(a.y + 1));
+      if (a.boss) animateBoss(this, a, dt);
       a.ring?.setPosition(a.x, a.y - 4);
       if (a.extra) {
         const ex = a.x + Math.cos(a.facing) * 7;

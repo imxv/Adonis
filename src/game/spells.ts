@@ -94,13 +94,21 @@ function zap(s: GameScene, x: number, y: number, e: Enemy, dmg: number, src: str
  * Vampire Survivors style auto-casting. Every spell reads the same global modifiers as the guns:
  * damage, attack rate (as cooldown), area and extra count.
  */
+/**
+ * Spells back the weapons up rather than replace them: they hit at a fixed fraction of their listed power and take
+ * only half of what the shared damage and attack-rate upgrades give the weapons.
+ */
+const SPELL_POWER = 0.6;
+
 export function updateSpells(s: GameScene, dt: number) {
   const run = s.run;
   const m = run.mods;
   const p = s.player;
-  const dmgMul = s.damageMult();
+  const dmgMul = SPELL_POWER * (1 + (s.damageMult() - 1) * 0.5);
+  // Fusions already hit harder and wider than their two parts put together.
+  const fuseMul = dmgMul * 0.8;
   const area = m.area;
-  const cdMul = 1 / Math.max(0.3, m.fireRate);
+  const cdMul = 1 / Math.max(0.3, 1 + (m.fireRate - 1) * 0.5);
   const extra = m.count;
   const g = s.spellGfx;
   g.clear();
@@ -169,7 +177,7 @@ export function updateSpells(s: GameScene, dt: number) {
       }
       case 'lightning': {
         if (sp.cd > 0) break;
-        sp.cd = (L >= 5 ? 1.35 : 1.8) * cdMul;
+        sp.cd = (L >= 5 ? 1.7 : 2.2) * cdMul;
         const targets = Phaser.Utils.Array.Shuffle(inView(s)).slice(0, (1 + lv(L >= 2) + lv(L >= 4) + extra) * (sp.evolved ? 2 : 1));
         const dmg = 11 * (1 + 0.4 * lv(L >= 3)) * dmgMul;
         for (const t of targets) {
@@ -191,7 +199,7 @@ export function updateSpells(s: GameScene, dt: number) {
       }
       case 'missile': {
         if (sp.cd > 0) break;
-        sp.cd = (sp.evolved ? 0.28 : 0.9) * cdMul;
+        sp.cd = (sp.evolved ? 0.36 : 0.9) * cdMul;
         const best = nearest(s, p.x, p.y, 240, 1)[0];
         if (!best) {
           sp.cd = 0.2;
@@ -214,7 +222,7 @@ export function updateSpells(s: GameScene, dt: number) {
         for (let i = 0; i < n; i++) {
           if (sp.evolved) {
             const a = (i / n) * TAU + s.time0;
-            const pr = s.spawnProj('axe', p.x, p.y - 6, a, 150, 2.2, size * 1.4, dmg, 999, 60, '死神镰');
+            const pr = s.spawnProj('axe', p.x, p.y - 6, a, 150, 2.2, size * 1.4, dmg, 999, 60, '死神轮舞');
             pr.spin = 20;
           } else {
             const pr = s.spawnProj('axe', p.x, p.y - 6, -Math.PI / 2, 0, 2.4, size, dmg, 999, 60, '回旋飞斧');
@@ -372,7 +380,7 @@ export function updateSpells(s: GameScene, dt: number) {
         s.fx.ring(p.x, p.y - 4, radius * 0.6, E.white, 320, 2);
         s.light.flash(p.x, p.y, radius * 1.6, E.cyan, 0.3);
         for (const e of inside) {
-          s.damageEnemy(e, 12 * dmgMul, { src: '雷霜风暴', element: 'ice', ignoreShield: true, kx: e.x - p.x, ky: e.y - p.y, knock: 40 });
+          s.damageEnemy(e, 12 * fuseMul, { src: '雷霜风暴', element: 'ice', ignoreShield: true, kx: e.x - p.x, ky: e.y - p.y, knock: 40 });
           if (!e.dead) e.status.frozen = e.boss ? 0.6 : 1.2;
         }
         // A beat later the bolts land on the frozen: shock on ice shatters it.
@@ -383,7 +391,7 @@ export function updateSpells(s: GameScene, dt: number) {
             for (let k = 1; k < 6; k++) pts.push(t.x + rand(-7, 7), t.y - 140 + (k * 140) / 6);
             pts.push(t.x, t.y - 4);
             s.visuals.push({ kind: 'bolt', pts, width: 2, t: 0, dur: 0.18, color: hexToNum(E.cyan) });
-            s.damageEnemy(t, 16 * dmgMul, { src: '雷霜风暴', element: 'shock', ignoreShield: true });
+            s.damageEnemy(t, 16 * fuseMul, { src: '雷霜风暴', element: 'shock', ignoreShield: true });
           }
           if (alive.length) {
             audio.shoot('chain');
@@ -395,18 +403,18 @@ export function updateSpells(s: GameScene, dt: number) {
       }
       case 'bladestorm': {
         sp.angle += dt * 3;
-        const pos = swordRing(sp, 10 + extra * 2, 46 * area, 6 * dmgMul, '万剑归宗');
+        const pos = swordRing(sp, 10 + extra * 2, 46 * area, 6 * fuseMul, '万剑归宗');
         if (sp.cd > 0) break;
         const targets = nearest(s, p.x, p.y, 240, 3);
         if (!targets.length) {
           sp.cd = 0.2;
           break;
         }
-        sp.cd = 0.7 * cdMul;
+        sp.cd = 0.9 * cdMul;
         for (let i = 0; i < 2; i++) {
           const [x, y] = pos[Math.floor(Math.random() * pos.length)];
           const t = targets[i % targets.length];
-          const pr = s.spawnProj('bolt', x, y, Math.atan2(t.y - 4 - y, t.x - x), 300 * m.speed, 1.2, 3, 12 * dmgMul, 3 + m.pierce, 40, '万剑归宗', 'b-sword');
+          const pr = s.spawnProj('bolt', x, y, Math.atan2(t.y - 4 - y, t.x - x), 300 * m.speed, 1.2, 3, 12 * fuseMul, 3 + m.pierce, 40, '万剑归宗', 'b-sword');
           pr.homing = 5;
         }
         break;
@@ -425,7 +433,7 @@ export function updateSpells(s: GameScene, dt: number) {
         sp.cd = 0.4 * cdMul;
         for (const e of s.enemies) {
           if (e.dead || dist2(e.x, e.y, p.x, p.y) > (radius + e.r) ** 2) continue;
-          s.damageEnemy(e, 3.5 * dmgMul, { src: '瘟疫领域', noCrit: true, quiet: true, element: 'grass' });
+          s.damageEnemy(e, 3.5 * fuseMul, { src: '瘟疫领域', noCrit: true, quiet: true, element: 'grass' });
           if (!e.dead) e.status.chill = Math.max(e.status.chill, 0.6);
         }
         break;
@@ -437,7 +445,7 @@ export function updateSpells(s: GameScene, dt: number) {
         for (let i = 0; i < 4 + extra; i++) {
           const t = targets[i];
           const [x, y] = t ? [t.x, t.y] : [p.x + rand(-110, 110), p.y + rand(-80, 80)];
-          meteor(s, x, y, 34 * area, 20 * dmgMul, '天陨', 2, i * 0.12);
+          meteor(s, x, y, 34 * area, 20 * fuseMul, '天陨', 2, i * 0.12);
         }
         break;
       }
@@ -453,7 +461,7 @@ export function updateSpells(s: GameScene, dt: number) {
         const t = targets[Math.floor(sp.angle) % targets.length];
         // Launched off-line, then they curve in: the homing is what draws the arc.
         const a = Math.atan2(t.y - p.y, t.x - p.x) + (Math.floor(sp.angle) % 2 ? 0.9 : -0.9);
-        const pr = s.spawnProj('bolt', p.x, p.y - 5, a, 300 * m.speed, 1.4, 3, 6 * dmgMul, 2 + m.pierce, 20, '千刃追踪', 'b-knife');
+        const pr = s.spawnProj('bolt', p.x, p.y - 5, a, 300 * m.speed, 1.4, 3, 6 * fuseMul, 2 + m.pierce, 20, '千刃追踪', 'b-knife');
         pr.homing = 9;
         break;
       }
@@ -465,7 +473,7 @@ export function updateSpells(s: GameScene, dt: number) {
           break;
         }
         sp.cd = 4.2 * cdMul;
-        s.hazards.push({ kind: 'vortex', x: at.x, y: at.y, r: 72 * area, t: 3.6, dur: 3.6, tick: 0.3, dmg: 3 * dmgMul, src: '雷暴奇点', pull: 80, arc: 9 * dmgMul, arcT: 0.35, burst: 26 * dmgMul });
+        s.hazards.push({ kind: 'vortex', x: at.x, y: at.y, r: 72 * area, t: 3.6, dur: 3.6, tick: 0.3, dmg: 3 * fuseMul, src: '雷暴奇点', pull: 80, arc: 9 * fuseMul, arcT: 0.35, burst: 26 * fuseMul });
         break;
       }
     }

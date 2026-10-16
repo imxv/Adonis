@@ -416,6 +416,28 @@ class AudioEngine {
     });
   }
 
+  /** A guardian gathering a move: air drawn in, rising under it, then let go in one push. */
+  bossGather(dur: number) {
+    if (!this.gate('bossGather', 250)) return;
+    this.safe(() => {
+      const t0 = Tone.getContext().currentTime + 0.02;
+      this.riseNoise.envelope.attack = dur * 0.8;
+      this.sweep(this.riseFilter, 220, 1900, t0, dur);
+      this.riseNoise.triggerAttack(t0, 0.55);
+      this.riseNoise.triggerRelease(t0 + dur);
+      const t = t0 + dur;
+      this.sweep(this.whooshFilter, 2600, 500, t, 0.22);
+      this.whoosh.triggerAttackRelease(0.22, t, 0.7);
+      this.thump.triggerAttackRelease('G1', 0.14, t, 0.6);
+    });
+  }
+
+  /** A heavy footfall. */
+  step() {
+    if (!this.gate('step', 150)) return;
+    this.safe(() => this.thump.triggerAttackRelease('C1', 0.1, this.at(this.thump), 0.35));
+  }
+
   roar() {
     this.safe(() => this.growl.triggerAttackRelease('A1', 1.1, this.at(this.growl), 1));
     this.explode(true);

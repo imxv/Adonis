@@ -117,7 +117,7 @@ export function react(s: GameScene, e: Enemy, el: Element, hit: number): number 
   if (pair('fire', 'shock')) {
     consume();
     say(s, e, '超载', 'fire');
-    s.explode(e.x, e.y, 38, hit * 1.2 * pow, { src: '超载', knock: 240, small: true, element: 'fire', noReact: true });
+    s.explode(e.x, e.y, 34, hit * 0.9 * pow, { src: '超载', knock: 240, small: true, element: 'fire', noReact: true });
     return mult;
   }
   if (pair('ice', 'shock')) {

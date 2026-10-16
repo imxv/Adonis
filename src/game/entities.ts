@@ -1,3 +1,4 @@
+import type { BossLook } from './bossAnim';
 import type Phaser from 'phaser';
 import type { Element } from '../core/stats';
 import type { Affix, BossKind, EnemyKind, Pets, SpawnStyle } from '../data/enemies';
@@ -168,6 +169,10 @@ export interface BossState {
   enraged: boolean;
   invuln: number;
   name: string;
+  /** Seconds left gathering the move in `pattern` before it is let go. */
+  windup?: number;
+  /** Body language: poses, stride, lean, afterimages (see bossAnim). */
+  look?: BossLook;
 }
 
 export interface Pickup {

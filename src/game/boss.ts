@@ -10,6 +10,7 @@ import { DEPTH } from './fx';
 import type { GameScene } from './GameScene';
 import { turnToward } from './enemyAI';
 import { GUARDIAN_SKILLS, SELF_MOVING, runSkill } from './bossSkills';
+import { WINDUP, actTwo, beginWindup, initLook, release, shatterBoss } from './bossAnim';
 
 const GOLDEN = Math.PI * (3 - Math.sqrt(5));
 
@@ -23,9 +24,8 @@ export function spawnBoss(s: GameScene, kind: 'guardian' | 'boar'): Enemy {
   const x = R.cx;
   const y = R.y0 + 92;
   const key = kind === 'boar' ? 'boss-boar' : K('boss-guardian', kit);
-  const sprite = s.add.image(x, y, key).setDepth(DEPTH.enemy + 0.5).setOrigin(0.5, 0.85).setScale(0.2);
+  const sprite = s.add.image(x, y, key).setDepth(DEPTH.enemy + 0.5).setOrigin(0.5, 0.85).setScale(2);
   const shadow = s.add.image(x, y, 'shadow').setDepth(DEPTH.shadow).setScale(4, 3);
-  s.tweens.add({ targets: sprite, scale: 2, duration: 700, ease: 'Back.easeOut' });
   const boss: BossState = {
     phase: 1,
     queue: [],
@@ -78,6 +78,8 @@ export function spawnBoss(s: GameScene, kind: 'guardian' | 'boar'): Enemy {
     boss,
   };
   s.enemies.push(e);
+  // It falls in from above (or floats down) and lands with a slam.
+  boss.look = initLook(s, e);
   // The guardian is the style's subtitle come to life, so its banner says it again.
   ui.banner(kind === 'boar' ? '宿 敌' : '守 卫', name, kind === 'boar' ? 'THE BOAR' : 'THE GUARDIAN', kind === 'boar' ? '那头撞死阿多尼斯的野猪' : `「${kit.subtitle}」`, 1800);
   audio.roar();
@@ -109,7 +111,7 @@ export function bossDeath(s: GameScene, e: Enemy) {
   for (let i = 0; i < 24; i++) s.dropGem(e.x + rand(-30, 30), e.y + rand(-20, 20), 5);
   s.dropChest(e.x - 14, e.y + 10);
   if (e.kind !== 'boar') s.dropChest(e.x + 14, e.y + 10, true);
-  s.tweens.add({ targets: e.sprite, scale: 2.6, alpha: 0, angle: rand(-12, 12), duration: 1200, ease: 'Quad.easeIn', onComplete: () => e.sprite.destroy() });
+  shatterBoss(s, e);
   s.tweens.add({ targets: e.shadow, alpha: 0, duration: 800, onComplete: () => e.shadow.destroy() });
   s.fx.callout(e.x, e.y - 60, e.kind === 'boar' ? '这一次……' : '守卫倒下了', E.yellow, true);
   e.boss!.armLive = e.boss!.armWarn = 0;
@@ -142,6 +144,8 @@ function phaseShift(s: GameScene, e: Enemy, b: BossState, text: string) {
   s.fx.callout(e.x, e.y - 60, text, E.red, true);
   audio.roar();
   s.stop(0.15);
+  b.windup = 0;
+  actTwo(s, e);
   const p = s.player;
   const a = Math.atan2(p.y - e.y, p.x - e.x);
   p.vx += Math.cos(a) * 300;
@@ -164,10 +168,12 @@ function guardian(s: GameScene, e: Enemy, b: BossState, dt: number) {
     ty = clamp(p.y + Math.sin(a) * 90, R.y0 + 56, R.y1 - 48);
   }
   const k = b.phase === 1 ? 1.4 : 0.8;
-  if (SELF_MOVING.has(b.pattern)) e.vx = e.vy = 0;
+  if (SELF_MOVING.has(b.pattern) && !b.windup) e.vx = e.vy = 0;
   else {
-    e.vx = Math.max(-80, Math.min(80, (tx - e.x) * k));
-    e.vy = Math.max(-80, Math.min(80, (ty - e.y) * k));
+    // Gathering a move roots it in place.
+    const hold = b.windup ? 0.2 : 1;
+    e.vx = Math.max(-80, Math.min(80, (tx - e.x) * k)) * hold;
+    e.vy = Math.max(-80, Math.min(80, (ty - e.y) * k)) * hold;
   }
 
   // Rotating arms: warn, then live.
@@ -196,8 +202,17 @@ function guardian(s: GameScene, e: Enemy, b: BossState, dt: number) {
     b.pattern = b.queue.shift()!;
     b.pt = 0;
     b.step = 0;
+    // Every move is gathered first: its name, its pose, the light drawn in. Then it is let go.
+    b.windup = WINDUP[b.phase - 1];
+    beginWindup(s, e, b, b.windup);
   }
   if (!b.pattern) return;
+  if (b.windup && b.windup > 0) {
+    b.windup -= dt;
+    if (b.windup > 0) return;
+    b.windup = 0;
+    release(s, e, b);
+  }
   b.pt += dt;
   const done = () => {
     b.pattern = '';
@@ -305,13 +320,13 @@ function boar(s: GameScene, e: Enemy, b: BossState, dt: number) {
     case 'windup': {
       e.vx = e.vy = 0;
       e.facing = Math.atan2(b.dirY, b.dirX);
-      e.sprite.setX(Math.round(e.x + Math.sin(e.t2 * 80) * 2));
       if (Math.random() < 0.4) s.fx.dust(e.x - b.dirX * 16, e.y, 1);
       if (e.t2 >= (b.enraged ? 0.55 : 0.75)) {
         e.state = 'charge';
         e.t2 = 0;
         b.bounces = b.enraged ? 2 : 0;
         audio.roar();
+        release(s, e, b);
       }
       break;
     }
@@ -367,10 +382,8 @@ function boar(s: GameScene, e: Enemy, b: BossState, dt: number) {
     }
     case 'stunned': {
       e.vx = e.vy = 0;
-      e.sprite.setAngle(Math.round(Math.sin(e.t2 * 30) * 3));
       if (e.t2 > 1.15) {
         e.state = 'idle';
-        e.sprite.setAngle(0);
         b.cooldown = b.enraged ? 0.6 : 1.0;
       }
       break;
@@ -378,7 +391,6 @@ function boar(s: GameScene, e: Enemy, b: BossState, dt: number) {
     case 'stomp-up': {
       e.vx = e.vy = 0;
       b.air = Math.min(70, b.air + dt * 180);
-      e.sprite.setScale(2 + b.air / 140);
       if (e.t2 < 0.45) {
         b.tx = p.x;
         b.ty = p.y;
@@ -400,9 +412,9 @@ function boar(s: GameScene, e: Enemy, b: BossState, dt: number) {
       e.x += (b.tx - e.x) * k;
       e.y += (b.ty - e.y) * k;
       b.air = 70 * (1 - k);
-      e.sprite.setScale(2 + b.air / 140);
       if (k >= 1) {
         b.air = 0;
+        if (b.look) b.look.sq = 0.4;
         e.state = 'idle';
         b.cooldown = b.enraged ? 0.7 : 1.1;
         s.fx.ring(e.x, e.y, 60, s.kit.palette.danger, 380, 3);
