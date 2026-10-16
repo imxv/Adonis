@@ -229,6 +229,7 @@ export class WeaponTrainingScene extends GameScene {
     clearCores(this);
     this.children.removeAll(true);
     this.resetWeaponRuntime();
+    this.resetCrystalRuntime();
     this.pproj = [];
     this.eproj = [];
     this.enemies = [];

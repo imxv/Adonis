@@ -3,7 +3,7 @@ import { WEAPONS, type WeaponInstance } from '../data/weapons';
 import { textTexture } from '../styles/textures';
 import { ui, type PreviewKeepClear } from '../ui/ui';
 import { raycast } from './dungeon';
-import { ELEMENT_COLOR, ELEMENT_NAME, type Img, type Pickup } from './entities';
+import type { Img, Pickup } from './entities';
 import { DEPTH } from './fx';
 import type { GameScene } from './GameScene';
 import { collectLevelToken, type LevelToken } from './levelTokens';
@@ -19,7 +19,7 @@ type Target =
 function candidates(s: GameScene): Target[] {
   const targets: Target[] = [];
   for (const p of s.pickups) {
-    if (!p.dead && (p.kind === 'chest' || p.kind === 'wchest' || p.kind === 'crystal' || (p.kind === 'weapon' && p.weapon))) targets.push({ kind: 'pickup', item: p });
+    if (!p.dead && (p.kind === 'chest' || p.kind === 'wchest' || (p.kind === 'weapon' && p.weapon))) targets.push({ kind: 'pickup', item: p });
   }
   for (const k of s.levelTokens) if (k.landed && !k.dead) targets.push({ kind: 'level', item: k });
   for (const p of s.pedestals) targets.push({ kind: 'pedestal', item: p });
@@ -115,11 +115,6 @@ export function updateInteractionHints(s: GameScene) {
         lines = [p.weapon.def.name, `Lv.${p.weapon.level}`];
         color = E.cyan;
         action = '拾取';
-      } else if (p.kind === 'crystal') {
-        const element = p.element ?? 'rock';
-        lines = [`${ELEMENT_NAME[element]}元素`, '护盾水晶'];
-        color = ELEMENT_COLOR[element];
-        action = '拾取';
       } else {
         lines = [p.kind === 'wchest' ? '武器箱' : '技能/强化箱'];
         color = p.kind === 'wchest' ? E.cyan : E.yellow;
@@ -205,7 +200,7 @@ export function updateNearbyWeaponPreview(s: GameScene, dt: number) {
   if (focus!.dwell >= 0.35) ui.previewWeapon(focus!.weapon, s.run, previewKeepClear(s));
 }
 
-/** F dispatches exactly one nearby interaction. Experience gems and hearts remain automatic. */
+/** F dispatches one nearby interaction. Gems, hearts and elemental crystals collect automatically. */
 export function interactNearby(s: GameScene): boolean {
   if (!canInteract(s)) return false;
   const target = nearest(s, candidates(s));
@@ -213,7 +208,6 @@ export function interactNearby(s: GameScene): boolean {
   if (target.kind === 'level') collectLevelToken(s, target.item);
   else if (target.kind === 'pedestal') s.collectPedestal(target.item);
   else if (target.item.kind === 'weapon') s.pickupWeapon(target.item);
-  else if (target.item.kind === 'crystal') s.collectCrystal(target.item);
   else s.openChest(target.item);
   return true;
 }

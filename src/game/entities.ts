@@ -193,6 +193,8 @@ export interface Pickup {
   label?: Img;
   /** Crystallize shards: the element they formed from. */
   element?: Element;
+  /** World-time expiry, independent of the movement timer reset by magnetic attraction. */
+  crystalExpiresAt?: number;
   tier: number;
   x: number;
   y: number;

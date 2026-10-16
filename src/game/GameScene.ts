@@ -56,6 +56,8 @@ import { clearSpellVisuals, updateSpells, zap } from './spells';
 
 type Mode = 'title' | 'play' | 'choose' | 'pause' | 'ascend' | 'transition' | 'dead' | 'end';
 
+const CRYSTAL_RULES = { dropCooldown: 3, maxOnGround: 3, lifetime: 12, collectCooldown: 2, fadeTime: 2, armor: 1 } as const;
+
 interface Pedestal {
   x: number;
   y: number;
@@ -180,6 +182,9 @@ export class GameScene extends Phaser.Scene {
   /** Level-up crystals waiting on the floor, and the ones carried down from the floor above. */
   levelTokens: LevelToken[] = [];
   carryTokens: number[] = [];
+  /** Scene-owned world-time deadlines; training cannot spend the live run's allowance. */
+  private nextCrystalDropAt = 0;
+  private nextCrystalCollectAt = 0;
   /** Floor dangers left by bosses (lava pools): hurt the knight while it stands in them. */
   ehazards: { x: number; y: number; r: number; t: number; color: number }[] = [];
   /** Dendro Cores grown by Bloom, waiting to burst. */
@@ -423,6 +428,7 @@ export class GameScene extends Phaser.Scene {
     ui.resetDamageFeedback();
     this.clearLevel();
     destroyPets(this);
+    if (!saved) this.resetCrystalRuntime();
     this.run = saved ? restoreRun(saved) : newRun(this.params, hero, difficulty);
     this.heroTex = this.run.ascended ? 'jesus' : HEROES[this.run.hero].tex;
     this.combo = 0;
@@ -2489,11 +2495,37 @@ export class GameScene extends Phaser.Scene {
     return true;
   }
 
-  /** Crystallize: a shard of the aura's element that shields whoever picks it up. */
+  protected resetCrystalRuntime() {
+    this.nextCrystalDropAt = 0;
+    this.nextCrystalCollectAt = 0;
+  }
+
+  /** Includes magnetized shards. Legacy drops get one deadline; excess and expired drops are removed first. */
+  private pruneCrystals() {
+    let count = 0;
+    for (const p of this.pickups) {
+      if (p.dead || p.kind !== 'crystal') continue;
+      p.crystalExpiresAt ??= this.time0 + Math.max(0, CRYSTAL_RULES.lifetime - p.t);
+      p.label?.destroy();
+      p.label = undefined;
+      if (this.time0 >= p.crystalExpiresAt || count >= CRYSTAL_RULES.maxOnGround) {
+        this.removePickup(p);
+        continue;
+      }
+      count++;
+      p.sprite.setAlpha(Math.min(1, (p.crystalExpiresAt - this.time0) / CRYSTAL_RULES.fadeTime));
+    }
+    return count;
+  }
+
+  /** Throttle only the drop; the triggering elemental reaction keeps its damage and aura rules. */
   dropCrystal(x: number, y: number, el: Element) {
+    if (this.mode !== 'play' || this.time0 < this.nextCrystalDropAt) return;
+    if (this.pruneCrystals() >= CRYSTAL_RULES.maxOnGround) return;
     if (solidAt(this.dungeon, x, y)) [x, y] = openSpot(this.dungeon, x, y);
     const sprite = this.add.image(Math.round(x), Math.round(y), 'crystal').setDepth(DEPTH.pickup).setTint(hexToNum(ELEMENT_COLOR[el]));
-    this.pickups.push({ kind: 'crystal', element: el, tier: 0, x, y, vx: 0, vy: -30, value: 0, t: 0, magnet: false, sprite, dead: false });
+    this.pickups.push({ kind: 'crystal', element: el, tier: 0, x, y, vx: 0, vy: -30, value: 0, t: 0, crystalExpiresAt: this.time0 + CRYSTAL_RULES.lifetime, magnet: false, sprite, dead: false });
+    this.nextCrystalDropAt = this.time0 + CRYSTAL_RULES.dropCooldown;
   }
 
   killEnemy(e: Enemy, _src: string) {
@@ -2896,16 +2928,22 @@ export class GameScene extends Phaser.Scene {
 
   collectCrystal(p: Pickup) {
     if (p.dead || p.kind !== 'crystal' || this.mode !== 'play') return;
+    this.pruneCrystals();
+    if (p.dead || this.time0 < this.nextCrystalCollectAt || this.run.armor >= this.run.mods.maxArmor) return;
     this.removePickup(p);
     const pl = this.player;
-    this.run.armor = Math.min(this.run.mods.maxArmor, this.run.armor + 1);
+    const armorBefore = this.run.armor;
+    this.run.armor = Math.min(this.run.mods.maxArmor, this.run.armor + CRYSTAL_RULES.armor);
+    const restored = this.run.armor - armorBefore;
+    this.nextCrystalCollectAt = this.time0 + CRYSTAL_RULES.collectCooldown;
     const c = ELEMENT_COLOR[p.element ?? 'rock'];
     this.fx.ring(pl.x, pl.y - 6, 22, c, 280, 2);
-    this.fx.callout(pl.x, pl.y - 26, '结晶护盾', c);
+    this.fx.callout(pl.x, pl.y - 26, `护甲 +${restored}`, c);
     audio.select();
   }
 
   updatePickups(dt: number) {
+    this.pruneCrystals();
     const pl = this.player;
     const radius = 34 * this.run.mods.pickupRadius + (this.run.pets.includes('dove') ? 50 * this.run.mods.petArea : 0);
     for (const p of this.pickups) {
@@ -2923,7 +2961,9 @@ export class GameScene extends Phaser.Scene {
         }
         continue;
       }
-      if (p.kind !== 'crystal' && !p.magnet && p.t > 0.25 && (dist2(p.x, p.y, pl.x, pl.y) < radius * radius || (p.kind === 'heart' && dist2(p.x, p.y, pl.x, pl.y) < 26 * 26))) {
+      const canCollect = p.kind !== 'crystal' || (this.run.armor < this.run.mods.maxArmor && this.time0 >= this.nextCrystalCollectAt);
+      if (!canCollect) p.magnet = false;
+      if (canCollect && !p.magnet && p.t > 0.25 && (dist2(p.x, p.y, pl.x, pl.y) < radius * radius || (p.kind === 'heart' && dist2(p.x, p.y, pl.x, pl.y) < 26 * 26))) {
         p.magnet = true;
         p.t = 0;
       }
@@ -2945,9 +2985,11 @@ export class GameScene extends Phaser.Scene {
         [p.x, p.y] = collide(this.dungeon, p.x, p.y, 3);
       }
       p.sprite.setPosition(Math.round(p.x), Math.round(p.y + (p.magnet ? 0 : Math.round(Math.sin(p.t * 5) * 1.2))));
-      // Crystals wait for F; only experience and hearts retain automatic collection.
-      if (p.kind === 'crystal') continue;
-      if (dist2(p.x, p.y, pl.x, pl.y - 4) < (pl.r + 6) ** 2 && this.mode === 'play') {
+      if (canCollect && dist2(p.x, p.y, pl.x, pl.y - 4) < (pl.r + 6) ** 2 && this.mode === 'play') {
+        if (p.kind === 'crystal') {
+          this.collectCrystal(p);
+          continue;
+        }
         p.dead = true;
         p.sprite.destroy();
         if (p.kind === 'heart') {
