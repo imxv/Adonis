@@ -613,7 +613,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   addObstacle(kind: Obstacle['kind'], x: number, y: number) {
-    const key = kind === 'pillar' ? K('pillar', this.kit) : kind;
+    const key = K(kind === 'pillar' ? 'pillar' : `prop-${kind}`, this.kit);
     const sprite = this.add.image(Math.round(x), Math.round(y), key).setDepth(DEPTH.obstacle).setOrigin(0.5, 0.75);
     this.obstacles.push({ kind, x, y, r: kind === 'pillar' ? 8 : 6, hp: kind === 'pillar' ? 1e9 : kind === 'barrel' ? 10 : 14, sprite, dead: false });
   }

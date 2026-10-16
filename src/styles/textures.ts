@@ -6,6 +6,7 @@ import * as S from '../pixel/sprites';
 import * as P from '../pixel/props';
 import * as MS from '../pixel/monsters';
 import { UPGRADE_ICONS } from '../pixel/upgradeIcons';
+import { themeProps } from '../pixel/themeProps';
 import type { Biome } from '../pixel/biomes';
 import { FLOOR, PROP, T, VOID, WALL, tileAt, type Dungeon } from '../game/dungeon';
 import { decoArt, paintFloor, paintWall } from '../pixel/decor';
@@ -438,6 +439,10 @@ export function buildKitTextures(scene: Phaser.Scene, kit: Biome) {
   add(scene, K('ebullet-big', kit), ebb.render({ colors: { d: kit.palette.danger } }));
 
   decoArt(kit.id).forEach((d, i) => add(scene, K(`deco-${i}`, kit), d.g.render({ colors: d.colors })));
+  // The breakable prop and the explosive one, in this style's dress.
+  const tp = themeProps(kit.id);
+  add(scene, K('prop-crate', kit), tp.crate[0].render({ colors: tp.crate[1] }));
+  add(scene, K('prop-barrel', kit), tp.keg[0].render({ colors: tp.keg[1] }));
   add(scene, K('pillar', kit), decoArt(kit.id)[0].g.render({ colors: decoArt(kit.id)[0].colors }));
   add(scene, K('boss-guardian', kit), golem().render({ roles: { 1: ramp(px.stone), 2: ramp(mix(px.stone, E.ink, 0.25)), 4: [px.glow, px.glow, px.glow] } }));
   add(scene, K('pt', kit), particle(kit));
@@ -649,7 +654,7 @@ export function buildLevel(scene: Phaser.Scene, kit: Biome, d: Dungeon, seed: nu
       const x = tx * T;
       const y = ty * T;
       if (d.torches.some(([lx, ly]) => Math.abs(lx - (x + 8)) < 14 && Math.abs(ly - (y + 4)) < 12)) continue;
-      if (ty * d.w + tx - lastDecor < 3 || !rng.chance(0.3)) continue;
+      if (ty * d.w + tx - lastDecor < 2 || !rng.chance(0.45)) continue;
       if (paintWall(P, kit.id, x, y, rng.int(0, 5), rng, px.wallFace)) lastDecor = ty * d.w + tx;
     }
   }

@@ -9,6 +9,7 @@ import { BIOMES, SCALES, type Biome } from '../pixel/biomes';
 import { Grid } from '../pixel/draw';
 import { E } from '../pixel/palette';
 import { K, buildKitTextures, buildLevel } from '../styles/textures';
+import { themeProps } from '../pixel/themeProps';
 
 /** A picture for the codex: a data URL with its pixel size. */
 export interface Pic {
@@ -307,8 +308,8 @@ export function buildCodex(scene: Phaser.Scene): CodexTab[] {
   const things: CodexEntry[] = [
     { id: 'spikes', name: '地刺', icon: tex('spikes-up'), tag: '机关', tagColor: E.hot, desc: '战斗时周期性弹起：先冒出尖头预警，约半秒后整片弹起。扎到掉 1 点生命，也会扎伤地上的敌人。清完房间就收起。' },
     { id: 'saw', name: '锯片', icon: tex('saw'), tag: '机关', tagColor: E.hot, desc: '沿地上的滑槽来回移动，碰到掉 1 点生命；怪物碰到也会受伤并被弹开，可以引怪过去。只在战斗时运转。' },
-    { id: 'barrel', name: '爆炸桶', icon: tex('barrel'), tag: '道具', tagColor: E.orange, desc: '打几下就会爆炸，范围伤害很高。能用来清怪，也会炸到你自己。' },
-    { id: 'crate', name: '木箱', icon: tex('crate'), tag: '道具', tagColor: E.tan, desc: '可以打碎，有时掉出生命或宝石。' },
+    { id: 'barrel', name: '爆炸物', icon: tex(K('prop-barrel', forest)), tag: '道具', tagColor: E.orange, desc: `打几下就会爆炸，范围伤害很高，还会带上元素：${BIOMES.map((k) => themeProps(k.id).names[1]).join('、')}。能用来清怪，也会炸到你自己。`, gallery: { title: '各画风的爆炸物', pics: across((k) => K('prop-barrel', k)) } },
+    { id: 'crate', name: '可破坏道具', icon: tex(K('prop-crate', forest)), tag: '道具', tagColor: E.tan, desc: `每种画风各不相同：${BIOMES.map((k) => themeProps(k.id).names[0]).join('、')}。任何攻击都能打碎，有时掉出生命或宝石。`, gallery: { title: '各画风的可破坏道具', pics: across((k) => K('prop-crate', k)) } },
     {
       id: 'props',
       name: '画风装饰',
@@ -361,7 +362,7 @@ function postcard(scene: Phaser.Scene, kit: Biome, canvasOf: (key: string) => HT
   put(K('en-bat-a', kit), 6.6 * T, 3.4 * T);
   put('knight-a', 4.0 * T, 5.1 * T);
   put(K('en-wanderer-a', kit), 6.1 * T, 5.4 * T);
-  put('crate', 8.1 * T, 5.8 * T);
+  put(K('prop-crate', kit), 8.1 * T, 5.8 * T);
   return c;
 }
 

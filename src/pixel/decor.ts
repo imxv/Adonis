@@ -657,7 +657,7 @@ export function paintWall(P: Paint, biome: string, x: number, y: number, k: numb
 /** Clutter on one floor tile at (x, y); most tiles get nothing. */
 export function paintFloor(P: Paint, biome: string, x: number, y: number, rng: Rng) {
   const r = rng.next();
-  if (r > 0.09) return;
+  if (r > 0.14) return;
   const ox = x + rng.int(2, 10);
   const oy = y + rng.int(3, 11);
   switch (biome) {

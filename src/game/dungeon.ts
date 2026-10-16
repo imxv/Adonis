@@ -337,7 +337,7 @@ function decorate(r: DRoom, rng: Rng, level: number, trapMul: number, get: (x: n
   };
 
   if (r.type === 'start' || r.type === 'treasure') {
-    dress(r.type === 'start' ? 2 : 1, true);
+    dress(r.type === 'start' ? 3 : 2, true);
     return;
   }
 
@@ -372,7 +372,7 @@ function decorate(r: DRoom, rng: Rng, level: number, trapMul: number, get: (x: n
     if (big && r.type === 'combat' && rng.chance(0.45)) tryPiece('pillar');
   }
   if (r.type === 'boss') {
-    dress(1, true);
+    dress(2, true);
     return;
   }
 
@@ -457,7 +457,7 @@ function decorate(r: DRoom, rng: Rng, level: number, trapMul: number, get: (x: n
   }
 
   // ---- props: crates in small clusters, a barrel or two, the odd biome prop
-  const props = r.type === 'horde' ? rng.int(1, 3) : rng.int(2, 4);
+  const props = r.type === 'horde' ? rng.int(2, 4) : rng.int(4, 7);
   for (let n = 0; n < props; n++) {
     const at = randomTile(1);
     if (!at) break;
@@ -474,7 +474,7 @@ function decorate(r: DRoom, rng: Rng, level: number, trapMul: number, get: (x: n
     }
   }
 
-  dress(r.type === 'horde' ? 1 : rng.int(1, 2), false);
+  dress(r.type === 'horde' ? 2 : rng.int(2, 3), false);
 }
 
 // ---------------------------------------------------------------- queries
