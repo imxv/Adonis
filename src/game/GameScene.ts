@@ -2538,7 +2538,7 @@ export class GameScene extends Phaser.Scene {
           key = `pet-${choice.kind}`;
           break;
         default:
-          key = textTexture(this, choice.type === 'upgrade' ? choice.def.glyph : '愈', { color: E.yellow, outline: E.ink });
+          key = choice.type === 'upgrade' ? `upg-${choice.def.id}` : textTexture(this, '愈', { color: E.yellow, outline: E.ink });
       }
       const item = this.add.image(x, y - 8, key).setDepth(DEPTH.obstacle + 0.5);
       const glow = this.add.image(x, y - 8, 'glow').setDepth(DEPTH.obstacle + 0.4).setTint(hexToNum(E.yellow)).setScale(1.2).setAlpha(0.5).setBlendMode(Phaser.BlendModes.ADD);

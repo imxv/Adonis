@@ -188,7 +188,7 @@ export function buildCodex(scene: Phaser.Scene): CodexTab[] {
     return {
       id: u.id,
       name: u.name,
-      icon: { glyph: u.glyph, color: r.color },
+      icon: tex(`upg-${u.id}`),
       tag: r.name,
       tagColor: r.color,
       desc: `${u.desc}。`,

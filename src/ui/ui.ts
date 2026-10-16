@@ -416,7 +416,7 @@ class UI implements LayerHost {
       case 'upgrade': {
         const have = run.stacks[c.def.id] ?? 0;
         const r = RARITY_INFO[c.def.rarity];
-        return { icon: `glyph:${c.def.glyph}:${r.color}`, name: c.def.name, tag: have ? `${r.name} ${have}/${c.def.max}` : `${r.name}`, tagColor: r.color, desc: c.def.desc, rarity: c.def.rarity };
+        return { icon: `upg-${c.def.id}`, name: c.def.name, tag: have ? `${r.name} ${have}/${c.def.max}` : `${r.name}`, tagColor: r.color, desc: c.def.desc, rarity: c.def.rarity };
       }
       case 'spell-new': {
         const s = SPELLS[c.id];
@@ -498,7 +498,7 @@ class UI implements LayerHost {
       const d = this.describe(c, run);
       const opt = el('div', 'opt');
       opt.innerHTML = `<div class="cur">${diamond()}</div>
-        <div class="ic ${d.rarity}">${this.iconFor(d, (ICON_SIZE[d.icon]?.[0] ?? 99) * 2 <= 28 ? 2 : 1)}</div>
+        <div class="ic ${d.rarity}">${this.iconFor(d, (ICON_SIZE[d.icon]?.[0] ?? 99) * 2 <= 32 ? 2 : 1)}</div>
         <div class="txt"><div class="l1">${px(d.name, E.white)}${d.tag ? px(d.tag, d.tagColor, {}, 'tag') : ''}</div>${pxBlock(d.desc, DIM, 286)}</div>
         <div class="k">${px(String(i + 1), DIM, { small: true })}</div>`;
       addRow(opt, i);
@@ -645,7 +645,7 @@ class UI implements LayerHost {
     const upgrades = ups.length
       ? ups.map(([id, n]) => {
           const u = UPGRADE_BY_ID[id];
-          return `<div class="chip">${px(u?.glyph ?? '?', RARITY[u?.rarity ?? 'common'].color)}${px(u?.name ?? id, E.white)}${n > 1 ? px(`×${n}`, E.yellow, { small: true }) : ''}</div>`;
+          return `<div class="chip">${icon(`upg-${id}`) || px(u?.glyph ?? '?', RARITY[u?.rarity ?? 'common'].color)}${px(u?.name ?? id, E.white)}${n > 1 ? px(`×${n}`, E.yellow, { small: true }) : ''}</div>`;
         }).join('')
       : px('还没有加成', DIM);
     const floorNo = ['一', '二', '三'][run.level] ?? run.level + 1;

@@ -872,7 +872,7 @@ body {
 .opt {
   position: relative;
   display: grid;
-  grid-template-columns: 7px 28px 1fr;
+  grid-template-columns: 7px 32px 1fr;
   gap: 5px;
   align-items: center;
   padding: 3px 4px 3px 2px;
@@ -902,8 +902,8 @@ body {
 }
 
 .opt .ic {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   display: grid;
   place-items: center;
   background: #07060b;

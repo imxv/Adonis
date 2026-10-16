@@ -5,6 +5,7 @@ import { E, mix } from '../pixel/palette';
 import * as S from '../pixel/sprites';
 import * as P from '../pixel/props';
 import * as MS from '../pixel/monsters';
+import { UPGRADE_ICONS } from '../pixel/upgradeIcons';
 import type { Biome } from '../pixel/biomes';
 import { FLOOR, PROP, T, VOID, WALL, tileAt, type Dungeon } from '../game/dungeon';
 import { decoArt, paintFloor, paintWall } from '../pixel/decor';
@@ -197,6 +198,14 @@ export function buildCommonTextures(scene: Phaser.Scene) {
   icon('heart', sprite(S.HEART).render({ roles: { 1: ramp(E.red, E.pink, E.redD) } }));
   icon('heart-empty', sprite(S.HEART).render({ roles: { 1: ['#3a2a38', '#2a1f2b', '#211824'] } }));
   icon('heart-flash', sprite(S.HEART).render({ roles: { 1: ['#ffffff', '#ffffff', '#ffffff'] } }));
+
+  // Upgrades: a picture each, for the level-up cards, the pause page, the codex and the pedestals.
+  for (const [id, art] of Object.entries(UPGRADE_ICONS)) {
+    const [g, colors] = art();
+    const c = g.render({ colors });
+    add(scene, `upg-${id}`, c);
+    icon(`upg-${id}`, c);
+  }
 
   // Leaderboard: a crown for first place, medals for second and third, a sparkle.
   const crown = ['Y....Y....Y', 'YY..YYY..YY', 'YYYYYYYYYYY', 'YrYYYcYYYrY', 'YYYYYYYYYYY', 'yyyyyyyyyyy'];
