@@ -10,6 +10,7 @@ import { WEAPON_ORDER, magSize, reloadTime, weaponLevelCount, weaponLevelDamage,
 import { E } from '../pixel/palette';
 import { K, buildCommonTextures, buildKitTextures, buildLevel, textTexture } from '../styles/textures';
 import type { StyleKit } from '../styles/types';
+import { decoArt } from '../pixel/decor';
 import { ui } from '../ui/ui';
 import { settings } from '../settings';
 import { DIRS, DIR_VEC } from './dirs';
@@ -121,6 +122,8 @@ export class GameScene extends Phaser.Scene {
   eproj: Proj[] = [];
   pickups: Pickup[] = [];
   obstacles: Obstacle[] = [];
+  /** The biome's standing pieces (statues, trees, lanterns); their tiles are solid, these are the pictures. */
+  decor: Img[] = [];
   hazards: Hazard[] = [];
   pets: Pet[] = [];
   telegraphs: Telegraph[] = [];
@@ -327,6 +330,8 @@ export class GameScene extends Phaser.Scene {
     this.pickups = [];
     this.obstacles.forEach((o) => o.sprite.destroy());
     this.obstacles = [];
+    this.decor.forEach((s) => s.destroy());
+    this.decor = [];
     this.hazards = [];
     this.telegraphs = [];
     this.visuals = [];
@@ -402,6 +407,7 @@ export class GameScene extends Phaser.Scene {
     startRoom.visited = true;
     this.markSeen(startRoom);
     this.light.setLevel(kit, d, seed);
+    this.dressLevel(kit, d);
     this.populate(new Rng(seed + 1));
     this.ambient?.destroy();
     const cam = this.cameras.main;
@@ -534,6 +540,26 @@ export class GameScene extends Phaser.Scene {
     const img = this.add.image(Math.round(x), Math.round(y), textTexture(this, text, { color, outline: E.ink })).setDepth(DEPTH.decal + 0.5);
     this.worldLabels.push(img);
     return img;
+  }
+
+  /** Stand the biome's pieces on their tiles; the ones that glow get a light. */
+  dressLevel(kit: StyleKit, d: Dungeon) {
+    const arts = decoArt(kit.id);
+    for (const r of d.rooms) {
+      for (const p of r.decor) {
+        const x = p.x * T + T / 2;
+        const y = p.y * T + T + 1;
+        this.decor.push(this.add.image(x, y, K(`deco-${p.v}`, kit)).setOrigin(0.5, 1).setDepth(DEPTH.obstacle));
+        const l = arts[p.v].light;
+        if (l) this.light.addStatic(x + l.dx, y + l.dy, l.r, l.color);
+      }
+    }
+  }
+
+  /** Tall pieces cover the knight when it walks behind them. */
+  sortDecor() {
+    const py = this.player.y;
+    for (const s of this.decor) s.setDepth(py < s.y - 8 ? DEPTH.player + 0.2 : DEPTH.obstacle);
   }
 
   addObstacle(kind: Obstacle['kind'], x: number, y: number) {
@@ -2427,6 +2453,7 @@ export class GameScene extends Phaser.Scene {
   // ---------------------------------------------------------------- drawing
 
   drawWorld(dt: number) {
+    this.sortDecor();
     const p = this.player;
     const run = this.run;
     if (p && run) {

@@ -9,6 +9,8 @@ export const CELL_H = 22;
 export const VOID = 0;
 export const FLOOR = 1;
 export const WALL = 2;
+/** A standing biome piece (statue, tree, lantern): solid like a wall, but drawn as a sprite on the floor. */
+export const PROP = 3;
 
 export type Shape = 'rect' | 'cut' | 'cross' | 'L' | 'pillars' | 'ring';
 
@@ -28,6 +30,13 @@ export interface PropPlan {
   y: number;
 }
 
+/** A biome piece standing on tile (x, y); v picks which of the biome's three pieces. */
+export interface DecorPlan {
+  x: number;
+  y: number;
+  v: number;
+}
+
 /** A room carved into the tile map. Bounds are in tiles, [x0, x1) × [y0, y1). */
 export interface DRoom extends Room {
   x0: number;
@@ -39,6 +48,7 @@ export interface DRoom extends Room {
   gates: { dir: Dir; tiles: [number, number][] }[];
   props: PropPlan[];
   traps: TrapPlan[];
+  decor: DecorPlan[];
 }
 
 export interface Dungeon {
@@ -94,7 +104,7 @@ export function generateDungeon(rng: Rng, level: number, trapMul = 1): Dungeon {
     const x0 = cx - Math.floor(rw / 2);
     const y0 = cy - Math.floor(rh / 2);
     const shape: Shape = r.type === 'combat' ? rng.pick(['rect', 'cut', 'cross', 'L', 'pillars', 'ring'] as Shape[]) : r.type === 'horde' ? rng.pick(['rect', 'cut', 'pillars'] as Shape[]) : r.type === 'boss' ? 'cut' : 'rect';
-    const room: DRoom = { ...r, x0, y0, x1: x0 + rw, y1: y0 + rh, shape, gates: [], props: [], traps: [] };
+    const room: DRoom = { ...r, x0, y0, x1: x0 + rw, y1: y0 + rh, shape, gates: [], props: [], traps: [], decor: [] };
     carve(room, set, rng);
     rooms.push(room);
     byId.set(r.id, room);
@@ -236,7 +246,6 @@ const PIECES: Record<string, Cell[]> = {
 };
 
 function decorate(r: DRoom, rng: Rng, level: number, trapMul: number, get: (x: number, y: number) => number, set: (x: number, y: number, v: number) => void) {
-  if (r.type === 'start' || r.type === 'treasure') return;
   const midX = Math.floor((r.x0 + r.x1) / 2);
   const midY = Math.floor((r.y0 + r.y1) / 2);
   const halfW = Math.floor((r.x1 - r.x0) / 2);
@@ -290,6 +299,48 @@ function decorate(r: DRoom, rng: Rng, level: number, trapMul: number, get: (x: n
     return false;
   };
 
+  /**
+   * Biome pieces in mirrored pairs against the walls, the north wall first: statues flanking the room,
+   * trees in its corners. Like cover, they may never cut anything off.
+   */
+  const dress = (pairs: number, signature: boolean) => {
+    // The room's own walls are only laid after decorating, so "against a wall" means next to anything but floor.
+    const hugs = (x: number, y: number) => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([ox, oy]) => get(x + ox, y + oy) !== FLOOR);
+    const open = (x: number, y: number) => get(x, y) === FLOOR && !taken.has(key(x, y)) && !inCross(x, y) && !nearMouth(x, y, 2) && hugs(x, y);
+    const north: Cell[] = [];
+    const rest: Cell[] = [];
+    for (let y = r.y0; y < r.y1; y++) {
+      for (let x = r.x0; x < r.x1; x++) {
+        const mx = r.x0 + r.x1 - 1 - x;
+        if (x >= mx || !open(x, y) || !open(mx, y)) continue;
+        (get(x, y - 1) !== FLOOR ? north : rest).push([x, y]);
+      }
+    }
+    let placed = 0;
+    for (const [x, y] of [...rng.shuffle(north), ...rng.shuffle(rest)]) {
+      if (placed >= pairs) break;
+      const mx = r.x0 + r.x1 - 1 - x;
+      if (r.decor.some((d) => Math.abs(d.x - x) + Math.abs(d.y - y) < 4)) continue;
+      set(x, y, PROP);
+      set(mx, y, PROP);
+      if (!connected()) {
+        set(x, y, FLOOR);
+        set(mx, y, FLOOR);
+        continue;
+      }
+      taken.add(key(x, y));
+      taken.add(key(mx, y));
+      const v = signature && placed === 0 ? 0 : rng.int(0, 2);
+      r.decor.push({ x, y, v }, { x: mx, y, v });
+      placed++;
+    }
+  };
+
+  if (r.type === 'start' || r.type === 'treasure') {
+    dress(r.type === 'start' ? 2 : 1, true);
+    return;
+  }
+
   /** Try a piece at a few spacings, four-way symmetric first, then as a mirrored pair. */
   const tryPiece = (name: string) => {
     const piece = PIECES[name];
@@ -320,7 +371,10 @@ function decorate(r: DRoom, rng: Rng, level: number, trapMul: number, get: (x: n
     }
     if (big && r.type === 'combat' && rng.chance(0.45)) tryPiece('pillar');
   }
-  if (r.type === 'boss') return;
+  if (r.type === 'boss') {
+    dress(1, true);
+    return;
+  }
 
   const free = (x: number, y: number, margin = 1) => {
     if (taken.has(key(x, y)) || inCross(x, y) || nearMouth(x, y, 3)) return false;
@@ -407,7 +461,7 @@ function decorate(r: DRoom, rng: Rng, level: number, trapMul: number, get: (x: n
   for (let n = 0; n < props; n++) {
     const at = randomTile(1);
     if (!at) break;
-    const kind = rng.weighted(['crate', 'barrel', 'pillar'] as PropPlan['kind'][], (k) => (k === 'crate' ? 3 : k === 'barrel' ? 1.5 : 1));
+    const kind = rng.weighted(['crate', 'barrel'] as PropPlan['kind'][], (k) => (k === 'crate' ? 3 : 1.5));
     const cluster: Cell[] = [at];
     if (kind === 'crate') {
       for (const [ox, oy] of rng.shuffle([[1, 0], [-1, 0], [0, 1], [0, -1]] as Cell[]).slice(0, rng.int(0, 2))) {
@@ -419,6 +473,8 @@ function decorate(r: DRoom, rng: Rng, level: number, trapMul: number, get: (x: n
       r.props.push({ kind, x: x * T + T / 2, y: y * T + T / 2 });
     }
   }
+
+  dress(r.type === 'horde' ? 1 : rng.int(1, 2), false);
 }
 
 // ---------------------------------------------------------------- queries

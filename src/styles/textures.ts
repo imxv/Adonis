@@ -3,8 +3,10 @@ import { Rng } from '../core/rng';
 import { Grid, flipCanvas, outlineCanvas, pxText, ramp, type Ramp } from '../pixel/draw';
 import { E, mix } from '../pixel/palette';
 import * as S from '../pixel/sprites';
+import * as P from '../pixel/props';
 import type { Biome } from '../pixel/biomes';
-import { FLOOR, T, VOID, WALL, tileAt, type Dungeon } from '../game/dungeon';
+import { FLOOR, PROP, T, VOID, WALL, tileAt, type Dungeon } from '../game/dungeon';
+import { decoArt, paintFloor, paintWall } from '../pixel/decor';
 
 export const K = (name: string, kit: Biome) => `${name}@${kit.id}`;
 
@@ -180,16 +182,11 @@ export function buildCommonTextures(scene: Phaser.Scene) {
   icon('heart-empty', sprite(S.HEART).render({ roles: { 1: ['#3a2a38', '#2a1f2b', '#211824'] } }));
   icon('heart-flash', sprite(S.HEART).render({ roles: { 1: ['#ffffff', '#ffffff', '#ffffff'] } }));
 
-  const chest = new Grid(16, 13);
-  chest.rect(1, 1, 14, 5, '1').rect(1, 6, 14, 7, '1').rect(1, 5, 14, 1, 'y').rect(3, 1, 1, 12, 'y').rect(12, 1, 1, 12, 'y').rect(7, 4, 2, 4, 'Y').set(7, 6, 'e');
-  add(scene, 'chest', chest.render({ roles: { 1: ramp(E.brownL, E.tan, E.brown) } }));
-  const open = new Grid(16, 14);
-  open.rect(1, 0, 14, 3, '1').rect(1, 3, 14, 2, 'Y').rect(2, 4, 12, 2, 'w').rect(1, 6, 14, 8, '1').rect(3, 6, 1, 8, 'y').rect(12, 6, 1, 8, 'y');
-  add(scene, 'chest-open', open.render({ roles: { 1: ramp(E.brownL, E.tan, E.brown) } }));
-  // Steel weapon chest with cyan trim.
-  const steel = { 1: ramp(E.slate, E.greyM, E.slateD) };
-  add(scene, 'chest-w', chest.render({ roles: steel, colors: { y: E.cyan, Y: E.white } }));
-  add(scene, 'chest-w-open', open.render({ roles: steel, colors: { y: E.cyan, Y: E.cyan } }));
+  // Chests: oak and brass for loot, steel and cyan for weapons.
+  add(scene, 'chest', P.chestClosed().render({ colors: P.chestLegend(P.WOOD_CHEST) }));
+  add(scene, 'chest-open', P.chestOpen().render({ colors: P.chestLegend(P.WOOD_CHEST) }));
+  add(scene, 'chest-w', P.chestClosed().render({ colors: P.chestLegend(P.STEEL_CHEST) }));
+  add(scene, 'chest-w-open', P.chestOpen().render({ colors: P.chestLegend(P.STEEL_CHEST) }));
 
   // Pets.
   add(scene, 'pet-hound', sprite(S.HOUND).render());
@@ -199,12 +196,8 @@ export function buildCommonTextures(scene: Phaser.Scene) {
   for (const p of ['hound', 'dove', 'swan']) icon(`pet-${p}`, (scene.textures.get(`pet-${p}`).getSourceImage() as HTMLCanvasElement));
 
   // Props.
-  const barrel = new Grid(10, 12);
-  barrel.rect(1, 0, 8, 12, '1').rect(0, 2, 10, 8, '1').rect(0, 3, 10, 1, 'n').rect(0, 8, 10, 1, 'n').rect(4, 4, 2, 3, 'Y').set(4, 7, 'Y').set(5, 7, 'Y');
-  add(scene, 'barrel', barrel.render({ roles: { 1: ramp(E.red, E.pink, E.redD) } }));
-  const crate = new Grid(12, 12);
-  crate.rect(0, 0, 12, 12, '1').line(1, 1, 10, 10, '2').line(10, 1, 1, 10, '2').rect(0, 0, 12, 1, '2').rect(0, 11, 12, 1, '2').rect(0, 0, 1, 12, '2').rect(11, 0, 1, 12, '2');
-  add(scene, 'crate', crate.render({ roles: { 1: ramp(E.tan, E.cream, E.brownL), 2: ramp(E.brownL, E.tan, E.brown) } }));
+  add(scene, 'barrel', P.powderKeg().render({ colors: P.KEG_LEGEND }));
+  add(scene, 'crate', P.crate().render({ colors: P.CRATE_LEGEND }));
 
   // Anemone floor decal and petal.
   const bloom = new Grid(11, 11);
@@ -300,7 +293,9 @@ export function buildKitTextures(scene: Phaser.Scene, kit: Biome) {
   enemy('bat', S.BAT_A, S.BAT_B, { 1: ramp(px.bat) });
   enemy('charger', S.PIGLET_A, S.PIGLET_B, { 1: ramp(px.piglet), 2: ramp(E.pink, '#ffc2b8', E.skinD) });
   enemy('shooter', S.GOBLIN_A, S.GOBLIN_B, { 1: ramp(px.robe), 2: ramp(px.goblin) });
-  enemy('bomber', S.BOMB_A, S.BOMB_B, { 3: ramp(E.slateD, E.slate, E.navy) });
+  const iron = { 3: ramp(E.slateD, E.slate, E.navy) };
+  add(scene, K('en-bomber-a', kit), P.bombBody(0).render({ roles: iron, colors: P.BOMB_LEGEND }));
+  add(scene, K('en-bomber-b', kit), P.bombBody(1).render({ roles: iron, colors: P.BOMB_LEGEND }));
   enemy('shield', S.SKELETON_A, S.SKELETON_B, { 1: ramp(E.grey, E.white, E.greyM) });
 
   const shield = new Grid(5, 13);
@@ -314,41 +309,11 @@ export function buildKitTextures(scene: Phaser.Scene, kit: Biome) {
   ebb.ellipse(4.5, 4.5, 4.5, 4.5, 'd').ellipse(4.5, 4.5, 2.6, 2.6, 'w');
   add(scene, K('ebullet-big', kit), ebb.render({ colors: { d: kit.palette.danger } }));
 
-  add(scene, K('pillar', kit), prop(kit).render({ roles: { 1: ramp(px.propCols[0]), 2: ramp(px.propCols[1]) } }));
+  decoArt(kit.id).forEach((d, i) => add(scene, K(`deco-${i}`, kit), d.g.render({ colors: d.colors })));
+  add(scene, K('pillar', kit), decoArt(kit.id)[0].g.render({ colors: decoArt(kit.id)[0].colors }));
   add(scene, K('boss-guardian', kit), golem().render({ roles: { 1: ramp(px.stone), 2: ramp(mix(px.stone, E.ink, 0.25)), 4: [px.glow, px.glow, px.glow] } }));
   add(scene, K('pt', kit), particle(kit));
   add(scene, K('door', kit), door(kit));
-}
-
-function prop(kit: Biome): Grid {
-  const g = new Grid(16, 18);
-  switch (kit.px.prop) {
-    case 'bush':
-      g.ellipse(8, 9, 7, 6, '1').ellipse(5, 7, 3, 3, '2').ellipse(10, 6, 3, 2, '2').set(4, 11, 'r').set(11, 10, 'r');
-      break;
-    case 'crystal':
-      g.tri(8, 0, 4, 12, 12, 12, '2').tri(3, 5, 1, 14, 7, 14, '1').tri(13, 4, 9, 15, 15, 15, '1').rect(2, 14, 13, 3, '1');
-      break;
-    case 'cactus':
-      g.rect(6, 1, 4, 16, '1').rect(2, 6, 3, 6, '1').rect(2, 10, 5, 2, '1').rect(11, 4, 3, 6, '1').rect(9, 8, 4, 2, '1').set(7, 3, '2').set(8, 7, '2').set(7, 11, '2');
-      break;
-    case 'lavarock':
-      g.ellipse(8, 10, 7, 6, '1').line(4, 8, 8, 12, '2').line(8, 12, 12, 9, '2').set(9, 6, '2');
-      break;
-    case 'boiler':
-      g.ellipse(8, 9, 7, 7, '1').rect(6, 0, 4, 3, '2').rect(1, 8, 14, 2, '2').set(8, 9, 'e').set(4, 4, 'y').set(12, 4, 'y');
-      break;
-    case 'tomb':
-      g.rect(3, 4, 10, 13, '1').ellipse(8, 4, 5, 3, '1').rect(7, 5, 2, 7, '2').rect(5, 7, 6, 2, '2');
-      break;
-    case 'lantern':
-      g.rect(5, 12, 6, 5, '1').rect(6, 7, 4, 5, '2').tri(2, 7, 8, 2, 14, 7, '1').set(7, 9, 'Y').set(8, 9, 'Y').set(7, 10, 'y').set(8, 10, 'y');
-      break;
-    case 'column':
-      g.rect(2, 14, 12, 3, '2').rect(4, 2, 8, 12, '1').rect(2, 0, 12, 3, '2').set(6, 4, '2').set(6, 8, '2').set(9, 6, '2').set(9, 10, '2');
-      break;
-  }
-  return g;
 }
 
 function particle(kit: Biome): HTMLCanvasElement {
@@ -396,6 +361,7 @@ export function buildLevel(scene: Phaser.Scene, kit: Biome, d: Dungeon, seed: nu
     ctx.fillRect(x, y, w, h);
   };
   const at = (tx: number, ty: number) => tileAt(d, tx, ty);
+  const floorish = (t: number) => t === FLOOR || t === PROP;
 
   P(0, 0, '#0b0a12', W, H);
   for (let i = 0; i < (W * H) / 900; i++) P(rng.int(0, W), rng.int(0, H), rng.chance(0.5) ? '#14121e' : '#100e18');
@@ -405,7 +371,7 @@ export function buildLevel(scene: Phaser.Scene, kit: Biome, d: Dungeon, seed: nu
       const t = at(tx, ty);
       const x = tx * T;
       const y = ty * T;
-      if (t === FLOOR) {
+      if (floorish(t)) {
         const odd = (tx + ty) % 2 === 1;
         switch (px.floor) {
           case 'checker':
@@ -451,7 +417,7 @@ export function buildLevel(scene: Phaser.Scene, kit: Biome, d: Dungeon, seed: nu
         }
       } else if (t === WALL) {
         const below = at(tx, ty + 1);
-        if (below === FLOOR) {
+        if (floorish(below)) {
           // Wall face, seen from the front.
           P(x, y, px.wallFace, T, T);
           for (let row = 0; row < 2; row++) {
@@ -478,15 +444,43 @@ export function buildLevel(scene: Phaser.Scene, kit: Biome, d: Dungeon, seed: nu
           P(x, y, px.wallTop, T, T);
           // Inner rim where the top meets floor or a face.
           const rim = mix(px.wallTop, '#ffffff', 0.18);
-          if (at(tx, ty - 1) === FLOOR) P(x, y, rim, T, 2);
-          if (at(tx - 1, ty) === FLOOR) P(x, y, rim, 2, T);
-          if (at(tx + 1, ty) === FLOOR) P(x + T - 2, y, rim, 2, T);
-          if (at(tx, ty + 1) === WALL && at(tx, ty + 2) === FLOOR) P(x, y + T - 1, rim, T, 1);
+          if (floorish(at(tx, ty - 1))) P(x, y, rim, T, 2);
+          if (floorish(at(tx - 1, ty))) P(x, y, rim, 2, T);
+          if (floorish(at(tx + 1, ty))) P(x + T - 2, y, rim, 2, T);
+          if (at(tx, ty + 1) === WALL && floorish(at(tx, ty + 2))) P(x, y + T - 1, rim, T, 1);
           if (at(tx, ty - 1) === VOID) P(x, y, mix(px.wallTop, E.ink, 0.3), T, 1);
         }
       }
     }
   }
+  // Floor clutter for the biome.
+  for (let ty = 0; ty < d.h; ty++) for (let tx = 0; tx < d.w; tx++) if (at(tx, ty) === FLOOR) paintFloor(P, kit.id, tx * T, ty * T, rng);
+
+  // The palace lays a red runner down the middle of each room.
+  if (kit.id === 'palace') {
+    for (const r of d.rooms) {
+      const cx = Math.floor((r.x0 + r.x1) / 2) * T + 8;
+      const x0 = cx - 13;
+      for (let ty = r.y0; ty < r.y1; ty++) {
+        for (let tx = Math.floor(x0 / T); tx <= Math.floor((x0 + 25) / T); tx++) {
+          if (at(tx, ty) !== FLOOR) continue;
+          const lo = Math.max(tx * T, x0);
+          const hi = Math.min(tx * T + T, x0 + 26);
+          P(lo, ty * T, E.redD, hi - lo, T);
+        }
+        if (at(Math.floor(cx / T), ty) !== FLOOR) continue;
+        P(x0, ty * T, E.amber, 1, T);
+        P(x0 + 25, ty * T, E.amber, 1, T);
+        P(x0 + 2, ty * T, E.red, 1, T);
+        P(x0 + 23, ty * T, E.red, 1, T);
+        // Gold lozenges down the centre.
+        P(cx - 1, ty * T + 6, E.amber, 2, 4);
+        P(cx - 2, ty * T + 7, E.amber, 4, 2);
+        P(cx - 1, ty * T + 7, E.yellow, 1, 1);
+      }
+    }
+  }
+
   // Trap fixtures are part of the floor: spike plates and saw slots, visible before the traps arm.
   for (const r of d.rooms) {
     for (const t of r.traps) {
@@ -517,6 +511,19 @@ export function buildLevel(scene: Phaser.Scene, kit: Biome, d: Dungeon, seed: nu
     }
   }
 
+  // Wall decorations on the faces, spaced out and clear of the torches.
+  let lastDecor = -9;
+  for (let ty = 1; ty < d.h; ty++) {
+    for (let tx = 0; tx < d.w; tx++) {
+      if (at(tx, ty) !== WALL || !floorish(at(tx, ty + 1))) continue;
+      const x = tx * T;
+      const y = ty * T;
+      if (d.torches.some(([lx, ly]) => Math.abs(lx - (x + 8)) < 14 && Math.abs(ly - (y + 4)) < 12)) continue;
+      if (ty * d.w + tx - lastDecor < 3 || !rng.chance(0.3)) continue;
+      if (paintWall(P, kit.id, x, y, rng.int(0, 5), rng, px.wallFace)) lastDecor = ty * d.w + tx;
+    }
+  }
+
   // Wall torches (their light comes from the lighting layer).
   for (const [tx, ty] of d.torches) {
     const x = Math.round(tx) - 8;
@@ -531,12 +538,20 @@ export function buildLevel(scene: Phaser.Scene, kit: Biome, d: Dungeon, seed: nu
   // Soft shadow on the floor under each wall face.
   for (let ty = 1; ty < d.h; ty++) {
     for (let tx = 0; tx < d.w; tx++) {
-      if (at(tx, ty) === FLOOR && at(tx, ty - 1) === WALL) {
+      if (floorish(at(tx, ty)) && at(tx, ty - 1) === WALL) {
         ctx.fillStyle = 'rgba(24,20,37,0.32)';
         ctx.fillRect(tx * T, ty * T, T, 4);
         ctx.fillStyle = 'rgba(24,20,37,0.15)';
         ctx.fillRect(tx * T, ty * T + 4, T, 3);
       }
+    }
+  }
+  for (let ty = 0; ty < d.h; ty++) {
+    for (let tx = 0; tx < d.w; tx++) {
+      if (at(tx, ty) !== PROP) continue;
+      ctx.fillStyle = 'rgba(24,20,37,0.35)';
+      ctx.fillRect(tx * T + 2, ty * T + 11, 12, 4);
+      ctx.fillRect(tx * T + 4, ty * T + 10, 8, 6);
     }
   }
   add(scene, key, c);

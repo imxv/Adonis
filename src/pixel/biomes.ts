@@ -17,7 +17,6 @@ export const SCALES = {
 
 export type FloorStyle = 'grass' | 'ice' | 'sand' | 'lava' | 'metal' | 'checker' | 'paper' | 'marble';
 export type WallStyle = 'brick' | 'ice' | 'sandstone' | 'rock' | 'brass' | 'gothic' | 'wood' | 'marble';
-export type PropKind = 'bush' | 'crystal' | 'cactus' | 'lavarock' | 'boiler' | 'tomb' | 'lantern' | 'column';
 export type Lead = 'pluck' | 'bell' | 'marimba' | 'glass';
 export type Perc = 'soft' | 'claps' | 'clank' | 'taiko' | 'none';
 
@@ -54,8 +53,6 @@ export interface Biome {
     goblin: string;
     stone: string;
     glow: string;
-    prop: PropKind;
-    propCols: [string, string];
   };
   overlay: { grain: number; vignette: number };
   fonts: { display: string; body: string };
@@ -75,7 +72,7 @@ export const BIOMES: Biome[] = [
     en: 'FOREST RUINS',
     subtitle: '藤蔓吞没了旧王的回廊',
     palette: { ...common, bg: '#3e8948', bg2: '#265c42', mid: E.green, wall: E.slate, danger: E.hot, extra: [E.amber, E.green, E.greenDD] },
-    px: { floor: 'grass', floorCols: ['#3e8948', '#367a40', '#63c74d', '#265c42'], wall: 'brick', wallTop: '#3a4466', wallFace: '#5a6988', wallDark: '#262b44', slime: E.green, bat: E.purple, piglet: E.brownL, robe: E.brown, goblin: E.green, stone: E.greyM, glow: E.yellow, prop: 'bush', propCols: [E.greenD, E.green] },
+    px: { floor: 'grass', floorCols: ['#3e8948', '#367a40', '#63c74d', '#265c42'], wall: 'brick', wallTop: '#3a4466', wallFace: '#5a6988', wallDark: '#262b44', slime: E.green, bat: E.purple, piglet: E.brownL, robe: E.brown, goblin: E.green, stone: E.greyM, glow: E.yellow },
     overlay: { grain: 0, vignette: 0.35 },
     fonts,
     frame: 'pixel',
@@ -88,7 +85,7 @@ export const BIOMES: Biome[] = [
     en: 'FROZEN WASTE',
     subtitle: '风雪里藏着不会融化的骨',
     palette: { ...common, bg: '#c0cbdc', bg2: '#8b9bb4', mid: E.cyan, wall: E.blueD, danger: E.orange, extra: [E.cyan, E.blue, E.white] },
-    px: { floor: 'ice', floorCols: ['#c0cbdc', '#b3bfd2', '#ffffff', '#8b9bb4'], wall: 'ice', wallTop: '#262b44', wallFace: '#124e89', wallDark: '#193c3e', slime: E.cyan, bat: E.blue, piglet: E.greyM, robe: E.blueD, goblin: E.cyan, stone: E.grey, glow: E.cyan, prop: 'crystal', propCols: [E.blue, E.cyan] },
+    px: { floor: 'ice', floorCols: ['#c0cbdc', '#b3bfd2', '#ffffff', '#8b9bb4'], wall: 'ice', wallTop: '#262b44', wallFace: '#124e89', wallDark: '#193c3e', slime: E.cyan, bat: E.blue, piglet: E.greyM, robe: E.blueD, goblin: E.cyan, stone: E.grey, glow: E.cyan },
     overlay: { grain: 0, vignette: 0.3 },
     fonts,
     frame: 'pixel',
@@ -101,7 +98,7 @@ export const BIOMES: Biome[] = [
     en: 'SAND TEMPLE',
     subtitle: '法老的狗还在守着空墓',
     palette: { ...common, bg: '#e4a672', bg2: '#d77643', mid: E.amber, wall: E.brownL, danger: E.magenta, extra: [E.amber, E.rust, E.cream] },
-    px: { floor: 'sand', floorCols: ['#e4a672', '#d99b66', '#ead4aa', '#b86f50'], wall: 'sandstone', wallTop: '#733e39', wallFace: '#b86f50', wallDark: '#3e2731', slime: E.amber, bat: E.brown, piglet: E.clay, robe: E.rust, goblin: E.greenD, stone: E.tan, glow: E.cyan, prop: 'cactus', propCols: [E.greenD, E.green] },
+    px: { floor: 'sand', floorCols: ['#e4a672', '#d99b66', '#ead4aa', '#b86f50'], wall: 'sandstone', wallTop: '#733e39', wallFace: '#b86f50', wallDark: '#3e2731', slime: E.amber, bat: E.brown, piglet: E.clay, robe: E.rust, goblin: E.greenD, stone: E.tan, glow: E.cyan },
     overlay: { grain: 0, vignette: 0.3 },
     fonts,
     frame: 'pixel',
@@ -114,7 +111,7 @@ export const BIOMES: Biome[] = [
     en: 'MAGMA DEPTHS',
     subtitle: '地底的火从未熄灭',
     palette: { ...common, bg: '#3e2731', bg2: '#262b44', mid: E.orange, wall: E.brown, danger: E.cyan, accent: E.hot, extra: [E.orange, E.amber, E.redD] },
-    px: { floor: 'lava', floorCols: ['#3e2731', '#352230', '#f77622', '#262b44'], wall: 'rock', wallTop: '#3e2731', wallFace: '#733e39', wallDark: '#3e2731', slime: E.orange, bat: E.redD, piglet: E.rust, robe: E.brownD, goblin: E.clay, stone: E.slate, glow: E.amber, prop: 'lavarock', propCols: [E.brownD, E.orange] },
+    px: { floor: 'lava', floorCols: ['#3e2731', '#352230', '#f77622', '#262b44'], wall: 'rock', wallTop: '#3e2731', wallFace: '#733e39', wallDark: '#3e2731', slime: E.orange, bat: E.redD, piglet: E.rust, robe: E.brownD, goblin: E.clay, stone: E.slate, glow: E.amber },
     overlay: { grain: 0, vignette: 0.5 },
     fonts,
     frame: 'pixel',
@@ -127,7 +124,7 @@ export const BIOMES: Biome[] = [
     en: 'STEAM WORKS',
     subtitle: '齿轮咬合，炉火不歇',
     palette: { ...common, bg: '#5a6988', bg2: '#3a4466', mid: E.amber, wall: E.brownL, danger: E.yellow, extra: [E.amber, E.brownL, E.grey] },
-    px: { floor: 'metal', floorCols: ['#5a6988', '#4f5d7c', '#8b9bb4', '#3a4466'], wall: 'brass', wallTop: '#3e2731', wallFace: '#b86f50', wallDark: '#733e39', slime: E.greyM, bat: E.slateD, piglet: E.brownL, robe: E.slateD, goblin: E.green, stone: E.brownL, glow: E.yellow, prop: 'boiler', propCols: [E.brownL, E.amber] },
+    px: { floor: 'metal', floorCols: ['#5a6988', '#4f5d7c', '#8b9bb4', '#3a4466'], wall: 'brass', wallTop: '#3e2731', wallFace: '#b86f50', wallDark: '#733e39', slime: E.greyM, bat: E.slateD, piglet: E.brownL, robe: E.slateD, goblin: E.green, stone: E.brownL, glow: E.yellow },
     overlay: { grain: 0, vignette: 0.4 },
     fonts,
     frame: 'pixel',
@@ -140,7 +137,7 @@ export const BIOMES: Biome[] = [
     en: 'HAUNTED KEEP',
     subtitle: '烛火熄灭后，画像会眨眼',
     palette: { ...common, bg: '#3a4466', bg2: '#262b44', mid: E.magenta, wall: E.purple, danger: E.cyan, extra: [E.magenta, E.purple, E.cyan] },
-    px: { floor: 'checker', floorCols: ['#3a4466', '#262b44', '#5a6988', '#181425'], wall: 'gothic', wallTop: '#262b44', wallFace: '#68386c', wallDark: '#3e2731', slime: E.magenta, bat: E.purple, piglet: E.greyM, robe: E.purple, goblin: E.greenD, stone: E.slate, glow: E.cyan, prop: 'tomb', propCols: [E.slate, E.greyM] },
+    px: { floor: 'checker', floorCols: ['#3a4466', '#262b44', '#5a6988', '#181425'], wall: 'gothic', wallTop: '#262b44', wallFace: '#68386c', wallDark: '#3e2731', slime: E.magenta, bat: E.purple, piglet: E.greyM, robe: E.purple, goblin: E.greenD, stone: E.slate, glow: E.cyan },
     overlay: { grain: 0, vignette: 0.55 },
     fonts,
     frame: 'pixel',
@@ -153,7 +150,7 @@ export const BIOMES: Biome[] = [
     en: 'EASTERN GARDEN',
     subtitle: '落花无声，剑气有痕',
     palette: { ...common, bg: '#ead4aa', bg2: '#e4a672', mid: E.redD, wall: E.redD, danger: E.blueD, extra: [E.red, E.greenD, E.cream] },
-    px: { floor: 'paper', floorCols: ['#ead4aa', '#e2c99c', '#c28569', '#e4a672'], wall: 'wood', wallTop: '#3e2731', wallFace: '#a22633', wallDark: '#733e39', slime: E.greenD, bat: E.slateD, piglet: E.pink, robe: E.redD, goblin: E.green, stone: E.greyM, glow: E.amber, prop: 'lantern', propCols: [E.slate, E.amber] },
+    px: { floor: 'paper', floorCols: ['#ead4aa', '#e2c99c', '#c28569', '#e4a672'], wall: 'wood', wallTop: '#3e2731', wallFace: '#a22633', wallDark: '#733e39', slime: E.greenD, bat: E.slateD, piglet: E.pink, robe: E.redD, goblin: E.green, stone: E.greyM, glow: E.amber },
     overlay: { grain: 0, vignette: 0.25 },
     fonts,
     frame: 'pixel',
@@ -166,7 +163,7 @@ export const BIOMES: Biome[] = [
     en: 'MARBLE PALACE',
     subtitle: '壁画里的天使拔出了剑',
     palette: { ...common, bg: '#ead4aa', bg2: '#c0cbdc', mid: E.blue, wall: E.cream, danger: E.purple, extra: [E.amber, E.blue, E.cream] },
-    px: { floor: 'marble', floorCols: ['#ead4aa', '#c0cbdc', '#ffffff', '#8b9bb4'], wall: 'marble', wallTop: '#733e39', wallFace: '#c28569', wallDark: '#b86f50', slime: E.blue, bat: E.slate, piglet: E.skinD, robe: E.blueD, goblin: E.green, stone: E.cream, glow: E.amber, prop: 'column', propCols: [E.cream, E.grey] },
+    px: { floor: 'marble', floorCols: ['#ead4aa', '#c0cbdc', '#ffffff', '#8b9bb4'], wall: 'marble', wallTop: '#733e39', wallFace: '#c28569', wallDark: '#b86f50', slime: E.blue, bat: E.slate, piglet: E.skinD, robe: E.blueD, goblin: E.green, stone: E.cream, glow: E.amber },
     overlay: { grain: 0, vignette: 0.3 },
     fonts,
     frame: 'pixel',

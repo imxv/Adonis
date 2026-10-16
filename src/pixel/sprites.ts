@@ -70,16 +70,6 @@ export const GOBLIN_B: SpriteDef = {
   rows: [...GOBLIN_A.rows.slice(0, 12), '..11111', '...BB..'],
 };
 
-export const BOMB_A: SpriteDef = {
-  mirror: true,
-  rows: ['.....y', '....yO', '.....B', '....33', '..3333', '.33333', '.33we3', '333we3', '333333', '333333', '.33333', '..3333', '..BB..'],
-};
-
-export const BOMB_B: SpriteDef = {
-  mirror: true,
-  rows: ['....Y.', '.....y', '.....B', '....33', '..3333', '.33333', '.33we3', '333we3', '333333', '333333', '.33333', '..3333', '...BB.'],
-};
-
 export const SKELETON_A: SpriteDef = {
   mirror: true,
   rows: ['...1111', '..11111', '..1e411', '..11111', '...1e1e', '....111', '..1e1e1', '..11111', '...1e1e', '....111', '....111', '....1.1', '....1..', '...11..'],
