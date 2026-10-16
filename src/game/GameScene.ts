@@ -18,6 +18,7 @@ import { bossDeath, spawnBoss, updateBoss } from './boss';
 import { T, collide, generateDungeon, openSpot, randomFloorIn, raycast, roomAt, roomCenter, solidAt, type DRoom, type Dungeon } from './dungeon';
 import { updateEnemyAI } from './enemyAI';
 import { FlowField } from './flow';
+import { Rhythm, type Grade } from './rhythm';
 import {
   ELEMENT_COLOR,
   type Enemy,
@@ -159,6 +160,15 @@ export class GameScene extends Phaser.Scene {
   pendingLevelUps = 0;
   /** A fusion is playing out: the knight cannot be hurt, and level-ups and the pause menu wait for it. */
   fusing = false;
+  /** The beat game: timing against the music, the on-beat streak, the style rank. */
+  rhythm = new Rhythm();
+  /** A fire press on the beat powers up the next shot, if it comes within a few frames. */
+  private beatShot = { mult: 1, until: 0 };
+  /** Extra damage for the shot being fired right now. */
+  private shotBoost = 1;
+  /** When the dash key went down, to judge it against the beat. */
+  private dashPressAt = 0;
+  private lastRank = 0;
   keys!: Record<string, Phaser.Input.Keyboard.Key>;
   autoFire = false;
   god = false;
@@ -209,14 +219,22 @@ export class GameScene extends Phaser.Scene {
       ui.toast(this.autoFire ? '自动射击 开' : '自动射击 关', 900);
     });
     kb.on('keydown-Q', () => this.switchGun());
-    kb.on('keydown-R', () => {
-      if (this.mode === 'play') this.startReload(this.run.weapons[this.run.held]);
+    kb.on('keydown-R', (e: KeyboardEvent) => {
+      if (this.mode === 'play') this.reloadOnBeat(e.timeStamp);
     });
-    kb.on('keydown-E', () => this.useSkill());
+    kb.on('keydown-E', (e: KeyboardEvent) => this.useSkill(e.timeStamp));
+    kb.on('keydown-SPACE', (e: KeyboardEvent) => (this.dashPressAt = e.timeStamp));
+    kb.on('keydown-SHIFT', (e: KeyboardEvent) => (this.dashPressAt = e.timeStamp));
     this.input.on('pointermove', () => (this.pointerMoved = true));
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
       this.pointerMoved = true;
-      if (p.rightButtonDown()) this.useSkill();
+      const at = p.event?.timeStamp ?? performance.now();
+      if (p.rightButtonDown()) this.useSkill(at);
+      else if (p.leftButtonDown() && this.mode === 'play') {
+        // Fire pressed on the beat: the next shot hits harder.
+        const g = this.beatAct(at);
+        if (g !== 'miss') this.beatShot = { mult: g === 'perfect' ? 2 : 1.5, until: performance.now() + 160 };
+      }
     });
     this.input.on('wheel', () => this.switchGun());
     this.god = this.params.has('god');
@@ -276,7 +294,7 @@ export class GameScene extends Phaser.Scene {
     const run = this.run;
     const date = Date.now();
     const base = { victory, floor: run.level + 1, kills: run.kills, lv: run.xpLevel, secs: Math.round(run.elapsed), diff: run.diff.id };
-    const score = scoreOf(base);
+    const score = scoreOf(base, run.score);
     const rank = addScore({ ...base, score, date });
     return { score, rank, date };
   }
@@ -307,6 +325,8 @@ export class GameScene extends Phaser.Scene {
     this.combo = 0;
     this.pendingLevelUps = 0;
     this.fusing = false;
+    this.rhythm.reset();
+    this.lastRank = 0;
     this.autoFire = false;
     this.safeRoom = undefined;
     if (this.player) {
@@ -602,6 +622,7 @@ export class GameScene extends Phaser.Scene {
 
   activate(r: DRoom) {
     this.active = r;
+    this.rhythm.startFight();
     this.waveIdx = 0;
     this.waveTimer = 0;
     this.hordeT = 0;
@@ -898,6 +919,10 @@ export class GameScene extends Phaser.Scene {
     r.cleared = true;
     this.active = undefined;
     this.pendingSpawns = 0;
+    const grade = this.rhythm.gradeFight();
+    this.run.score += grade.points;
+    ui.stamp(grade.rank, grade.points);
+    audio.stamp(['D', 'C', 'B', 'A', 'S', 'SS'].indexOf(grade.rank));
     this.telegraphs = this.telegraphs.filter((t) => t.kind !== 'spawn');
     audio.setIntensity(0);
     this.pickups.forEach((p) => p.kind === 'gem' && (p.magnet = true));
@@ -950,7 +975,16 @@ export class GameScene extends Phaser.Scene {
     const dt = realDt * this.slowScale;
     this.time0 += dt;
     if (this.mode === 'play') this.run.elapsed += realDt;
+    // The clock runs whenever enemies move, so their on-beat attacks never see a stale beat.
+    this.rhythm.update(realDt, this.kit.audio.bpm);
     if (this.mode === 'play') {
+      ui.beatFrame(this.rhythm.beat, this.rhythm.phase, !!this.active, this.rhythm.streak);
+      const rank = this.rhythm.rankIndex();
+      if (rank > this.lastRank) {
+        audio.rankUp(rank);
+        ui.rankUp();
+      }
+      this.lastRank = rank;
       this.updatePlayer(dt);
       this.updateWeapons(dt);
       updateSpells(this, dt);
@@ -1034,6 +1068,9 @@ export class GameScene extends Phaser.Scene {
       timer: this.active?.type === 'horde' ? Math.max(0, this.hordeDur - this.hordeT) : 0,
       kills: run.kills,
       combo: this.combo,
+      rank: this.rhythm.rank(),
+      gauge: this.rhythm.gauge(),
+      score: run.score,
       map: this.dungeon.rooms.map((r) => ({ gx: r.gx, gy: r.gy, type: r.type, visited: r.visited, seen: r.seen, cleared: r.cleared, current: r === this.room, doors: r.doors })),
       boss: b ? { name: b.boss!.name, ratio: Math.max(0, b.hp / b.maxHp), phaseMark: b.kind === 'boar' ? 0.5 : 0.55 } : undefined,
     });
@@ -1095,6 +1132,8 @@ export class GameScene extends Phaser.Scene {
       p.dashCd = 0.9 * this.run.mods.dashCooldown;
       audio.dash();
       this.fx.dust(p.x, p.y, 6);
+      const g = this.beatAct(this.dashPressAt || performance.now());
+      if (g !== 'miss') this.beatDash(p.x, p.y, g === 'perfect');
     }
     if (p.dashT > 0) {
       p.dashT -= dt;
@@ -1138,14 +1177,54 @@ export class GameScene extends Phaser.Scene {
     audio.swap();
   }
 
-  useSkill() {
+  useSkill(at = performance.now()) {
     const p = this.player;
     if (this.mode !== 'play' || !p || p.skillCd > 0) return;
-    p.skillT = 4;
+    // On the beat it lasts longer.
+    const g = this.beatAct(at);
+    p.skillT = g === 'perfect' ? 6 : g === 'good' ? 5 : 4;
     p.skillCd = 14;
     audio.levelUp();
     this.fx.ring(p.x, p.y - 4, 34, E.cyan, 300);
     this.fx.callout(p.x, p.y - 28, '双持！', E.cyan);
+  }
+
+  /** Judge an action against the beat: streak, points, a word on the beat bar and a note in the key. */
+  beatAct(at: number): Grade {
+    const { grade } = this.rhythm.judge(at);
+    this.run.score += this.rhythm.act(grade);
+    ui.judge(grade);
+    if (grade !== 'miss') audio.beatHit(grade === 'perfect');
+    return grade;
+  }
+
+  /** A dash on the beat bursts where it starts: enemies close by are thrown back and hurt, and it recharges faster. */
+  beatDash(x: number, y: number, perfect: boolean) {
+    const p = this.player;
+    p.dashCd *= perfect ? 0.4 : 0.6;
+    p.iframes = Math.max(p.iframes, 0.35);
+    this.fx.ring(x, y - 4, 38, perfect ? E.yellow : E.cyan, 260, 2);
+    this.fx.sparks(x, y - 4, 10, perfect ? 'gold' : 'white');
+    for (const e of this.enemies) {
+      if (!e.dead && dist2(e.x, e.y, x, y) < 40 * 40) this.damageEnemy(e, (perfect ? 8 : 5) * this.damageMult(), { src: '节拍冲刺', kx: e.x - x, ky: e.y - y, knock: 260 });
+    }
+  }
+
+  /** R on the beat: a perfect reload is instant and loads hotter rounds; a good one takes half the time. */
+  reloadOnBeat(at: number) {
+    const run = this.run;
+    const w = run.weapons[run.held];
+    if (!w?.def.mag || (w.reloadT ?? 0) > 0 || (w.ammo ?? 0) >= magSize(w, run.mods.mag)) return;
+    const g = this.beatAct(at);
+    this.startReload(w);
+    if (g === 'perfect') {
+      w.reloadT = 0;
+      w.ammo = magSize(w, run.mods.mag);
+      w.hot = true;
+      audio.reload(true);
+      this.reloadDone();
+      this.fx.callout(this.player.x, this.player.y - 30, '完美换弹', E.yellow);
+    } else if (g === 'good') w.reloadT = (w.reloadT ?? 0) * 0.5;
   }
 
   fireRateMult() {
@@ -1198,12 +1277,13 @@ export class GameScene extends Phaser.Scene {
     if (!w?.def.mag || (w.reloadT ?? 0) > 0) return;
     if ((w.ammo ?? 0) >= magSize(w, this.run.mods.mag)) return;
     w.reloadT = reloadTime(w, this.run.mods.reload);
+    w.hot = false;
     audio.reload(false);
   }
 
   damageMult() {
     const m = this.run.mods;
-    let d = m.damage;
+    let d = m.damage * this.shotBoost * this.rhythm.damageMult();
     if (this.run.hp <= this.run.mods.maxHp / 2) d *= 1 + m.desperate;
     return d;
   }
@@ -1216,6 +1296,20 @@ export class GameScene extends Phaser.Scene {
   }
 
   fire(w: WeaponInstance, offhand = false) {
+    const onBeat = performance.now() <= this.beatShot.until;
+    this.beatShot.until = 0;
+    this.shotBoost = (onBeat ? this.beatShot.mult : 1) * (w.hot ? 1.25 : 1);
+    const before = this.pproj.length;
+    this.fireShot(w, offhand);
+    this.shotBoost = 1;
+    if (!onBeat) return;
+    for (const q of this.pproj.slice(before)) q.sprite.setTint(hexToNum(E.yellow)).setScale(q.sprite.scaleX * 1.35, q.sprite.scaleY * 1.35);
+    const [mx, my] = this.muzzle(offhand);
+    this.fx.ring(mx, my, 12, E.yellow, 180, 1);
+    this.fx.sparks(mx, my, 5, 'gold');
+  }
+
+  private fireShot(w: WeaponInstance, offhand = false) {
     const p = this.player;
     const m = this.run.mods;
     const def = w.def;
@@ -1763,6 +1857,7 @@ export class GameScene extends Phaser.Scene {
     e.dead = true;
     const run = this.run;
     run.kills++;
+    run.score += this.rhythm.kill(!!e.elite || !!e.boss);
     this.combo++;
     this.comboT = 2.2;
     run.maxCombo = Math.max(run.maxCombo, this.combo);
@@ -1865,6 +1960,7 @@ export class GameScene extends Phaser.Scene {
     this.fx.flash(left > 0 ? E.red : E.grey, left > 0 ? 0.3 : 0.18, 220);
     this.stop(left > 0 ? 0.08 : 0.04);
     this.combo = 0;
+    this.rhythm.hurt();
     if (run.hp <= 0) this.die();
     return true;
   }
@@ -1982,6 +2078,11 @@ export class GameScene extends Phaser.Scene {
         sp.setFlipX(pl.x < a.x);
       }
       sp.setPosition(Math.round(a.x), Math.round(a.y - (a.boss?.air ?? 0)));
+      // In a fight everything keeps time: a quick squash on every beat.
+      if (!a.boss && !a.enter && a.state !== 'fuse' && this.active) {
+        const k = Math.max(0, 1 - this.rhythm.phase * 5);
+        sp.setScale(a.scale * (1 + k * 0.12), a.scale * (1 - k * 0.12));
+      }
       if (a.flash > 0) sp.setTintFill(0xffffff);
       else if (a.status.frozen > 0) sp.setTint(hexToNum(ELEMENT_COLOR.ice));
       else if (a.status.burn > 0 && Math.floor(this.time0 * 10) % 2 === 0) sp.setTint(0xffb080);

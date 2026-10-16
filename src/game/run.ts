@@ -34,6 +34,8 @@ export interface RunState {
   xpNext: number;
   kills: number;
   maxCombo: number;
+  /** Points: kills and on-beat actions times the style rank, plus each fight's grade. */
+  score: number;
   damage: Record<string, number>;
   start: number;
   /** Seconds of actual play, not counting pauses and menus. */
@@ -82,6 +84,7 @@ export function newRun(params: URLSearchParams): RunState {
     xpNext: xpForLevel(1),
     kills: 0,
     maxCombo: 0,
+    score: 0,
     damage: {},
     start: performance.now(),
     elapsed: 0,
@@ -111,6 +114,7 @@ export function snapshotRun(run: RunState): Omit<SavedRun, 'v' | 'savedAt' | 'ro
     xpNext: run.xpNext,
     kills: run.kills,
     maxCombo: run.maxCombo,
+    score: run.score,
     damage: { ...run.damage },
     elapsed: run.elapsed,
   };
@@ -140,6 +144,7 @@ export function restoreRun(s: SavedRun): RunState {
     xpNext: s.xpNext,
     kills: s.kills,
     maxCombo: s.maxCombo,
+    score: s.score ?? 0,
     damage: { ...s.damage },
     start: performance.now(),
     elapsed: s.elapsed,

@@ -457,6 +457,9 @@ class AudioEngine {
         lead(idx, time);
       }
       if (this.intensity > 0) {
+        // The beat game needs a beat you can hear: a soft backbeat on 2 and 4 in every fight.
+        if ((beat === 2 || beat === 6) && perc !== 'claps') clap.triggerAttackRelease('16n', time, perc === 'none' ? 0.4 : 0.55);
+        if (perc === 'none' && (beat === 0 || beat === 4) && this.intensity === 1) kick.triggerAttackRelease('C2', '8n', time, 0.5);
         if (perc === 'taiko') {
           if (beat === 0 || beat === 3 || beat === 6) kick.triggerAttackRelease(beat === 0 ? 'C2' : 'G2', '8n', time, beat === 0 ? 1 : 0.6);
         } else if (perc !== 'none') {
@@ -519,6 +522,52 @@ class AudioEngine {
         return (idx, time) => m.triggerAttackRelease(this.note(idx, 1), '16n', time, 0.7);
       }
     }
+  }
+
+  /**
+   * Where the music is, in beats, as heard at a performance.now() time: the transport's position at the moment
+   * that sound leaves the speakers. Undefined while the music is not playing.
+   */
+  beatPos(perfMs: number): number | undefined {
+    if (!this.ready || !this.kit) return undefined;
+    const transport = Tone.getTransport();
+    if (transport.state !== 'started') return undefined;
+    const raw = Tone.getContext().rawContext as AudioContext;
+    if (raw.state !== 'running') return undefined;
+    let t: number;
+    const ts = raw.getOutputTimestamp?.();
+    if (ts && ts.contextTime && ts.performanceTime) t = ts.contextTime + (perfMs - ts.performanceTime) / 1000;
+    else t = raw.currentTime - (raw.outputLatency || raw.baseLatency || 0) + (perfMs - performance.now()) / 1000;
+    return (transport.getSecondsAtTime(t) * transport.bpm.value) / 60;
+  }
+
+  /** An action landed on the beat: a note in the key, brighter for a perfect one. */
+  beatHit(perfect: boolean) {
+    this.safe(() => {
+      if (!this.gate('beat', 60)) return;
+      const t = Tone.now();
+      this.sparkle.triggerAttackRelease(this.note(perfect ? 7 : 4, 2), 0.09, t, perfect ? 0.75 : 0.45);
+      if (perfect) this.bell.triggerAttackRelease(this.note(9, 1), 0.2, t + 0.01, 0.35);
+    });
+  }
+
+  /** The style meter went up a rank. */
+  rankUp(rank: number) {
+    this.safe(() => {
+      const t = Tone.now();
+      this.bell.triggerAttackRelease(this.note(rank + 2, 1), 0.3, t, 0.55);
+      this.bell.triggerAttackRelease(this.note(rank + 5, 1), 0.45, t + 0.08, 0.6);
+    });
+  }
+
+  /** A fight's grade is stamped: a thump, then a chord that grows with the grade. */
+  stamp(rank: number) {
+    this.safe(() => {
+      const t = Tone.now();
+      this.thump.triggerAttackRelease('C2', 0.2, this.at(this.thump), 1);
+      const notes = [0, 2, 4, 7, 9, 12].slice(0, 2 + Math.ceil(rank * 0.8));
+      notes.forEach((d, i) => this.fuseBell.triggerAttackRelease(this.note(d, 1), 0.9, t + 0.06 + i * 0.03, 0.5 + rank * 0.06));
+    });
   }
 
   setIntensity(level: 0 | 1 | 2) {

@@ -29,6 +29,8 @@ export interface SavedRun {
   xpNext: number;
   kills: number;
   maxCombo: number;
+  /** Missing in saves from before the beat game. */
+  score?: number;
   damage: Record<string, number>;
   elapsed: number;
   /** Progress on the current floor. */
@@ -89,9 +91,12 @@ export function clearRun() {
 
 const DIFF_MULT: Record<DifficultyId, number> = { easy: 0.8, normal: 1, hard: 1.3 };
 
-/** Floors reached, kills and level count; a clear adds a bonus, more for a fast one. Harder runs score more. */
-export function scoreOf(e: Omit<ScoreEntry, 'score' | 'date'>): number {
-  const base = e.kills * 10 + (e.floor - 1) * 1000 + e.lv * 50 + (e.victory ? 3000 + Math.max(0, 900 - e.secs) * 3 : 0);
+/**
+ * The points earned in play (kills and on-beat actions times the style rank, and each fight's grade),
+ * plus floors reached and level; a clear adds a bonus, more for a fast one. Harder runs score more.
+ */
+export function scoreOf(e: Omit<ScoreEntry, 'score' | 'date'>, points: number): number {
+  const base = points + (e.floor - 1) * 1000 + e.lv * 50 + (e.victory ? 3000 + Math.max(0, 900 - e.secs) * 3 : 0);
   return Math.round(base * DIFF_MULT[e.diff]);
 }
 

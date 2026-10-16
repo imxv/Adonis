@@ -6,6 +6,9 @@ import type { GameScene } from './GameScene';
 
 export const turnToward = (a: number, target: number, maxStep: number) => a + clamp(angleDiff(a, target), -maxStep, maxStep);
 
+/** Enemies attack on the beat, but take turns: half of them on even beats, half on odd ones. */
+const myBeat = (s: GameScene, e: Enemy) => s.rhythm.onBeat && (s.rhythm.beat + e.id) % 2 === 0;
+
 export function updateEnemyAI(s: GameScene, e: Enemy, dt: number, slow: number) {
   const p = s.player;
   const dx = p.x - e.x;
@@ -47,17 +50,18 @@ export function updateEnemyAI(s: GameScene, e: Enemy, dt: number, slow: number) 
         e.facing = turnToward(e.facing, toP, 4 * dt);
         e.vx = Math.cos(e.facing) * e.speed;
         e.vy = Math.sin(e.facing) * e.speed;
-        if (d < 150 && e.t > 1.1) {
+        // Wind up on a beat and charge on the next one, so the charge lands in time with the music.
+        if (d < 150 && e.t > 1.1 && myBeat(s, e)) {
           e.state = 'windup';
           e.t = 0;
           e.facing = toP;
           const len = raycast(s.dungeon, e.x, e.y - 3, Math.cos(toP), Math.sin(toP), 210).len;
-          s.telegraphs.push({ kind: 'line', x: e.x, y: e.y - 3, x2: e.x + Math.cos(toP) * len, y2: e.y - 3 + Math.sin(toP) * len, t: 0, dur: 0.65 });
+          s.telegraphs.push({ kind: 'line', x: e.x, y: e.y - 3, x2: e.x + Math.cos(toP) * len, y2: e.y - 3 + Math.sin(toP) * len, t: 0, dur: 60 / s.rhythm.bpm });
         }
       } else if (e.state === 'windup') {
         e.vx = e.vy = 0;
         e.sprite.setX(Math.round(e.x + Math.sin(e.t * 70)));
-        if (e.t >= 0.65) {
+        if ((s.rhythm.onBeat && e.t > 0.2) || e.t >= 1.2) {
           e.state = 'charge';
           e.t = 0;
           s.fx.dust(e.x, e.y, 4);
@@ -83,20 +87,24 @@ export function updateEnemyAI(s: GameScene, e: Enemy, dt: number, slow: number) 
       break;
     }
     case 'shooter': {
-      e.facing = turnToward(e.facing, toP, 5 * dt);
+      // The aim locks when the shooter raises its gun: it fires on the next beat where you were, so moving on the beat dodges it.
+      if (e.state !== 'aim') e.facing = turnToward(e.facing, toP, 5 * dt);
       const want = !los || d > 170 ? 1 : d < 105 ? -1 : 0;
       const strafe = los ? (e.id % 2 ? 1 : -1) : 0;
       e.vx = (Math.cos(toP) * want + Math.cos(toP + Math.PI / 2) * strafe * 0.5) * e.speed;
       e.vy = (Math.sin(toP) * want + Math.sin(toP + Math.PI / 2) * strafe * 0.5) * e.speed;
-      if (e.state === 'idle' && e.t > 1.8 + (e.id % 5) * 0.2 && d < 260 && los) {
+      if (e.state === 'idle' && e.t > 1.8 + (e.id % 5) * 0.2 && d < 260 && los && myBeat(s, e)) {
         e.state = 'aim';
         e.t = 0;
+        // A short line shows where the shot will go on the next beat.
+        const len = Math.min(44, raycast(s.dungeon, e.x, e.y - 6, Math.cos(e.facing), Math.sin(e.facing), 44).len);
+        s.telegraphs.push({ kind: 'line', x: e.x, y: e.y - 6, x2: e.x + Math.cos(e.facing) * len, y2: e.y - 6 + Math.sin(e.facing) * len, t: 0, dur: 60 / s.rhythm.bpm });
       }
       if (e.state === 'aim') {
         e.vx *= 0.2;
         e.vy *= 0.2;
         e.flash = Math.floor(e.t * 16) % 2 ? 0.02 : 0;
-        if (e.t > 0.4) {
+        if ((s.rhythm.onBeat && e.t > 0.2) || e.t > 1.2) {
           const speed = 95 + s.run.level * 12;
           const n = e.elite ? 5 : 1;
           for (let i = 0; i < n; i++) s.spawnEnemyBullet(e.x, e.y - 6, e.facing + (i - (n - 1) / 2) * 0.24, speed);

@@ -15,6 +15,8 @@ import type { CodexTab } from './codex';
 import { $, diamond, el, icon, px, pxBlock } from './pxhtml';
 import { MenuNav, confirmBox, menuRow, openBoard, openCodex, openHelp, openSettings, type Layer, type LayerHost } from './screens';
 import { WeaponCards, type GunView } from './weaponCards';
+import { BeatBar } from './beatBar';
+import type { Grade, Rank } from '../game/rhythm';
 
 /** The UI is laid out on the same 480x270 pixel grid as the game and zoomed with it. */
 export const UI_W = 480;
@@ -55,6 +57,10 @@ export interface HudData {
   timer: number;
   kills: number;
   combo: number;
+  /** The style rank, how far it is toward the next one (0-1), and the run's points. */
+  rank: Rank;
+  gauge: number;
+  score: number;
   map: MapCell[];
   boss?: { name: string; ratio: number; phaseMark: number };
 }
@@ -64,6 +70,7 @@ const BOSS_W = 200;
 const CELL_W = 9;
 const CELL_H = 7;
 const FLOOR_NAMES = ['一', '二', '三', '四'];
+const RANK_COLOR: Record<Rank, string> = { D: E.greyM, C: E.green, B: E.cyan, A: E.yellow, S: E.orange, SS: E.hot };
 
 
 export interface TitleActions {
@@ -130,11 +137,13 @@ class UI implements LayerHost {
       <div class="tr"><div class="mmwrap panel"><canvas class="mm" width="1" height="1"></canvas></div><div class="sname"></div><div class="kills"></div></div>
       <div class="timer"></div>
       <div class="bossbar"><div class="bname"></div><div class="bar"><i></i><b></b></div></div>
+      <div class="style"><div class="rk"></div><div class="gauge"><i></i></div><div class="score"></div></div>
       <div class="combo"></div>
       <div class="toast"></div>`;
     this.hud.style.opacity = '0';
     this.root.appendChild(this.hud);
     this.cards = new WeaponCards($('.wbar', this.hud));
+    this.beats = new BeatBar(this.hud);
     window.addEventListener('keydown', (e) => {
       if (this.choiceKeys) return;
       const top = this.layers[this.layers.length - 1];
@@ -193,6 +202,13 @@ class UI implements LayerHost {
 
     const tt = d.timer > 0 ? `${String(Math.floor(d.timer / 60)).padStart(2, '0')}:${String(Math.floor(d.timer % 60)).padStart(2, '0')}` : '';
     this.set('.timer', tt ? `${px('坚持住', E.yellow)}${px(tt, E.white, { small: true, scale: 2 })}` : '');
+
+    // The style rank: a big letter, a gauge toward the next rank, and the points.
+    this.set('.style .rk', px(d.rank, RANK_COLOR[d.rank], { small: true, scale: d.rank === 'SS' ? 2 : 3 }));
+    ($('.style .gauge i', this.hud) as HTMLElement).style.width = `${Math.round(d.gauge * 30)}px`;
+    ($('.style .gauge i', this.hud) as HTMLElement).style.background = RANK_COLOR[d.rank];
+    this.set('.style .score', px(String(d.score), E.white, { small: true }));
+    $('.style', this.hud).classList.toggle('idle', d.rank === 'D' && d.gauge < 0.05);
 
     const combo = $('.combo', this.hud);
     combo.style.opacity = d.combo >= 5 ? '1' : '0';
@@ -258,6 +274,7 @@ class UI implements LayerHost {
 
   private iconRows: Record<string, { el: HTMLImageElement; full: boolean; timer?: number }[]> = { hearts: [], shields: [] };
   private cards!: WeaponCards;
+  private beats!: BeatBar;
 
   /**
    * Hearts and shields as icons, no numbers. A lost one flashes white and shakes as it goes dark;
@@ -296,6 +313,34 @@ class UI implements LayerHost {
         it.timer = window.setTimeout(() => (it.el.src = ICONS[empty]), 140);
       }
     });
+  }
+
+  /** Every frame of play: move the beat bar with the music. */
+  beatFrame(beat: number, phase: number, fight: boolean, streak: number) {
+    this.beats?.frame(beat, phase, fight, streak);
+  }
+
+  /** A press was judged against the beat. */
+  judge(g: Grade) {
+    this.beats?.judge(g);
+  }
+
+  /** The style rank went up. */
+  rankUp() {
+    const rk = this.hud && ($('.style .rk', this.hud) as HTMLElement | null);
+    if (!rk) return;
+    rk.classList.remove('up');
+    void rk.offsetWidth;
+    rk.classList.add('up');
+  }
+
+  /** A fight was won: its grade is stamped across the top of the screen with the points it earned. */
+  stamp(rank: Rank, points: number) {
+    this.root.querySelectorAll('.stamp').forEach((x) => x.remove());
+    const node = el('div', 'stamp');
+    node.innerHTML = `<div class="big">${px(rank, RANK_COLOR[rank], { small: true, scale: 4 })}</div><div class="col">${px('RANK', E.white, { small: true })}${px(`+${points}`, E.yellow, { small: true })}</div>`;
+    this.root.appendChild(node);
+    setTimeout(() => node.remove(), 2300);
   }
 
   toast(text: string, ms = 1300) {

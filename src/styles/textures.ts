@@ -182,6 +182,16 @@ export function buildCommonTextures(scene: Phaser.Scene) {
   icon('heart-empty', sprite(S.HEART).render({ roles: { 1: ['#3a2a38', '#2a1f2b', '#211824'] } }));
   icon('heart-flash', sprite(S.HEART).render({ roles: { 1: ['#ffffff', '#ffffff', '#ffffff'] } }));
 
+  // Beat bar: the diamond the ticks meet on the beat, and a tick.
+  const core = new Grid(11, 11);
+  for (let y = 0; y < 11; y++) core.rect(5 - (5 - Math.abs(y - 5)), y, (5 - Math.abs(y - 5)) * 2 + 1, 1, 'y');
+  for (let y = 3; y < 8; y++) core.rect(5 - (2 - Math.abs(y - 5)), y, (2 - Math.abs(y - 5)) * 2 + 1, 1, 'Y');
+  core.set(4, 3, 'W').set(3, 4, 'W');
+  icon('beat-core', core.render({ colors: { y: E.amber, Y: E.yellow, W: E.white } }));
+  const tick = new Grid(2, 8);
+  tick.rect(0, 0, 2, 8, 'w').rect(1, 0, 1, 8, 'c');
+  icon('beat-tick', tick.render({ colors: { w: E.white, c: E.cyan } }));
+
   // Chests: oak and brass for loot, steel and cyan for weapons.
   add(scene, 'chest', P.chestClosed().render({ colors: P.chestLegend(P.WOOD_CHEST) }));
   add(scene, 'chest-open', P.chestOpen().render({ colors: P.chestLegend(P.WOOD_CHEST) }));

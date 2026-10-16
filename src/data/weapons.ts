@@ -56,6 +56,8 @@ export interface WeaponInstance {
   ammo?: number;
   /** Seconds of reload left, 0 when not reloading. */
   reloadT?: number;
+  /** Loaded by a perfect reload on the beat: this magazine hits harder. */
+  hot?: boolean;
 }
 
 export const magSize = (w: WeaponInstance, magMul: number) => (w.def.mag ? Math.max(1, Math.round(w.def.mag * magMul)) : 0);
