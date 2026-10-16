@@ -106,6 +106,8 @@ export interface Status {
 export const freshStatus = (): Status => ({ auraT: 0, frozen: 0, ec: 0, ecTick: 0, ecDmg: 0, burnT: 0, burnTick: 0, burnDmg: 0, quicken: 0, shred: 0, stun: 0, chill: 0, regrow: 0 });
 
 export interface Enemy {
+  /** Seconds spent outside the active room after the fight's last spawn. */
+  strayT?: number;
   id: number;
   kind: EnemyKind | BossKind;
   x: number;

@@ -998,6 +998,19 @@ export class GameScene extends Phaser.Scene {
   updateRoom(dt: number) {
     const r = this.active;
     if (!r || this.mode !== 'play') return;
+    // Once nothing more is coming, a straggler outside the locked room (spawned in a corridor, pushed through a gap)
+    // can never be reached and would keep the gates shut forever: it fades away instead.
+    const lastWave = (r.type === 'combat' && this.waveIdx === this.waves.length - 1) || (r.type === 'horde' && this.hordeT >= this.hordeDur);
+    if (lastWave && this.pendingSpawns === 0) {
+      for (const e of this.enemies) {
+        if (e.dead || e.boss || e.enter || roomAt(this.dungeon, e.x, e.y, 1) === r) continue;
+        e.strayT = (e.strayT ?? 0) + dt;
+        if (e.strayT > 2) {
+          this.fx.dust(e.x, e.y, 6);
+          this.killEnemy(e, '迷途');
+        }
+      }
+    }
     const alive = this.enemies.filter((e) => !e.dead && !e.boss).length;
     switch (r.type) {
       case 'combat': {
