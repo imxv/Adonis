@@ -76,6 +76,11 @@ export const WEAPONS: Record<string, WeaponDef> = {
   shuriken: { id: 'shuriken', kind: 'bolt', name: '手里剑', glyph: '镖', desc: '旋转飞镖，撞墙会反弹三次', damage: 4, cooldown: 0.22, count: 1, speed: 270, range: 420, size: 3, pierce: 0, knockback: 30, spreadDeg: 0, grip: [0.5, 0.5], proj: 'b-shuriken', bounce: 3, shake: 0.008, mag: 12, reload: 1.0 },
   gatling: { id: 'gatling', kind: 'bolt', name: '加特林', glyph: '转', desc: '按住越打越快，弹匣很大，换弹很慢', damage: 2.3, cooldown: 0.17, count: 1, speed: 320, range: 220, size: 2.5, pierce: 0, knockback: 18, spreadDeg: 0, grip: [0.3, 0.55], jitter: 0.1, shake: 0.006, mag: 120, reload: 2.2, spinTo: 0.045, casing: 'brass' },
   frostlance: { id: 'frostlance', kind: 'bolt', name: '冰锥枪', glyph: '冰', desc: '射出冰锥，命中或撞墙后碎成五片冰晶，冻住敌人', damage: 10, cooldown: 0.6, count: 1, speed: 260, range: 240, size: 4, pierce: 0, knockback: 60, spreadDeg: 0, grip: [0.3, 0.5], proj: 'b-icicle', element: 'ice', split: 5, shake: 0.03, mag: 6, reload: 1.3 },
+  // Element weapons: with the flamer (Pyro), ice lance (Cryo) and tesla (Electro), every element has one.
+  tide: { id: 'tide', kind: 'bolt', name: '潮汐枪', glyph: '潮', desc: '连射水弹，附着水元素：遇火蒸发、遇雷感电、遇冰冻结、遇草绽放', damage: 3.6, cooldown: 0.15, count: 1, speed: 280, range: 230, size: 3, pierce: 0, knockback: 40, spreadDeg: 0, grip: [0.3, 0.55], proj: 'b-water', element: 'water', shake: 0.006, mag: 24, reload: 1.2 },
+  gale: { id: 'gale', kind: 'flame', name: '风之扇', glyph: '风', desc: '扇出一阵狂风，把敌人吹开；带风元素，把敌人身上的火水雷冰扩散出去', damage: 1.4, cooldown: 0.08, count: 2, speed: 180, range: 76, size: 4, pierce: 99, knockback: 90, spreadDeg: 44, grip: [0.3, 0.5], proj: 'b-wind', element: 'wind', shake: 0.004 },
+  quake: { id: 'quake', kind: 'mortar', name: '岩晶炮', glyph: '岩', desc: '抛出岩晶弹，落地爆炸；带岩元素，能结晶出护盾晶片，还能砸碎冻结的敌人', damage: 15, cooldown: 0.95, count: 1, speed: 1, range: 210, size: 30, pierce: 0, knockback: 140, spreadDeg: 0, grip: [0.3, 0.6], proj: 'b-rock', element: 'rock', shake: 0.05, mag: 5, reload: 1.6 },
+  bramble: { id: 'bramble', kind: 'bolt', name: '藤种枪', glyph: '藤', desc: '射出草种，穿透一个敌人；附着草元素：遇火燃烧、遇水绽放、遇雷激化', damage: 5, cooldown: 0.24, count: 1, speed: 260, range: 240, size: 3, pierce: 1, knockback: 40, spreadDeg: 0, grip: [0.3, 0.5], proj: 'b-seed', element: 'grass', shake: 0.01, mag: 16, reload: 1.2 },
 };
 
 export const WEAPON_ORDER = Object.keys(WEAPONS);

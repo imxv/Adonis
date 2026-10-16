@@ -73,15 +73,34 @@ export interface Proj {
   shadow?: Img;
 }
 
+/** Elemental state, after Genshin's rules. */
 export interface Status {
-  burn: number;
-  burnDps: number;
-  burnTick: number;
-  chill: number;
-  chillStacks: number;
+  /** The element sitting on it and for how long; wind and rock never stay. */
+  aura?: Element;
+  auraT: number;
+  /** Frozen (water + ice): cannot move; a heavy blow shatters it. */
   frozen: number;
-  shock: number;
+  /** Electro-Charged (water + electro): zaps every second and jumps to wet neighbours. */
+  ec: number;
+  ecTick: number;
+  ecDmg: number;
+  /** Burning (grass + fire): burns, and scorches whatever stands close. */
+  burnT: number;
+  burnTick: number;
+  burnDmg: number;
+  /** Quicken (grass + electro): electro and grass hits on it land harder. */
+  quicken: number;
+  /** Superconduct (ice + electro): takes more damage for a while. */
+  shred: number;
+  /** Stunned after its elemental shield breaks. */
+  stun: number;
+  /** A plain slow from poison and some spells. */
+  chill: number;
+  /** An infused monster's own element comes back this long after a reaction used it up. */
+  regrow: number;
 }
+
+export const freshStatus = (): Status => ({ auraT: 0, frozen: 0, ec: 0, ecTick: 0, ecDmg: 0, burnT: 0, burnTick: 0, burnDmg: 0, quicken: 0, shred: 0, stun: 0, chill: 0, regrow: 0 });
 
 export interface Enemy {
   id: number;
@@ -113,6 +132,12 @@ export interface Enemy {
   shadow: Img;
   extra?: Img;
   ring?: Img;
+  /** A local monster carries its style's element: it shrugs off most of that element and keeps it as an aura. */
+  infused?: Element;
+  /** An elite's elemental shield (like Genshin's Abyss Mages): the right element breaks it fast. */
+  eshield?: { el: Element; hp: number; max: number };
+  /** The little element mark over its head. */
+  auraImg?: Img;
   boss?: BossState;
   mini?: boolean;
   hurry?: boolean;
@@ -144,7 +169,9 @@ export interface BossState {
 }
 
 export interface Pickup {
-  kind: 'gem' | 'heart' | 'chest' | 'wchest';
+  kind: 'gem' | 'heart' | 'chest' | 'wchest' | 'crystal';
+  /** Crystallize shards: the element they formed from. */
+  element?: Element;
   tier: number;
   x: number;
   y: number;
@@ -234,5 +261,6 @@ export interface Visual {
   color: number;
 }
 
-export const ELEMENT_COLOR: Record<Element, string> = { fire: '#f77622', ice: '#2ce8f5', shock: '#fee761' };
-export const ELEMENT_NAME: Record<Element, string> = { fire: '燃烧', ice: '冰寒', shock: '感电' };
+/** Genshin's element colours: Pyro red-orange, Hydro blue, Electro violet, Cryo ice blue, Anemo teal, Geo gold, Dendro green. */
+export const ELEMENT_COLOR: Record<Element, string> = { fire: '#f77622', water: '#3aa0ff', shock: '#b47cf0', ice: '#9fe6f5', wind: '#5fd6b8', rock: '#f4b830', grass: '#8fd14f' };
+export const ELEMENT_NAME: Record<Element, string> = { fire: '火', water: '水', shock: '雷', ice: '冰', wind: '风', rock: '岩', grass: '草' };

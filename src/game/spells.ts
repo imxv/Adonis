@@ -77,7 +77,7 @@ function meteor(s: GameScene, x: number, y: number, r: number, dmg: number, src:
       dur: fall,
       onDone: () => {
         rock.destroy();
-        s.explode(x, y, r, dmg, { src, knock: 110 });
+        s.explode(x, y, r, dmg, { src, knock: 110, element: 'fire' });
         if (fire > 0) s.hazards.push({ kind: 'ember', x, y, r: r * 0.8, t: fire, dur: fire, tick: 0.1, dmg: dmg * 0.12, src });
       },
     });
@@ -180,7 +180,7 @@ export function updateSpells(s: GameScene, dt: number) {
           s.fx.sparks(t.x, t.y - 4, 6, 'shock');
           s.fx.glowPop(t.x, t.y - 4, 18, E.yellow, 140);
           for (const e of s.enemies) {
-            if (!e.dead && dist2(e.x, e.y, t.x, t.y) < (12 * area + e.r) ** 2) s.damageEnemy(e, dmg, { src: sp.evolved ? '雷霆万钧' : '天罚雷击', element: sp.evolved ? 'shock' : undefined, ignoreShield: true });
+            if (!e.dead && dist2(e.x, e.y, t.x, t.y) < (12 * area + e.r) ** 2) s.damageEnemy(e, dmg, { src: sp.evolved ? '雷霆万钧' : '天罚雷击', element: 'shock', ignoreShield: true });
           }
         }
         if (targets.length) {
@@ -425,7 +425,7 @@ export function updateSpells(s: GameScene, dt: number) {
         sp.cd = 0.4 * cdMul;
         for (const e of s.enemies) {
           if (e.dead || dist2(e.x, e.y, p.x, p.y) > (radius + e.r) ** 2) continue;
-          s.damageEnemy(e, 3.5 * dmgMul, { src: '瘟疫领域', noCrit: true, quiet: true });
+          s.damageEnemy(e, 3.5 * dmgMul, { src: '瘟疫领域', noCrit: true, quiet: true, element: 'grass' });
           if (!e.dead) e.status.chill = Math.max(e.status.chill, 0.6);
         }
         break;

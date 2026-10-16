@@ -220,7 +220,7 @@ function availableUpgrades(run: RunState, minRarity?: Rarity) {
     if ((run.stacks[u.id] ?? 0) >= u.max) return false;
     if (minRarity && order.indexOf(u.rarity) < order.indexOf(minRarity)) return false;
     if (u.tags.includes('pet') && run.pets.length === 0) return false;
-    if (u.id === 'resonance' && run.mods.elements.fire + run.mods.elements.ice + run.mods.elements.shock === 0) return false;
+    if (u.id === 'resonance' && Object.values(run.mods.elements).every((v) => v === 0)) return false;
     return true;
   });
 }

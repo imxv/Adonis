@@ -1,4 +1,5 @@
-export type Element = 'fire' | 'ice' | 'shock';
+/** The seven elements, as in Genshin: Pyro, Hydro, Electro, Cryo, Anemo, Geo, Dendro. */
+export type Element = 'fire' | 'water' | 'shock' | 'ice' | 'wind' | 'rock' | 'grass';
 
 /**
  * Player-wide modifiers. Every weapon (and, partially, every pet) reads from
@@ -46,7 +47,7 @@ export function baseMods(): Mods {
     critChance: 0.05,
     critMult: 2,
     knockback: 1,
-    elements: { fire: 0, ice: 0, shock: 0 },
+    elements: { fire: 0, water: 0, shock: 0, ice: 0, wind: 0, rock: 0, grass: 0 },
     elementPower: 1,
     explodeOnHit: 0,
     splitOnCrit: 0,

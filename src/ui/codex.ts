@@ -1,6 +1,8 @@
 import type Phaser from 'phaser';
 import { TAG_NAMES } from '../core/stats';
 import { ENEMIES, PETS, type EnemyKind, type Pets } from '../data/enemies';
+import { ELEMENT_COLOR, ELEMENT_NAME } from '../game/entities';
+import type { Element } from '../core/stats';
 import { FUSE_LEVEL, FUSION_ORDER, MAX_SPELL_LEVEL, SPELLS, SPELL_ORDER, fusionOf } from '../data/spells';
 import { RARITY_INFO, UPGRADES, UPGRADE_BY_ID } from '../data/upgrades';
 import { STAT_MEANING, WEAPONS, WEAPON_ORDER, type Delivery } from '../data/weapons';
@@ -336,6 +338,7 @@ export function buildCodex(scene: Phaser.Scene): CodexTab[] {
     { id: 'bosses', name: 'Boss', entries: bosses },
     { id: 'maps', name: '地图', entries: maps },
     { id: 'things', name: '机关', entries: things },
+    { id: 'elements', name: '元素', entries: elementEntries(tex) },
   ];
 }
 
@@ -401,4 +404,56 @@ function eliteIcon(sprite: HTMLCanvasElement): HTMLCanvasElement {
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(sprite, Math.round(10 - sprite.width / 2), Math.round(19 - sprite.height));
   return ring;
+}
+
+
+// ---------------------------------------------------------------- elements (Genshin's rules)
+
+const EL_INFO: [Element, string, string][] = [
+  ['fire', '火元素', '喷火器、陨石、余烬、加成「火种」。蒸发（遇水，×1.5）、融化（遇冰，×2）、超载（遇雷）、燃烧（遇草）。'],
+  ['water', '水元素', '潮汐枪、加成「潮涌」。蒸发（遇火，×2）、感电（遇雷）、冻结（遇冰）、绽放（遇草）。'],
+  ['shock', '雷元素', '电磁枪、天罚雷击、电弧、加成「雷鸣」。超载（遇火）、超导（遇冰）、感电（遇水）、原激化（遇草）。'],
+  ['ice', '冰元素', '冰锥枪、冰霜新星、加成「霜结」。融化（遇火，×1.5）、超导（遇雷）、冻结（遇水）。'],
+  ['wind', '风元素', '风之扇、黑洞、加成「疾风」。不会附着，打在带火、水、雷、冰的敌人身上会扩散。'],
+  ['rock', '岩元素', '岩晶炮、加成「磐石」。不会附着，打在带火、水、雷、冰的敌人身上会结晶；也能砸碎冻结的敌人。'],
+  ['grass', '草元素', '藤种枪、毒雾、瘟疫领域、加成「萌芽」。燃烧（遇火）、绽放（遇水）、原激化（遇雷）。'],
+];
+
+const REACTIONS: [string, Element, Element, string][] = [
+  ['蒸发', 'water', 'fire', '水打火：这一下伤害 ×2；火打水：×1.5。'],
+  ['融化', 'fire', 'ice', '火打冰：这一下伤害 ×2；冰打火：×1.5。'],
+  ['超载', 'fire', 'shock', '火雷相遇，原地爆炸，造成火伤并把周围的敌人炸飞。'],
+  ['超导', 'ice', 'shock', '冰雷相遇，周围敌人受到冰伤，并且 8 秒内受到的伤害 +40%。'],
+  ['感电', 'water', 'shock', '水雷共存，每秒放一次电，并跳到附近带水的敌人身上。'],
+  ['冻结', 'water', 'ice', '水冰相遇，敌人被冻住动弹不得（Boss 只冻一瞬）。'],
+  ['碎冰', 'rock', 'ice', '重击（战锤的下砸和震地、爆炸、岩元素）打在冻结的敌人身上，敲碎冰块，打出高额伤害。'],
+  ['扩散', 'wind', 'fire', '风把敌人身上的火、水、雷、冰扩散给周围，被扩散到的敌人还会继续反应。'],
+  ['结晶', 'rock', 'water', '岩打在带火、水、雷、冰的敌人身上，掉出元素晶片，捡起来回一格护甲。'],
+  ['燃烧', 'grass', 'fire', '草火相遇，敌人持续燃烧，身边的敌人也会被灼伤。'],
+  ['绽放', 'grass', 'water', '草水相遇，地上长出草原核，三秒后爆开；地上最多五颗。'],
+  ['超绽放', 'shock', 'grass', '雷打在草原核附近，草原核化作两枚追踪种子。'],
+  ['烈绽放', 'fire', 'grass', '火打在草原核附近，草原核原地大爆炸。'],
+  ['原激化', 'grass', 'shock', '草雷相遇，敌人进入激化状态 8 秒：之后雷击伤害更高（超激化），草击伤害更高（蔓激化）。'],
+];
+
+function elementEntries(tex: (key: string) => Pic): CodexEntry[] {
+  const entries: CodexEntry[] = EL_INFO.map(([el, name, desc]) => ({ id: `el-${el}`, name, icon: tex(`el-${el}`), tag: '元素', tagColor: ELEMENT_COLOR[el], desc }));
+  for (const [name, a, b, desc] of REACTIONS) entries.push({ id: `re-${name}`, name, icon: tex(`el-${a}`), tag: `${ELEMENT_NAME[a]} + ${ELEMENT_NAME[b]}`, tagColor: ELEMENT_COLOR[a], desc });
+  entries.push({
+    id: 'el-counter',
+    name: '元素克制',
+    icon: tex('el-rock'),
+    tag: '规则',
+    tagColor: E.grey,
+    desc: '有元素的画风里，怪物会带着当地的元素：熔岩和工坊是火，雪原是冰，深海是水，霓虹是雷，森林是草，沙漠和宫殿是岩，庭院是风。它们只受同元素三成的伤害，身上的元素被反应用掉后会再长回来，用克制的元素去打就能一直反应。',
+  });
+  entries.push({
+    id: 'el-shield',
+    name: '元素护盾',
+    icon: tex('el-fire'),
+    tag: '规则',
+    tagColor: E.grey,
+    desc: '精英怪带着元素护盾，护盾在时伤害先打在护盾上。火盾怕水、水盾怕冰、冰盾怕火、雷盾怕冰、草盾怕火（2.5 倍），岩盾怕岩和重击；同元素几乎打不动，没有元素只有一半效果。护盾破碎时精英会晕眩 2 秒。',
+  });
+  return entries;
 }

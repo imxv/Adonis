@@ -208,6 +208,30 @@ export function buildCommonTextures(scene: Phaser.Scene) {
     icon(`upg-${id}`, c);
   }
 
+  // Elements: a small mark for each (shown over an enemy carrying it), the Crystallize shard and the Dendro Core.
+  const marks: Record<string, string[]> = {
+    fire: ['..f..', '.fYf.', 'fYwYf', 'fYYYf', '.fff.'],
+    water: ['..b..', '.bbb.', 'bbwbb', 'bbbbb', '.bbb.'],
+    shock: ['...v.', '..vv.', '.vwv.', '.vv..', '.v...'],
+    ice: ['c.c.c', '.ccc.', 'ccwcc', '.ccc.', 'c.c.c'],
+    wind: ['.mmm.', 'm...m', 'm.mm.', 'm....', '.mmmm'],
+    rock: ['..y..', '.yYy.', 'yYwYy', '.yYy.', '..y..'],
+    grass: ['...g.', '..gg.', '.ggw.', 'gg...', 'g....'],
+  };
+  for (const [el, rows] of Object.entries(marks)) {
+    const c = Grid.ascii(rows).render({ colors: { f: '#f77622', Y: E.yellow, w: E.white, b: '#3aa0ff', v: '#b47cf0', c: '#9fe6f5', m: '#5fd6b8', y: '#f4b830', g: '#8fd14f' } });
+    add(scene, `el-${el}`, c);
+    icon(`el-${el}`, c);
+  }
+  add(scene, 'crystal', Grid.ascii(['..w..', '.www.', 'wwwww', 'wwwgw', '.wgg.', '..g..']).render({ colors: { w: E.white, g: E.grey } }));
+  const seed = new Grid(9, 9);
+  seed.ellipse(4, 4, 3.5, 3.5, 'g').ellipse(3, 3, 1.5, 1.5, 'l').set(3, 2, 'w').line(4, 0, 6, -1, 'L');
+  add(scene, 'dendro-core', seed.render({ colors: { g: '#8fd14f', l: '#c4f07a', w: E.white, L: E.greenD } }));
+  add(scene, 'b-water', Grid.ascii(['.kk..', 'kwkkk', 'kkkkk', '.kk..']).render({ colors: { k: '#3aa0ff', w: E.white }, outline: E.blueD }));
+  add(scene, 'b-wind', Grid.ascii(['.mmm.', 'm...m', '..m.m', 'mm..m', '.mmm.']).render({ colors: { m: '#5fd6b8' }, outline: false }));
+  add(scene, 'b-seed', Grid.ascii(['.gg.', 'gwlg', 'gllg', '.gg.']).render({ colors: { g: E.greenD, l: '#8fd14f', w: E.white }, outline: E.greenDD }));
+  add(scene, 'b-rock', Grid.ascii(['.yy.', 'yYwy', 'yyYy', '.yy.']).render({ colors: { y: '#c28a2c', Y: '#f4b830', w: E.white } }));
+
   // The horde altar: a round stone dais with a red rune ring and a bell-shaped crystal; stepping on it starts the horde.
   const altar = new Grid(26, 18);
   altar.ellipse(13, 12, 12, 5, 'D').ellipse(13, 11, 11, 4, 'G').ellipse(13, 11, 8, 2.6, 'n');

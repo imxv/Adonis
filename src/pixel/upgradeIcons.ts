@@ -281,7 +281,39 @@ function cupid(): Art {
   return [g, C];
 }
 
+function drop(): Art {
+  const g = G();
+  g.tri(6, 0, 2, 7, 10, 7, 'k').ellipse(6, 8, 4, 3.6, 'k').ellipse(5, 7, 1.5, 2, 'c').set(4, 6, 'w');
+  return [g, C];
+}
+
+function swirl(): Art {
+  const g = G();
+  g.ellipse(6, 6, 5, 5, 'c').ellipse(6, 6, 3.6, 3.6, '.').rect(6, 1, 7, 5, '.');
+  g.ellipse(6, 6, 2.5, 2.5, 'l').ellipse(6, 6, 1.2, 1.2, '.').set(6, 6, 'w');
+  g.line(11, 3, 12, 1, 'c').set(10, 4, 'w');
+  return [g, { ...C, c: '#5fd6b8', l: '#9feadb' }];
+}
+
+function geo(): Art {
+  const g = G();
+  g.tri(6, 0, 1, 6, 11, 6, 'Y').tri(1, 6, 11, 6, 6, 12, 'y').line(6, 0, 6, 12, 'O').line(1, 6, 11, 6, 'O');
+  g.set(4, 3, 'w').set(5, 2, 'w');
+  return [g, C];
+}
+
+function leaf(): Art {
+  const g = G();
+  g.ellipse(7, 5, 5, 3.2, 'l').ellipse(5, 4, 2, 1.2, 'L').line(1, 11, 9, 3, 'L').line(3, 9, 2, 12, 'L');
+  g.set(6, 3, 'w');
+  return [g, { ...C, l: '#8fd14f' }];
+}
+
 export const UPGRADE_ICONS: Record<string, () => Art> = {
+  water: drop,
+  wind: swirl,
+  rock: geo,
+  grass: leaf,
   sharp: sword,
   haste,
   expand,

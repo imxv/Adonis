@@ -1,3 +1,4 @@
+import { ELEMENTS } from './elements';
 import { TAU, dist, dist2 } from '../core/math';
 import type { Element } from '../core/stats';
 import { audio } from '../audio/audio';
@@ -18,10 +19,9 @@ export function syncPets(s: GameScene) {
 function petHit(s: GameScene, pet: Pet, e: Enemy, base: number, src: string) {
   const m = s.run.mods;
   const dmg = base * (1 + (s.damageMult() - 1) * m.petInherit);
-  s.damageEnemy(e, dmg, { src, kx: e.x - pet.x, ky: e.y - pet.y, knock: 70, noElement: true });
-  for (const el of ['fire', 'ice', 'shock'] as Element[]) {
-    if (!e.dead && m.elements[el] > 0 && Math.random() < m.elements[el] * m.petInherit) s.applyElement(e, el, dmg);
-  }
+  // Pets carry your elements too, at the rate they inherit your upgrades.
+  const el = ELEMENTS.find((k) => m.elements[k] > 0 && Math.random() < m.elements[k] * m.petInherit);
+  s.damageEnemy(e, dmg, { src, kx: e.x - pet.x, ky: e.y - pet.y, knock: 70, noElement: true, element: el });
 }
 
 function moveToward(p: Pet, tx: number, ty: number, dt: number, k: number) {

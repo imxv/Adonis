@@ -22,6 +22,7 @@ import { Rhythm, type Grade } from './rhythm';
 import { playerName, setPlayerName, submitGlobal, type RunEntry } from '../net/board';
 import {
   ELEMENT_COLOR,
+  freshStatus,
   type Enemy,
   type Hazard,
   type Img,
@@ -35,6 +36,7 @@ import {
   type Visual,
 } from './entities';
 import { DEPTH, Fx } from './fx';
+import { ELEMENTS, SHIELD_COUNTER, STYLE_ELEMENT, clearCores, markAura, react, shatter, tintShield, updateCores, type Core } from './elements';
 import { Lighting } from './lighting';
 import { syncPets, updatePets } from './pets';
 import { LEVELS, applyChoice, applyFusion, evolutionsReady, fusionsReady, newRun, restoreRun, rollChoices, snapshotRun, spellTaken, xpForLevel, type Choice, type RunState } from './run';
@@ -159,6 +161,8 @@ export class GameScene extends Phaser.Scene {
   slowT = 0;
   slowScale = 1;
   pendingLevelUps = 0;
+  /** Dendro Cores grown by Bloom, waiting to burst. */
+  cores: Core[] = [];
   /** A horde room's altar, waiting for the player to step on it. */
   altar?: { room: DRoom; parts: Img[]; started: boolean };
   /** How the fight in the current room went, for the clear banner. */
@@ -174,6 +178,8 @@ export class GameScene extends Phaser.Scene {
   /** Extra damage for the swing being made right now, and its beat grade. */
   private shotBoost = 1;
   private swingGrade: Grade | undefined;
+  /** The element the melee weapon in hand carries, if any. */
+  private swingElement: Element | undefined;
   /** Casings in the air right now; a gatling would bury the floor otherwise. */
   private casings = 0;
   /** When the dash key went down, to judge it against the beat. */
@@ -382,6 +388,7 @@ export class GameScene extends Phaser.Scene {
     this.decor = [];
     this.altar?.parts.forEach((o) => o.destroy());
     this.altar = undefined;
+    clearCores(this);
     this.hazards = [];
     this.telegraphs = [];
     this.visuals = [];
@@ -934,21 +941,36 @@ export class GameScene extends Phaser.Scene {
       flash: 0,
       dead: false,
       scale: size,
-      status: { burn: 0, burnDps: 0, burnTick: 0, chill: 0, chillStacks: 0, frozen: 0, shock: 0 },
+      status: freshStatus(),
       sprite,
       shadow,
       mini,
     };
     if (kind === 'shield') e.extra = this.add.image(x, y, K('shield', this.kit)).setDepth(DEPTH.enemy + 0.1);
+    // Monsters of an elemental style carry its element: always the local monster and elites, often the rest.
+    const styleEl = STYLE_ELEMENT[this.kit.id];
+    if (styleEl && (def.biome || elite || rng.chance(0.6))) {
+      e.infused = styleEl;
+      if (styleEl !== 'wind' && styleEl !== 'rock') {
+        e.status.aura = styleEl;
+        e.status.auraT = 99;
+      }
+    }
     if (elite) {
       e.ring = this.add.image(x, y, 'glow').setDepth(DEPTH.shadow).setTint(hexToNum(this.kit.palette.danger)).setScale(e.r / 6).setAlpha(0.55).setBlendMode(Phaser.BlendModes.ADD);
       this.fx.callout(x, y - 22, AFFIXES[affix!], this.kit.palette.danger);
+      // An elemental shield, like Genshin's Abyss Mages: the style's element, or any shieldable one in a plain style.
+      const shieldable = Object.keys(SHIELD_COUNTER) as Element[];
+      const sel = styleEl && SHIELD_COUNTER[styleEl] ? styleEl : rng.pick(shieldable);
+      e.eshield = { el: sel, hp: hp * 0.35, max: hp * 0.35 };
+      tintShield(e, this.kit.palette.danger);
     }
     this.enemies.push(e);
     return e;
   }
 
   destroyEnemy(e: Enemy) {
+    e.auraImg?.destroy();
     e.sprite.destroy();
     e.shadow.destroy();
     e.extra?.destroy();
@@ -1126,6 +1148,7 @@ export class GameScene extends Phaser.Scene {
     updatePets(this, dt);
     this.updatePickups(dt);
     this.updateHazards(dt);
+    updateCores(this, dt);
     this.updateTraps(dt);
     this.updateTelegraphs(dt);
     if (this.mode === 'play') this.updateRoom(dt);
@@ -1490,7 +1513,10 @@ export class GameScene extends Phaser.Scene {
         for (let i = 0; i < count; i++) {
           let [x, y] = [tx + (i ? rand(-24, 24) : 0), ty + (i ? rand(-24, 24) : 0)];
           if (solidAt(this.dungeon, x, y)) [x, y] = collide(this.dungeon, x, y, 6);
-          this.spawnShell(ox, oy, x, y, Math.max(0.28, 0.5 / m.speed), def.size * area, dmg, pierce, knock);
+          const sh = this.spawnShell(ox, oy, x, y, Math.max(0.28, 0.5 / m.speed), def.size * area, dmg, pierce, knock);
+          sh.element = def.element;
+          sh.src = def.name;
+          if (def.proj) sh.sprite.setTexture(def.proj);
         }
         this.recoil(a, 30);
         break;
@@ -1517,8 +1543,8 @@ export class GameScene extends Phaser.Scene {
         const cone = (def.spreadDeg * Math.PI) / 180;
         for (let i = 0; i < count + extra; i++) {
           const sp = speed * rand(0.8, 1.15);
-          const pr = this.spawnProj('flame', ox, oy, a + rand(-cone / 2, cone / 2), sp, (range / sp) * rand(0.7, 1), def.size * area, dmg, 999, knock, def.name);
-          pr.element = 'fire';
+          const pr = this.spawnProj('flame', ox, oy, a + rand(-cone / 2, cone / 2), sp, (range / sp) * rand(0.7, 1), def.size * area, dmg, 999, knock, def.name, def.proj);
+          pr.element = def.element ?? 'fire';
         }
         break;
       }
@@ -1552,6 +1578,7 @@ export class GameScene extends Phaser.Scene {
     this.melee.step = finisher ? 0 : i + 1;
     this.melee.last = this.time0;
     const grade = this.swingGrade;
+    this.swingElement = def.element;
     const full = finisher && (grade === 'perfect' || grade === 'good');
     const x = p.x;
     const y = p.y - 4;
@@ -1585,7 +1612,7 @@ export class GameScene extends Phaser.Scene {
         // Brought down from overhead: a short arc and a thud where it lands.
         const half = ((mv.arc ?? 90) * Math.PI) / 360;
         this.visuals.push({ kind: 'slash', pts: [x, y, a, r, half, 1], width: 4, t: 0, dur: 0.16, color: hexToNum(E.yellow) });
-        this.meleeHit(x, y, a, r, half, hit, kb, src);
+        this.meleeHit(x, y, a, r, half, hit, kb, src, true);
         const ix = x + Math.cos(a) * r * 0.8;
         const iy = y + Math.sin(a) * r * 0.8 + 4;
         this.fx.dust(ix, iy, 6);
@@ -1605,7 +1632,7 @@ export class GameScene extends Phaser.Scene {
         this.fx.ring(x, y + 4, r, full ? E.yellow : E.white, 380, 3);
         this.fx.ring(x, y + 4, r * 0.55, E.white, 260, 2);
         this.fx.dust(x, y + 4, 14);
-        this.meleeHit(x, y, a, r, Math.PI, hit, kb * 1.3, src);
+        this.meleeHit(x, y, a, r, Math.PI, hit, kb * 1.3, src, true);
         this.crack(x, y + 5, r * 0.7);
         this.fx.shake(full ? 0.35 : 0.2);
         anim('slam', 0.24);
@@ -1657,14 +1684,14 @@ export class GameScene extends Phaser.Scene {
   }
 
   /** Hit everything within `half` of angle `a` out to `r` (all around when half is pi), and cut enemy bullets down. */
-  meleeHit(x: number, y: number, a: number, r: number, half: number, dmg: number, knock: number, src: string) {
+  meleeHit(x: number, y: number, a: number, r: number, half: number, dmg: number, knock: number, src: string, heavy = false) {
     const all = half >= Math.PI - 0.01;
     for (const e of this.enemies) {
       if (e.dead) continue;
       const d = dist(x, y, e.x, e.y - 3);
       if (d > r + e.r) continue;
       if (!all && Math.abs(angleDiff(a, Math.atan2(e.y - 3 - y, e.x - x))) > half + 0.12 + Math.min(0.5, e.r / Math.max(d, 1))) continue;
-      this.damageEnemy(e, dmg, { src, kx: e.x - x, ky: e.y - y, knock, ignoreShield: true });
+      this.damageEnemy(e, dmg, { src, kx: e.x - x, ky: e.y - y, knock, ignoreShield: true, heavy, element: this.swingElement });
     }
     for (const b of this.eproj) {
       if (b.dead || dist(x, y, b.x, b.y) > r + 6) continue;
@@ -1734,6 +1761,7 @@ export class GameScene extends Phaser.Scene {
     Object.assign(p, { ox: x, oy: y, tx, ty, t: 0, flight, blast, embers });
     p.shadow = this.add.image(x, y, 'shadow').setDepth(DEPTH.shadow).setScale(0.5);
     this.telegraphs.push({ kind: 'circle', x: tx, y: ty, r: blast, t: 0, dur: flight });
+    return p;
   }
 
   killProj(p: Proj, silent = false) {
@@ -1844,10 +1872,11 @@ export class GameScene extends Phaser.Scene {
         p.vy += (p.gravity ?? 0) * dt;
         p.sprite.rotation += dt * (p.spin ?? 14);
       } else if (p.kind === 'flame') {
-        // Hot and small at the nozzle, then a wider, redder lick that fades out.
+        // Hot and small at the nozzle, then a wider, redder lick that fades out (a gust just grows and fades).
         const k = 1 - p.life / (p.life0 || 1);
         p.sprite.setScale(0.6 + k * 1.5).setAlpha(k < 0.55 ? 1 : Math.max(0, 1 - (k - 0.55) / 0.45));
-        if (k > 0.6) p.sprite.setTint(0xf04020);
+        if (p.element === 'wind') p.sprite.rotation += dt * 8;
+        else if (k > 0.6) p.sprite.setTint(0xf04020);
         else if (k > 0.3) p.sprite.setTint(0xff9a30);
       } else if (p.kind === 'rocket') {
         if (Math.random() < 0.7) this.fx.dust(p.x - p.vx * 0.03, p.y - p.vy * 0.03, 1);
@@ -1985,7 +2014,7 @@ export class GameScene extends Phaser.Scene {
     p.shadow?.setPosition(p.x, p.y);
     if (t >= 1) {
       this.killProj(p, true);
-      this.explode(p.x, p.y, p.blast!, p.dmg, { src: '榴弹炮', knock: p.knock });
+      this.explode(p.x, p.y, p.blast!, p.dmg, { src: p.src, knock: p.knock, element: p.element });
       if (p.embers! > 0) this.hazards.push({ kind: 'ember', x: p.x, y: p.y, r: p.blast! * 0.75, t: 1.2 + p.embers! * 0.7, tick: 0, dmg: p.dmg * 0.16 });
     }
   }
@@ -2048,7 +2077,7 @@ export class GameScene extends Phaser.Scene {
     const zap = (fx: number, fy: number, target: Enemy, left: number, power: number) => {
       hit.add(target);
       this.visuals.push({ kind: 'chain', pts: this.jag(fx, fy, target.x, target.y - 4), width: 2, t: 0, dur: 0.12, color: hexToNum(E.yellow) });
-      this.damageEnemy(target, dmg * power, { src, knock: 14, kx: target.x - fx, ky: target.y - fy, ignoreShield: true });
+      this.damageEnemy(target, dmg * power, { src, knock: 14, kx: target.x - fx, ky: target.y - fy, ignoreShield: true, element: 'shock' });
       if (left <= 0) return;
       const next = this.enemies
         .filter((e) => !e.dead && !hit.has(e) && dist(target.x, target.y, e.x, e.y) < jump)
@@ -2079,7 +2108,7 @@ export class GameScene extends Phaser.Scene {
   damageEnemy(
     e: Enemy,
     amount: number,
-    o: { src: string; kx?: number; ky?: number; knock?: number; crit?: boolean; noCrit?: boolean; dot?: boolean; ignoreShield?: boolean; arc?: boolean; noElement?: boolean; color?: string; element?: Element; quiet?: boolean },
+    o: { src: string; kx?: number; ky?: number; knock?: number; crit?: boolean; noCrit?: boolean; dot?: boolean; ignoreShield?: boolean; arc?: boolean; noElement?: boolean; color?: string; element?: Element; quiet?: boolean; heavy?: boolean; noReact?: boolean },
   ) {
     if (e.dead) return;
     if ((e.boss && e.boss.invuln > 0) || (e.kind === 'ghost' && e.state === 'fade')) {
@@ -2088,12 +2117,50 @@ export class GameScene extends Phaser.Scene {
     }
     if (e.kind === 'angel' && e.state === 'stone') amount *= 0.5;
     const m = this.run.mods;
+    const st = e.status;
+    // An element rides on the hit: the weapon's own, or one rolled from the element upgrades.
+    let element = o.element;
+    if (!element && !o.dot && !o.noElement) {
+      for (const el of ELEMENTS) {
+        if (m.elements[el] > 0 && Math.random() < m.elements[el]) {
+          element = el;
+          break;
+        }
+      }
+    }
     let dmg = amount;
     let crit = !!o.crit;
     if (!o.dot && !o.noCrit && !crit && Math.random() < m.critChance) crit = true;
     if (crit) dmg *= m.critMult;
     if (e.affix === 'tough') dmg *= 0.8;
-    if (e.state === 'stunned') dmg *= 1.35;
+    if (e.state === 'stunned' || st.stun > 0) dmg *= 1.35;
+    if (st.shred > 0) dmg *= 1.4;
+    // A monster of this style shrugs off most of its own element.
+    if (element && e.infused === element) {
+      dmg *= e.boss ? 0.7 : 0.3;
+      if (!o.dot && this.gateText(e, 'resist')) this.fx.callout(e.x, e.y - e.r * 2 - 14, '抵抗', E.greyM);
+    }
+    // An elemental shield takes the hit first: its counter element tears through it, its own barely scratches it.
+    if (e.eshield && !o.dot) {
+      const sh = e.eshield;
+      const counter = SHIELD_COUNTER[sh.el];
+      const k = element === counter || (sh.el === 'rock' && o.heavy) ? 2.5 : element === sh.el ? 0.1 : element ? 1 : 0.5;
+      sh.hp -= dmg * k;
+      this.fx.sparks(e.x, e.y - 6, 3, sh.el);
+      if (!o.quiet) this.fx.number(e.x, e.y - e.r * 2 - 4, dmg * k, { small: true, color: ELEMENT_COLOR[sh.el] });
+      if (sh.hp > 0) return;
+      // Broken: a burst of the shield's colour, and the elite reels.
+      e.eshield = undefined;
+      st.stun = 2;
+      tintShield(e, this.kit.palette.danger);
+      this.fx.callout(e.x, e.y - e.r * 2 - 16, '护盾破碎', ELEMENT_COLOR[sh.el], true);
+      this.fx.ring(e.x, e.y - 4, 36, ELEMENT_COLOR[sh.el], 320, 2);
+      this.fx.sparks(e.x, e.y - 4, 14, sh.el);
+      audio.explode(false);
+      return;
+    }
+    if (st.frozen > 0 && (o.heavy || element === 'rock')) dmg += shatter(this, e, dmg);
+    if (element && !o.noReact) dmg *= react(this, e, element, dmg);
     e.hp -= dmg;
     this.run.damage[o.src] = (this.run.damage[o.src] ?? 0) + dmg;
     if (!o.dot) {
@@ -2106,87 +2173,37 @@ export class GameScene extends Phaser.Scene {
       }
       if (!o.quiet || crit) {
         audio.hit(crit);
-        this.fx.sparks(e.x, e.y - 4, crit ? 6 : 2, crit ? 'gold' : 'white');
+        this.fx.sparks(e.x, e.y - 4, crit ? 6 : 2, crit ? 'gold' : element ?? 'white');
       }
       if (crit) {
         this.stop(0.025);
         this.fx.shake(0.03);
       }
     }
-    if (!o.quiet || crit) this.fx.number(e.x, e.y - e.r * 2 - 4, dmg, { crit, small: o.dot, color: o.color });
-    if (o.element) this.applyElement(e, o.element, dmg);
+    if (!o.quiet || crit) this.fx.number(e.x, e.y - e.r * 2 - 4, dmg, { crit, small: o.dot, color: o.color ?? (element ? ELEMENT_COLOR[element] : undefined) });
     if (!o.dot && !o.noElement) {
-      for (const el of ['fire', 'ice', 'shock'] as Element[]) {
-        if (m.elements[el] > 0 && Math.random() < m.elements[el]) this.applyElement(e, el, dmg);
-      }
-      if (m.explodeOnHit > 0 && Math.random() < m.explodeOnHit) this.explode(e.x, e.y, 26, dmg * 0.6, { src: '余烬爆裂', small: true });
+      if (m.explodeOnHit > 0 && Math.random() < m.explodeOnHit) this.explode(e.x, e.y, 26, dmg * 0.6, { src: '余烬爆裂', small: true, element: 'fire' });
       if (crit && m.splitOnCrit > 0) {
         for (let i = 0; i < m.splitOnCrit; i++) this.spawnProj('shard', e.x, e.y, rand(0, TAU), 260, 0.4, 2, dmg * 0.35, 0, 20, '裂变').hit.add(e);
-      }
-      if (e.status.shock > 0 && !o.arc) {
-        const near = this.enemies.find((q) => q !== e && !q.dead && dist2(q.x, q.y, e.x, e.y) < 60 * 60);
-        if (near) {
-          this.visuals.push({ kind: 'chain', pts: this.jag(e.x, e.y - 4, near.x, near.y - 4), width: 1, t: 0, dur: 0.1, color: hexToNum(ELEMENT_COLOR.shock) });
-          this.damageEnemy(near, dmg * 0.3 * m.elementPower, { src: '感电', arc: true, noCrit: true, noElement: true, color: ELEMENT_COLOR.shock });
-        }
       }
     }
     if (e.hp <= 0) this.killEnemy(e, o.src);
   }
 
-  applyElement(e: Enemy, el: Element, hit: number) {
-    if (e.dead) return;
-    const s = e.status;
-    const pow = this.run.mods.elementPower;
-    const reaction = (name: string, color: string) => {
-      this.fx.callout(e.x, e.y - e.r * 2 - 14, name, color);
-      this.fx.sparks(e.x, e.y, 8, el);
-    };
-    if (el === 'fire') {
-      if (s.chill > 0 || s.frozen > 0) {
-        s.chill = s.frozen = 0;
-        s.chillStacks = 0;
-        reaction('蒸发', ELEMENT_COLOR.fire);
-        this.damageEnemy(e, hit * pow, { src: '蒸发', noCrit: true, noElement: true, color: ELEMENT_COLOR.fire });
-        return;
-      }
-      if (s.shock > 0) {
-        s.shock = 0;
-        reaction('过载', ELEMENT_COLOR.shock);
-        this.explode(e.x, e.y, 36, hit * 0.9 * pow, { src: '过载', small: true });
-        return;
-      }
-      s.burn = 3;
-      s.burnDps = Math.max(s.burnDps, hit * 0.4 * pow);
-    } else if (el === 'ice') {
-      if (s.burn > 0) {
-        s.burn = 0;
-        reaction('蒸发', ELEMENT_COLOR.ice);
-        this.damageEnemy(e, hit * pow, { src: '蒸发', noCrit: true, noElement: true, color: ELEMENT_COLOR.ice });
-        return;
-      }
-      s.chill = 2.6;
-      s.chillStacks++;
-      if (s.chillStacks >= 3) {
-        s.chillStacks = 0;
-        s.frozen = e.boss ? 0.5 : 1.3;
-      }
-    } else {
-      if (s.frozen > 0) {
-        s.frozen = 0;
-        reaction('碎裂', ELEMENT_COLOR.ice);
-        for (let i = 0; i < 6; i++) this.spawnProj('shard', e.x, e.y, (i / 6) * TAU, 240, 0.45, 2, hit * 0.5, 1, 30, '碎裂').hit.add(e);
-        this.damageEnemy(e, hit * 2 * pow, { src: '碎裂', noCrit: true, noElement: true, color: ELEMENT_COLOR.ice });
-        return;
-      }
-      if (s.burn > 0) {
-        s.burn = 0;
-        reaction('过载', ELEMENT_COLOR.shock);
-        this.explode(e.x, e.y, 36, hit * 0.9 * pow, { src: '过载', small: true });
-        return;
-      }
-      s.shock = 2.2;
-    }
+  /** Throttle the small words over an enemy (resists), so a stream of hits doesn't bury it in text. */
+  private textGate = new Map<number, number>();
+  gateText(e: Enemy, _what: string): boolean {
+    const now = this.time0;
+    if ((this.textGate.get(e.id) ?? -9) + 0.8 > now) return false;
+    this.textGate.set(e.id, now);
+    return true;
+  }
+
+  /** Crystallize: a shard of the aura's element that shields whoever picks it up. */
+  dropCrystal(x: number, y: number, el: Element) {
+    if (solidAt(this.dungeon, x, y)) [x, y] = openSpot(this.dungeon, x, y);
+    const sprite = this.add.image(Math.round(x), Math.round(y), 'crystal').setDepth(DEPTH.pickup).setTint(hexToNum(ELEMENT_COLOR[el]));
+    this.pickups.push({ kind: 'crystal', element: el, tier: 0, x, y, vx: 0, vy: -30, value: 0, t: 0, magnet: false, sprite, dead: false });
   }
 
   killEnemy(e: Enemy, _src: string) {
@@ -2259,10 +2276,10 @@ export class GameScene extends Phaser.Scene {
     this.decals?.stamp(`splat-${Math.floor(rand(0, 4))}`, undefined, Math.round(e.x), Math.round(e.y + 1), { angle: Math.floor(rand(0, 4)) * 90, scale, alpha, tint: hexToNum(col) });
   }
 
-  explode(x: number, y: number, r: number, dmg: number, o: { src: string; hurtsPlayer?: number; knock?: number; small?: boolean }) {
+  explode(x: number, y: number, r: number, dmg: number, o: { src: string; hurtsPlayer?: number; knock?: number; small?: boolean; element?: Element; noReact?: boolean }) {
     for (const e of this.enemies) {
       if (e.dead) continue;
-      if (dist2(x, y, e.x, e.y) < (r + e.r) ** 2) this.damageEnemy(e, dmg, { src: o.src, kx: e.x - x, ky: e.y - y, knock: o.knock ?? 100, ignoreShield: true, noElement: o.small });
+      if (dist2(x, y, e.x, e.y) < (r + e.r) ** 2) this.damageEnemy(e, dmg, { src: o.src, kx: e.x - x, ky: e.y - y, knock: o.knock ?? 100, ignoreShield: true, noElement: o.small, element: o.element, noReact: o.noReact, heavy: true });
     }
     for (const b of this.obstacles) {
       if (!b.dead && b.kind !== 'pillar' && dist2(x, y, b.x, b.y) < (r + b.r) ** 2) this.time.delayedCall(60, () => this.damageObstacle(b, 999));
@@ -2366,21 +2383,54 @@ export class GameScene extends Phaser.Scene {
     for (const e of list) {
       if (e.dead) continue;
       const s = e.status;
-      if (s.burn > 0) {
-        s.burn -= dt;
-        s.burnTick -= dt;
-        if (s.burnTick <= 0) {
-          s.burnTick = 0.33;
-          this.damageEnemy(e, s.burnDps * 0.33, { src: '燃烧', dot: true, color: ELEMENT_COLOR.fire });
-          this.fx.sparks(e.x, e.y - 6, 1, 'fire');
+      // Electro-Charged: a zap every second that jumps to wet neighbours.
+      if (s.ec > 0) {
+        s.ec -= dt;
+        s.ecTick -= dt;
+        if (s.ecTick <= 0) {
+          s.ecTick = 1;
+          this.damageEnemy(e, s.ecDmg, { src: '感电', dot: true, color: ELEMENT_COLOR.shock, noReact: true });
+          this.fx.sparks(e.x, e.y - 6, 3, 'shock');
+          for (const o of this.enemies) {
+            if (o === e || o.dead || o.status.aura !== 'water' || o.status.auraT <= 0 || dist2(o.x, o.y, e.x, e.y) > 56 * 56) continue;
+            this.visuals.push({ kind: 'chain', pts: this.jag(e.x, e.y - 4, o.x, o.y - 4), width: 1, t: 0, dur: 0.12, color: hexToNum(ELEMENT_COLOR.shock) });
+            this.damageEnemy(o, s.ecDmg * 0.7, { src: '感电', dot: true, color: ELEMENT_COLOR.shock, noReact: true });
+          }
           if (e.dead) continue;
         }
-      } else s.burnDps = 0;
-      if (s.chill > 0) s.chill -= dt;
-      else s.chillStacks = 0;
+      }
+      // Burning: fire on it and on whatever stands close.
+      if (s.burnT > 0) {
+        s.burnT -= dt;
+        s.burnTick -= dt;
+        if (s.burnTick <= 0) {
+          s.burnTick = 0.5;
+          s.aura = 'fire';
+          s.auraT = Math.max(s.auraT, 1);
+          this.fx.sparks(e.x, e.y - 6, 2, 'fire');
+          for (const o of this.enemies) {
+            if (o.dead || dist2(o.x, o.y, e.x, e.y) > 24 * 24) continue;
+            this.damageEnemy(o, o === e ? s.burnDmg : s.burnDmg * 0.5, { src: '燃烧', dot: true, color: ELEMENT_COLOR.fire, noReact: true });
+          }
+          if (e.dead) continue;
+        }
+      }
+      s.auraT -= dt;
+      if (s.auraT <= 0) s.aura = undefined;
+      // A monster of this style gets its element back a moment after a reaction used it up.
+      if (e.infused && e.infused !== 'wind' && e.infused !== 'rock' && s.auraT <= 0) {
+        s.regrow -= dt;
+        if (s.regrow <= 0) {
+          s.aura = e.infused;
+          s.auraT = 99;
+        }
+      }
+      s.quicken -= dt;
+      s.shred -= dt;
+      s.stun -= dt;
+      s.chill -= dt;
       if (s.frozen > 0) s.frozen -= dt;
-      if (s.shock > 0) s.shock -= dt;
-      const slowMul = s.frozen > 0 ? 0 : 1 - Math.min(0.6, s.chillStacks * 0.2 + (s.chill > 0 ? 0.15 : 0));
+      const slowMul = s.frozen > 0 || s.stun > 0 ? 0 : s.chill > 0 ? 0.75 : 1;
       if (e.boss) updateBoss(this, e, dt, slowMul);
       else updateEnemyAI(this, e, dt, slowMul);
       if (e.dead) continue;
@@ -2448,10 +2498,12 @@ export class GameScene extends Phaser.Scene {
       if (a.flash > 0) sp.setTintFill(0xffffff);
       else if (a.kind === 'angel' && a.state === 'stone') sp.setTint(0x9aa4b8);
       else if (a.status.frozen > 0) sp.setTint(hexToNum(ELEMENT_COLOR.ice));
-      else if (a.status.burn > 0 && Math.floor(this.time0 * 10) % 2 === 0) sp.setTint(0xffb080);
+      else if (a.status.burnT > 0 && Math.floor(this.time0 * 10) % 2 === 0) sp.setTint(0xffb080);
+      else if (a.status.stun > 0) sp.setTint(0x9aa4b8);
       else if (a.boss?.enraged) sp.setTint(0xff9a9a);
       else sp.clearTint();
       if (a.enter) this.entrance(a, sp, dt);
+      markAura(this, a);
       a.shadow.setPosition(Math.round(a.x), Math.round(a.y + 1));
       a.ring?.setPosition(a.x, a.y - 4);
       if (a.extra) {
@@ -2499,7 +2551,7 @@ export class GameScene extends Phaser.Scene {
         if (this.mode === 'play' && dist2(p.x, p.y, pl.x, pl.y) < 14 * 14) this.openChest(p);
         continue;
       }
-      if (!p.magnet && p.t > 0.25 && (dist2(p.x, p.y, pl.x, pl.y) < radius * radius || (p.kind === 'heart' && dist2(p.x, p.y, pl.x, pl.y) < 20 * 20))) {
+      if (!p.magnet && p.t > 0.25 && (dist2(p.x, p.y, pl.x, pl.y) < radius * radius || ((p.kind === 'heart' || p.kind === 'crystal') && dist2(p.x, p.y, pl.x, pl.y) < 26 * 26))) {
         p.magnet = true;
         p.t = 0;
       }
@@ -2526,6 +2578,14 @@ export class GameScene extends Phaser.Scene {
         p.sprite.destroy();
         if (p.kind === 'heart') {
           this.heal(1, pl.x, pl.y);
+          audio.select();
+        } else if (p.kind === 'crystal') {
+          // Crystallize: a shield of the element it formed from.
+          const run = this.run;
+          run.armor = Math.min(run.mods.maxArmor, run.armor + 1);
+          const c = ELEMENT_COLOR[p.element ?? 'rock'];
+          this.fx.ring(pl.x, pl.y - 6, 22, c, 280, 2);
+          this.fx.callout(pl.x, pl.y - 26, '结晶护盾', c);
           audio.select();
         } else {
           this.gemStreak++;
@@ -2846,6 +2906,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   updateHazards(dt: number) {
+    const HAZARD_ELEMENT = { ember: 'fire', poison: 'grass', vortex: 'wind' } as const;
     const COLOR = { ember: ELEMENT_COLOR.fire, poison: E.green, vortex: E.magenta };
     for (const h of this.hazards) {
       h.t -= dt;
@@ -2873,7 +2934,7 @@ export class GameScene extends Phaser.Scene {
         h.tick = h.kind === 'poison' ? 0.4 : 0.3;
         for (const e of this.enemies) {
           if (e.dead || dist2(e.x, e.y, h.x, h.y) >= (h.r + e.r) ** 2) continue;
-          this.damageEnemy(e, h.dmg, { src: h.src ?? '余烬', dot: true, color: COLOR[h.kind] });
+          this.damageEnemy(e, h.dmg, { src: h.src ?? '余烬', dot: true, color: COLOR[h.kind], element: HAZARD_ELEMENT[h.kind] });
           if (h.kind === 'poison' && !e.dead) e.status.chill = Math.max(e.status.chill, 0.5);
         }
         this.hurtProps(h.x, h.y, h.r, h.dmg);

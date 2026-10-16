@@ -5,7 +5,7 @@ import { K } from '../styles/textures';
 import { E } from '../pixel/palette';
 import { ui } from '../ui/ui';
 import { raycast } from './dungeon';
-import type { BossState, Enemy } from './entities';
+import { freshStatus, type BossState, type Enemy } from './entities';
 import { DEPTH } from './fx';
 import type { GameScene } from './GameScene';
 import { turnToward } from './enemyAI';
@@ -71,7 +71,7 @@ export function spawnBoss(s: GameScene, kind: 'guardian' | 'boar'): Enemy {
     flash: 0,
     dead: false,
     scale: 2,
-    status: { burn: 0, burnDps: 0, burnTick: 0, chill: 0, chillStacks: 0, frozen: 0, shock: 0 },
+    status: freshStatus(),
     sprite,
     shadow,
     boss,
