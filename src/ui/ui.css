@@ -2221,6 +2221,7 @@ canvas.bt {
 
 .cx-top {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
   gap: 8px;
 }
@@ -2235,18 +2236,21 @@ canvas.bt {
 
 .cx-name {
   display: flex;
+  min-width: 0;
   flex-direction: column;
   gap: 1px;
 }
 
 .cx-stats {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(min(120px, 100%), 1fr));
   gap: 1px 8px;
 }
 
 .cx-stats .st {
   display: flex;
+  flex-wrap: wrap;
+  min-width: 0;
   align-items: center;
   gap: 4px;
 }

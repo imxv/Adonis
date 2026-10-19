@@ -13,6 +13,9 @@ import { E } from '../pixel/palette';
 import { K, buildKitTextures, buildLevel } from '../styles/textures';
 import { themeProps } from '../pixel/themeProps';
 import { DECO_NAMES } from '../pixel/decor';
+import { FLOATING } from '../pixel/bossArt';
+import { GUARDIAN_SKILLS } from '../game/bossSkills';
+import { BOSS_MOVE_NOTES, GUARDIAN_SECOND_ACT } from './bossCodex';
 
 /** A picture for the codex: a data URL with its pixel size. */
 export interface Pic {
@@ -250,37 +253,48 @@ export function buildCodex(scene: Phaser.Scene): CodexTab[] {
   });
 
   // ---------------------------------------------------------------- bosses
-  const bosses: CodexEntry[] = [
-    {
-      id: 'guardian',
-      name: '守卫',
-      icon: half(K('boss-guardian', forest)),
-      art: tex(K('boss-guardian', forest)),
-      tag: '第一至四层 Boss',
+  const bosses: CodexEntry[] = BIOMES.map((kit) => {
+    const [firstAct, secondAct] = GUARDIAN_SKILLS[kit.id];
+    const moveName = (id: string) => BOSS_MOVE_NOTES[id]?.name ?? id;
+    return {
+      id: `guardian-${kit.id}`,
+      name: kit.bossNames.guardian,
+      icon: half(K('boss-guardian', kit)),
+      art: tex(K('boss-guardian', kit)),
+      tag: `${kit.name} · 守卫`,
       tagColor: E.hot,
-      desc: '每种画风的守门者，名字和模样随画风变化。它悬浮在空中，柱子挡不住它，但挡得住它的光臂。',
+      desc: `「${kit.subtitle}」${kit.name}的守门者；这幅画出现在第一至四层时，会在本层最深处迎战旅人。`,
+      stats: [['所属地图', kit.name], ['出现楼层', '第一至四层'], ['第二阶段', '生命低于 55%']],
       sections: [
-        { title: '招式', lines: ['环形弹幕：连放三圈旋转的子弹环', '扇形射击：瞄准你连射三组', '旋转光臂：先闪烁预警再扫过全场，躲到柱子后面', '召唤：叫来几只小怪'] },
-        { title: '第二阶段', lines: ['生命低于 55% 时进入：贴着你走位，加入黄金角螺旋弹幕，光臂更多更快。'] },
-        { title: '各画风的守卫', lines: [BIOMES.map((k) => `${k.name}：${k.bossNames.guardian}`).join('；')] },
+        { title: '第一幕招式', lines: [...new Set(firstAct)].map((id) => `${moveName(id)}：${BOSS_MOVE_NOTES[id]?.desc ?? ''}`) },
+        { title: '第二幕', lines: [
+          '生命低于 55% 后换幕，短暂无敌并清除敌方弹幕；此后更靠近旅人走位，蓄力和多数招式的间歇缩短。',
+          ...(GUARDIAN_SECOND_ACT[kit.id] ?? []),
+          `本幕招式：${[...new Set(secondAct)].map(moveName).join('、')}。`,
+        ] },
+        { title: '换位与破绽', lines: [FLOATING.has(kit.id)
+          ? '招式间隙会滑行换位。利用出招前的蓄力和收招后的短暂间歇输出，二阶段换位更频繁。'
+          : '招式间隙会跳跃换位，落点有圆形预警，落地会造成伤害。利用蓄力和收招间歇输出，二阶段跳跃更快、更频繁。'] },
       ],
-      gallery: { title: '各画风下的样子', pics: across((k) => K('boss-guardian', k)) },
-    },
-    {
+      gallery: { title: '第一幕 · 第二幕造型', pics: [tex(K('boss-guardian-idle', kit)), tex(K('boss-guardian-idle-2', kit))] },
+    };
+  });
+  bosses.push({
       id: 'boar',
       name: '宿敌野猪',
       icon: half('boss-boar'),
       art: tex('boss-boar'),
       tag: '第五层 Boss',
       tagColor: E.hot,
-      desc: '那头撞死阿多尼斯的野猪。每一次轮回，它都在最深处等着。',
+      desc: '那头撞死阿多尼斯的野猪。每一次轮回，它都在第五层最深处等着；名字随最后一幅画变化，始终是同一位宿敌。',
+      stats: [['所属地图', '本局第五层的画风'], ['出现楼层', '第五层'], ['第二阶段', '生命低于 50%']],
       sections: [
-        { title: '招式', lines: ['冲撞：地上出现红线后直线猛冲；撞到墙或柱子会眩晕，这时它受到的伤害 +35%', '践踏：跳起后砸向你的位置，落地前有圆形预警', '扇形弹：朝你喷出一扇子弹', '召唤：叫来四只小野猪'] },
-        { title: '第二阶段：怒', lines: ['生命低于一半时暴怒：冲撞会在墙上反弹两次，撞墙和落地都会溅出一圈子弹。'] },
-        { title: '各画风的野猪', lines: [BIOMES.map((k) => `${k.name}：${k.bossNames.boar}`).join('；')] },
+        { title: '招式', lines: ['冲撞：直线预警后猛冲，沿途会撞碎柱子；普通阶段冲撞撞墙或持续过久后进入眩晕。', '践踏：跳起后砸向锁定位置，圆形预警前半段会追踪旅人；落地造成 2 点伤害。', '扇形弹：朝旅人喷出七发大弹。', '召唤：场上小怪较少时，可叫来四只小野猪。'] },
+        { title: '第二阶段：怒', lines: ['生命低于 50% 时暴怒，换阶段短暂无敌并清除敌方弹幕；移动和冲撞更快，冲撞预警缩短。', '一次冲撞最多反弹两次，反弹耗尽后再撞击才会眩晕；撞击会溅出十二发环弹。', '践踏落地额外溅出十六发环弹，扇形弹增至十一发。'] },
+        { title: '进攻时机', lines: ['冲撞结束的眩晕持续约 1.15 秒，期间受到的伤害增加 35%。等反弹结束、出现「破绽」后再靠近输出。', '柱子会被它撞碎，不要把柱子当成永久安全的掩体。'] },
+        { title: '各画风下的名字', lines: [BIOMES.map((k) => `${k.name}：${k.bossNames.boar}`).join('；')] },
       ],
-    },
-  ];
+    });
 
   // ---------------------------------------------------------------- maps: art styles and room types
   const scaleName = (k: Biome) => {

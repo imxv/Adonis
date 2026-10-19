@@ -142,10 +142,12 @@ function iconHtml(entry: CodexEntry, big: boolean) {
 
 function detailHtml(e: CodexEntry, width: number) {
   const parts: string[] = [];
+  // pxBlock attaches trailing punctuation to its line; leave a glyph of headroom.
+  const textWidth = Math.max(12, width - 12);
   parts.push(`<div class="cx-top"><div class="cx-art">${iconHtml(e, true)}</div><div class="cx-name">${px(e.name, E.white, { scale: 2 })}${e.tag ? px(e.tag, e.tagColor ?? GREY) : ''}</div></div>`);
-  parts.push(`<div class="cx-desc">${pxBlock(e.desc, GREY, width)}</div>`);
+  parts.push(`<div class="cx-desc">${pxBlock(e.desc, GREY, textWidth)}</div>`);
   if (e.stats?.length) parts.push(`<div class="cx-stats">${e.stats.map(([k, v]) => `<div class="st">${px(k, DIM)}${px(v, E.white)}</div>`).join('')}</div>`);
-  for (const s of e.sections ?? []) parts.push(`<div class="cx-sec">${px(s.title, E.yellow)}${s.lines.map((l) => pxBlock(l, GREY, width)).join('')}</div>`);
+  for (const s of e.sections ?? []) parts.push(`<div class="cx-sec">${px(s.title, E.yellow)}${s.lines.map((l) => pxBlock(l, GREY, textWidth)).join('')}</div>`);
   if (e.gallery) parts.push(`<div class="cx-sec">${px(e.gallery.title, E.yellow)}<div class="cx-gal">${e.gallery.pics.map((p) => `<div class="g">${picHtml(p, 40, 40, 1)}</div>`).join('')}</div></div>`);
   return parts.join('');
 }
@@ -163,12 +165,50 @@ export function openCodex(host: LayerHost, tabs: CodexTab[]) {
   let tab = 0;
   let sel = 0;
   let cells: HTMLElement[] = [];
+  let layoutWidth = 0;
+  let layoutHeight = 0;
+  let scrollPosition = 0;
+  let renderFrame = 0;
+  let closed = false;
+
+  // clientWidth is in layout pixels, before #ui-root's transform/zoom, and excludes borders.
+  const contentWidth = () => {
+    const style = getComputedStyle(detail);
+    const padding = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
+    return Math.max(0, Math.floor(detail.clientWidth - padding));
+  };
+  const renderDetail = (width: number) => {
+    if (closed || width <= 0) return;
+    layoutWidth = width;
+    detail.innerHTML = detailHtml(tabs[tab].entries[sel], width);
+  };
+  const observer = new ResizeObserver(() => {
+    if (closed || renderFrame) return;
+    if (contentWidth() === layoutWidth && detail.clientHeight === layoutHeight) return;
+    renderFrame = requestAnimationFrame(() => {
+      renderFrame = 0;
+      if (closed) return;
+      const previousScroll = scrollPosition;
+      const width = contentWidth();
+      if (width !== layoutWidth) renderDetail(width);
+      detail.scrollTop = previousScroll;
+      scrollPosition = detail.scrollTop;
+      layoutHeight = detail.clientHeight;
+    });
+  });
+  const rememberScroll = () => {
+    // Rotation can clamp old content before the observer redraws it; keep the last stable position.
+    if (!renderFrame && contentWidth() === layoutWidth && detail.clientHeight === layoutHeight) scrollPosition = detail.scrollTop;
+  };
+  detail.addEventListener('scroll', rememberScroll, { passive: true });
 
   const show = (i: number) => {
     sel = i;
     cells.forEach((c, k) => c.classList.toggle('sel', k === i));
-    detail.innerHTML = detailHtml(tabs[tab].entries[i], 246);
+    scrollPosition = 0;
+    renderDetail(contentWidth());
     detail.scrollTop = 0;
+    layoutHeight = detail.clientHeight;
   };
   const openTab = (t: number) => {
     tab = (t + tabs.length) % tabs.length;
@@ -206,7 +246,13 @@ export function openCodex(host: LayerHost, tabs: CodexTab[]) {
     else return;
     e.preventDefault();
     audio.hover();
+  }, () => {
+    closed = true;
+    observer.disconnect();
+    cancelAnimationFrame(renderFrame);
+    detail.removeEventListener('scroll', rememberScroll);
   });
+  observer.observe(detail);
 }
 
 // ---------------------------------------------------------------- how to play
