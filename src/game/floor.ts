@@ -2,7 +2,7 @@ import type { Rng } from '../core/rng';
 import { DIRS, DIR_VEC, type Dir } from './dirs';
 import type { Choice } from './run';
 
-export type RoomType = 'start' | 'combat' | 'horde' | 'treasure' | 'boss';
+export type RoomType = 'start' | 'combat' | 'horde' | 'challenge' | 'treasure' | 'boss';
 
 export interface Room {
   id: string;

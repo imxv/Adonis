@@ -14,14 +14,21 @@ export const PROP = 3;
 
 export type Shape = 'rect' | 'cut' | 'cross' | 'L' | 'pillars' | 'ring';
 
-export type TrapKind = 'spikes' | 'saw';
+export type TrapKind = 'spikes' | 'saw' | 'arrows' | 'vent' | 'falling' | 'beam';
 
-/** Spikes cover `tiles`; a saw runs back and forth between the two tiles of its track. */
+/** Spikes/falling use individual tiles; saws and directed traps use two track endpoints. */
 export interface TrapPlan {
   kind: TrapKind;
   tiles: [number, number][];
   period: number;
   phase: number;
+  direction?: [number, number];
+}
+
+export interface CurrentPlan {
+  kind: 'wind' | 'water' | 'conveyor';
+  tiles: [number, number][];
+  direction: [number, number];
 }
 
 export interface PropPlan {
@@ -49,6 +56,9 @@ export interface DRoom extends Room {
   props: PropPlan[];
   traps: TrapPlan[];
   decor: DecorPlan[];
+  currents?: CurrentPlan[];
+  /** Safe, spread-out tile centres for the optional room's timed route. */
+  challengeTargets?: [number, number][];
 }
 
 export interface Dungeon {
@@ -68,6 +78,7 @@ const SIZES: Record<Room['type'], [number, number, number, number]> = {
   start: [13, 13, 11, 11],
   treasure: [13, 15, 11, 11],
   combat: [15, 23, 11, 15],
+  challenge: [15, 23, 11, 15],
   horde: [21, 23, 15, 17],
   boss: [25, 25, 17, 17],
 };
@@ -475,6 +486,226 @@ function decorate(r: DRoom, rng: Rng, level: number, trapMul: number, get: (x: n
   }
 
   dress(r.type === 'horde' ? 2 : rng.int(2, 3), false);
+}
+
+// ---------------------------------------------------------------- optional new-run features
+
+/**
+ * New-run-only post-processing. It never changes the floor graph, tiles or the caller's RNG:
+ * old saves can reconstruct their exact rooms by using generateDungeon without this step.
+ */
+export function enhanceDungeon(d: Dungeon, seed: number, level: number, biomeId: string): void {
+  const rng = new Rng((seed ^ Math.imul(level + 1, 0x45d9f3b) ^ 0x63a9d731) >>> 0);
+  const preferred: Record<string, TrapKind> = {
+    forest: 'falling', glacier: 'falling', desert: 'arrows', volcano: 'vent', factory: 'vent',
+    castle: 'arrows', garden: 'falling', palace: 'arrows', reef: 'beam', neon: 'beam',
+  };
+  const special = preferred[biomeId] ?? 'falling';
+  for (const r of d.rooms) {
+    if (r.type !== 'combat' && r.type !== 'horde') continue;
+    const groups = trapTemplates(r);
+    const result: TrapPlan[] = [];
+    for (const group of groups) {
+      // A mirrored pair/patch is one existing template, not two/four new trap budgets.
+      const kind = rng.pick([group[0].kind, special, special]);
+      if (kind === group[0].kind) {
+        result.push(...group);
+        continue;
+      }
+      const others = [...result, ...groups.filter((g) => g !== group).flat()];
+      const replacement = directedTemplate(d, r, group.flatMap(trapCells), kind, rng, others, group.length);
+      result.push(...(replacement.length ? replacement : group));
+    }
+    r.traps = result;
+  }
+
+  // A combat leaf is never on the route to the boss or treasure. Keep every id/seed/edge intact.
+  const candidates = rng.shuffle(d.rooms.filter((r) => r.type === 'combat' && r.gates.length === 1 && r.depth >= 2));
+  for (const r of candidates) {
+    const oldTraps = r.traps;
+    if (!r.traps.length) {
+      const anchors = floorCells(d, r).filter(([x, y]) => safeFeatureTile(d, r, x, y));
+      r.traps = directedTemplate(d, r, rng.shuffle(anchors), special, rng, [], 2);
+      // Some small/irregular rooms cannot fit a wall emitter; isolated falling markers can still fit.
+      if (!r.traps.length) r.traps = directedTemplate(d, r, anchors, 'falling', rng, [], 2);
+    }
+    const targets = challengeRoute(d, r, rng);
+    if (r.traps.length && targets.length === 3) {
+      r.type = 'challenge';
+      r.challengeTargets = targets;
+      break;
+    }
+    r.traps = oldTraps;
+  }
+
+  // Two small flank patches per floor at most. No currents in doors, loot rooms or central routes.
+  const currentKind: CurrentPlan['kind'] = biomeId === 'factory' || biomeId === 'neon' ? 'conveyor'
+    : biomeId === 'reef' || biomeId === 'garden' ? 'water' : 'wind';
+  let patches = 0;
+  for (const r of rng.shuffle(d.rooms.filter((r) => r.type === 'combat' || r.type === 'challenge'))) {
+    if (patches >= 2) break;
+    const danger = new Set(r.traps.flatMap(trapCells).map(cellKey));
+    const targets = new Set((r.challengeTargets ?? []).map(cellKey));
+    for (const [x, y] of rng.shuffle(floorCells(d, r))) {
+      const direction = rng.pick<Cell>([[1, 0], [-1, 0], [0, 1], [0, -1]]);
+      const [dx, dy] = direction;
+      const cells: Cell[] = [[x, y], [x + dx, y + dy], [x + 2 * dx, y + 2 * dy]];
+      const safe = (cx: number, cy: number) => safeFeatureTile(d, r, cx, cy)
+        && !danger.has(cellKey([cx, cy])) && !targets.has(cellKey([cx, cy]));
+      // Open lateral exits and two clear tiles beyond the flow prevent unavoidable pushes into danger.
+      const clearance = [...cells, [x + 3 * dx, y + 3 * dy], [x + 4 * dx, y + 4 * dy],
+        ...cells.flatMap(([cx, cy]) => [[cx - dy, cy + dx], [cx + dy, cy - dx]])] as Cell[];
+      if (!clearance.every(([cx, cy]) => safe(cx, cy))) continue;
+      if (!roomPathsOpen(d, r, new Set(cells.map(cellKey)))) continue;
+      r.currents = [{ kind: currentKind, tiles: cells, direction }];
+      patches++;
+      break;
+    }
+  }
+}
+
+const cellKey = ([x, y]: Cell) => `${x},${y}`;
+
+function trapCells(t: TrapPlan): Cell[] {
+  if (t.kind === 'spikes' || t.kind === 'falling') return t.tiles;
+  const [a, b] = t.tiles;
+  if (!a || !b) return [];
+  const dx = Math.sign(b[0] - a[0]);
+  const dy = Math.sign(b[1] - a[1]);
+  const n = Math.max(Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1]));
+  return Array.from({ length: n + 1 }, (_, i) => [a[0] + dx * i, a[1] + dy * i] as Cell);
+}
+
+/** Recover the original decorator's two-saw/four-patch/2–4-strip template boundaries. */
+function trapTemplates(r: DRoom): TrapPlan[][] {
+  const groups: TrapPlan[][] = [];
+  const mx = Math.floor((r.x0 + r.x1) / 2);
+  const my = Math.floor((r.y0 + r.y1) / 2);
+  const radius = (t: TrapPlan) => Math.max(...t.tiles.map(([x, y]) => Math.max(Math.abs(x - mx), Math.abs(y - my))));
+  for (let i = 0; i < r.traps.length;) {
+    const t = r.traps[i];
+    let n = t.kind === 'saw' ? 2 : t.period === 3.2 ? 4 : 1;
+    if (t.kind === 'spikes' && t.period === 3) {
+      while (i + n < r.traps.length && n < 4 && r.traps[i + n].kind === 'spikes'
+        && r.traps[i + n].period === 3 && radius(r.traps[i + n]) === radius(t)) n++;
+    }
+    groups.push(r.traps.slice(i, i + n));
+    i += n;
+  }
+  return groups;
+}
+
+function floorCells(d: Dungeon, r: DRoom): Cell[] {
+  const out: Cell[] = [];
+  for (let y = r.y0; y < r.y1; y++) for (let x = r.x0; x < r.x1; x++) {
+    if (tileAt(d, x, y) === FLOOR) out.push([x, y]);
+  }
+  return out;
+}
+
+function hasProp(r: DRoom, x: number, y: number): boolean {
+  return r.props.some((p) => Math.floor(p.x / T) === x && Math.floor(p.y / T) === y);
+}
+
+function safeFeatureTile(d: Dungeon, r: DRoom, x: number, y: number): boolean {
+  const mx = Math.floor((r.x0 + r.x1) / 2);
+  const my = Math.floor((r.y0 + r.y1) / 2);
+  return x >= r.x0 && x < r.x1 && y >= r.y0 && y < r.y1 && tileAt(d, x, y) === FLOOR
+    && !hasProp(r, x, y) && Math.abs(x - mx) > 1 && Math.abs(y - my) > 1
+    && !r.gates.some((g) => g.tiles.some(([gx, gy]) => Math.abs(x - gx) <= 2 && Math.abs(y - gy) <= 2));
+}
+
+/** All gate mouths and most of the safe room remain connected even with these cells active. */
+function roomPathsOpen(d: Dungeon, r: DRoom, hazard: Set<string>): boolean {
+  const reachable = reachableRoomTiles(d, r, hazard);
+  const safe = floorCells(d, r).filter(([x, y]) => !hazard.has(cellKey([x, y])) && !hasProp(r, x, y));
+  return r.gates.every((g) => g.tiles.every((c) => reachable.has(cellKey(c))))
+    && safe.filter((c) => reachable.has(cellKey(c))).length >= safe.length * 0.95;
+}
+
+function reachableRoomTiles(d: Dungeon, r: DRoom, hazard: Set<string>): Set<string> {
+  const start = r.gates[0]?.tiles[1];
+  if (!start) return new Set();
+  const reachable = new Set([cellKey(start)]);
+  const queue: Cell[] = [start];
+  for (let i = 0; i < queue.length; i++) {
+    const [x, y] = queue[i];
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, ny = y + dy;
+      const key = cellKey([nx, ny]);
+      if (nx < r.x0 - 1 || nx > r.x1 || ny < r.y0 - 1 || ny > r.y1
+        || reachable.has(key) || hazard.has(key) || hasProp(r, nx, ny) || tileAt(d, nx, ny) !== FLOOR) continue;
+      reachable.add(key);
+      queue.push([nx, ny]);
+    }
+  }
+  return reachable;
+}
+
+function directedTemplate(d: Dungeon, r: DRoom, anchors: Cell[], kind: TrapKind, rng: Rng, others: TrapPlan[], maxParts: number): TrapPlan[] {
+  const occupied = new Set(others.flatMap(trapCells).map(cellKey));
+  const safe = (x: number, y: number) => safeFeatureTile(d, r, x, y) && !occupied.has(cellKey([x, y]));
+  const plans: TrapPlan[] = [];
+  const period = kind === 'vent' ? 4.8 : kind === 'beam' ? 5.2 : kind === 'falling' ? 4.4 : 4;
+  for (const [x, y] of rng.shuffle([...anchors])) {
+    if (plans.length >= Math.min(2, maxParts)) break;
+    if (!safe(x, y)) continue;
+    let tiles: Cell[] = [];
+    let direction: Cell | undefined;
+    if (kind === 'falling') {
+      if (![[1, 0], [-1, 0], [0, 1], [0, -1]].every(([dx, dy]) => tileAt(d, x + dx, y + dy) === FLOOR && !hasProp(r, x + dx, y + dy))) continue;
+      if (plans.some((p) => p.tiles.some(([px, py]) => Math.abs(px - x) + Math.abs(py - y) < 3))) continue;
+      tiles = [[x, y]];
+    } else {
+      for (const [dx, dy] of rng.shuffle<Cell>([[1, 0], [-1, 0], [0, 1], [0, -1]])) {
+        let ax = x, ay = y;
+        while (safe(ax - dx, ay - dy)) { ax -= dx; ay -= dy; }
+        // Wall holes / vents really sit beside a wall. Beam projectors can stand at the flank's edge.
+        if (kind !== 'beam' && tileAt(d, ax - dx, ay - dy) === FLOOR) continue;
+        const run: Cell[] = [];
+        const cap = kind === 'vent' ? 4 : 6;
+        for (let n = 0; n < cap && safe(ax + n * dx, ay + n * dy); n++) run.push([ax + n * dx, ay + n * dy]);
+        if (run.length < 3 || !run.some(([rx, ry]) => rx === x && ry === y)) continue;
+        tiles = [run[0], run[run.length - 1]];
+        direction = [dx, dy];
+        break;
+      }
+      if (!tiles.length) continue;
+    }
+    const plan: TrapPlan = { kind, tiles, period, phase: plans.length ? 0.5 : 0, ...(direction ? { direction } : {}) };
+    const cells = trapCells(plan);
+    const hazards = new Set([...others.flatMap(trapCells), ...plans.flatMap(trapCells), ...cells].map(cellKey));
+    if (!roomPathsOpen(d, r, hazards)) continue;
+    plans.push(plan);
+    cells.forEach((c) => occupied.add(cellKey(c)));
+  }
+  return plans;
+}
+
+function challengeRoute(d: Dungeon, r: DRoom, rng: Rng): Cell[] {
+  const hazard = new Set(r.traps.flatMap(trapCells).map(cellKey));
+  const reachable = reachableRoomTiles(d, r, hazard);
+  const targets: Cell[] = [];
+  const candidates = rng.shuffle(floorCells(d, r).filter(([x, y]) => {
+    if (!reachable.has(cellKey([x, y]))) return false;
+    if (r.gates.some((g) => g.tiles.some(([gx, gy]) => Math.abs(x - gx) <= 3 && Math.abs(y - gy) <= 3))) return false;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (tileAt(d, x + dx, y + dy) !== FLOOR || hasProp(r, x + dx, y + dy) || hazard.has(cellKey([x + dx, y + dy]))) return false;
+    }
+    return true;
+  }));
+  // Greedy farthest-point sampling makes the task a route rather than three adjacent pickups.
+  const entrance = r.gates[0].tiles[1];
+  const distance = ([x, y]: Cell, [a, b]: Cell) => Math.hypot(x - a, y - b);
+  for (let i = 0; i < 3; i++) {
+    const refs = targets.length ? targets : [entrance];
+    candidates.sort((a, b) => Math.min(...refs.map((p) => distance(b, p))) - Math.min(...refs.map((p) => distance(a, p))));
+    const next = candidates.find((c) => targets.every((p) => distance(c, p) >= 4));
+    if (!next) return [];
+    targets.push(next);
+    candidates.splice(candidates.indexOf(next), 1);
+  }
+  return targets;
 }
 
 // ---------------------------------------------------------------- queries

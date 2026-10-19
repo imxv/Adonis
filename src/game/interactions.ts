@@ -8,13 +8,15 @@ import { DEPTH } from './fx';
 import type { GameScene } from './GameScene';
 import { collectLevelToken, type LevelToken } from './levelTokens';
 import type { Choice } from './run';
+import { startChallenge, type Challenge } from './challenge';
 
 const INTERACT_RADIUS = 28;
 type Pedestal = GameScene['pedestals'][number];
 type Target =
   | { kind: 'pickup'; item: Pickup }
   | { kind: 'level'; item: LevelToken }
-  | { kind: 'pedestal'; item: Pedestal };
+  | { kind: 'pedestal'; item: Pedestal }
+  | { kind: 'challenge'; item: Challenge };
 
 function candidates(s: GameScene): Target[] {
   const targets: Target[] = [];
@@ -23,6 +25,7 @@ function candidates(s: GameScene): Target[] {
   }
   for (const k of s.levelTokens) if (k.landed && !k.dead) targets.push({ kind: 'level', item: k });
   for (const p of s.pedestals) targets.push({ kind: 'pedestal', item: p });
+  for (const c of s.challenges) if (!c.attempted && !c.room.cleared && !s.active) targets.push({ kind: 'challenge', item: c });
   return targets;
 }
 
@@ -93,7 +96,14 @@ export function updateInteractionHints(s: GameScene) {
     let action: string;
     let x = target.item.x;
     let y = target.item.y;
-    if (target.kind === 'level') {
+    if (target.kind === 'challenge') {
+      label = target.item.label;
+      lines = focused ? ['可选试炼 · 每房一次', '20秒依次踏过3标记，受击失败', '奖励150分，回复1生命/1护甲'] : ['机关试炼 · 可选'];
+      color = E.cyan;
+      action = '开始试炼';
+      y += 20;
+      label.setOrigin(0.5, 0);
+    } else if (target.kind === 'level') {
       const k = target.item;
       label = k.label;
       lines = ['升级水晶', `Lv.${k.level}`];
@@ -205,7 +215,8 @@ export function interactNearby(s: GameScene): boolean {
   if (!canInteract(s)) return false;
   const target = nearest(s, candidates(s));
   if (!target) return false;
-  if (target.kind === 'level') collectLevelToken(s, target.item);
+  if (target.kind === 'challenge') startChallenge(s, target.item);
+  else if (target.kind === 'level') collectLevelToken(s, target.item);
   else if (target.kind === 'pedestal') s.collectPedestal(target.item);
   else if (target.item.kind === 'weapon') s.pickupWeapon(target.item);
   else s.openChest(target.item);

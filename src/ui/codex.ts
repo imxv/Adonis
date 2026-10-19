@@ -307,14 +307,22 @@ export function buildCodex(scene: Phaser.Scene): CodexTab[] {
     ['combat', '战斗房', '走进门两格后铁栅门会关上，打完两三波敌人才打开。房间有矩形、切角、十字、L 形、柱厅、回廊几种形状，里面有掩体，越深的层越常见机关。清完有概率掉宝箱、武器箱或生命。', E.slate, E.red],
     ['horde', '尸潮房', '每层一个。坚持 20 到 28 秒，敌人源源不断，还会有蝙蝠群横扫和史莱姆包围圈。撑到最后必掉一个宝箱和一个武器箱。', E.purple, E.magenta],
     ['treasure', '宝物房', '藏在死胡同里。三个台子上各放一件宝物，通常有新武器、新法术和宠物，靠近按 F 领取。只能拿一件，拿走后其余的会碎掉。', E.slate, E.yellow],
+    ['challenge', '机关挑战房', '可选的支路房间，不影响通往 Boss 的路线。靠近起点按 F 或手机交互按钮开始，在 20 秒内按顺序踏过三个标记；受击或超时就失败，每房只能尝试一次。成功获得 150 分，并回复 1 点生命和 1 格护甲，不超过上限。开始前、结束后机关都安全。', E.slate, E.cyan],
     ['boss', 'Boss 房', '每层最深处的死胡同，四根掩体柱可以挡子弹。打倒 Boss 后出现通往下一层的地洞。', E.redD, E.hot],
   ];
   for (const [id, name, desc, floor, mark] of rooms) maps.push({ id: `room-${id}`, name, icon: pic(roomIcon(floor, mark)), tag: '房间', tagColor: E.grey, desc });
 
   // ---------------------------------------------------------------- traps and pickups
   const things: CodexEntry[] = [
-    { id: 'spikes', name: '地刺', icon: tex('spikes-up'), tag: '机关', tagColor: E.hot, desc: '战斗时周期性弹起：先冒出尖头预警，约半秒后整片弹起。扎到掉 1 点生命，也会扎伤地上的敌人。清完房间就收起。' },
-    { id: 'saw', name: '锯片', icon: tex('saw'), tag: '机关', tagColor: E.hot, desc: '沿地上的滑槽来回移动，碰到掉 1 点生命；怪物碰到也会受伤并被弹开，可以引怪过去。只在战斗时运转。' },
+    { id: 'spikes', name: '地刺', icon: tex('spikes-up'), tag: '机关', tagColor: E.hot, desc: '战斗或已开始的挑战中周期性弹起：先冒出尖头，约 1 秒预警后整片弹起。扎到造成 1 点伤害，也会扎伤地上的敌人。清房或挑战结束后收起。' },
+    { id: 'saw', name: '锯片', icon: tex('saw'), tag: '机关', tagColor: E.hot, desc: '启动前先提示滑槽路径，约 1 秒后开始往返移动，碰到造成 1 点伤害；怪物碰到也会受伤并被弹开，可以引怪过去。只在战斗或已开始的挑战中运转。' },
+    { id: 'arrows', name: '墙面箭阵', icon: tex(K('trap-arrows', forest)), tag: '机关', tagColor: E.hot, desc: '墙孔闪亮，出现约 1 秒的方向预警后射出箭矢。注意射击方向，及时离开箭路；也能把敌人引进射程。清房后停止攻击。', gallery: { title: '各画风的箭孔', pics: across((k) => K('trap-arrows', k)) } },
+    { id: 'vent', name: '周期喷口', icon: tex(K('trap-vent', BIOMES[4])), tag: '机关', tagColor: E.hot, desc: '喷口先冒烟并显示约 1 秒的范围预警，再喷出短距离火焰或蒸汽。利用停歇时间穿过，不要只凭颜色判断危险。玩家和敌人都会受伤，清房后停止喷射。', gallery: { title: '各画风的喷口', pics: across((k) => K('trap-vent', k)) } },
+    { id: 'falling', name: '预警落物', icon: tex(K('trap-debris', forest)), tag: '机关', tagColor: E.hot, desc: '地面先亮出落点和约 1 秒预警，随后落石或冰锥砸下。及时离开落点，也可以把敌人引到那里。冰封雪原会落下冰锥；清房后不再产生伤害。', gallery: { title: '落石与冰锥', pics: across((k) => K('trap-debris', k)) } },
+    { id: 'beam', name: '交替光栅', icon: tex(K('trap-beam', BIOMES[9])), tag: '机关', tagColor: E.hot, desc: '发射柱先显示约 1 秒虚线预警，再亮起实线光束；两组光束交替启动。观察切换节奏，从空隙穿过，也可以引怪进入光束。清房后停止伤害。', gallery: { title: '各画风的发射柱', pics: across((k) => K('trap-beam', k)) } },
+    { id: 'flow-wind', name: '风道', icon: tex(K('flow-wind', forest)), tag: '环境设施', tagColor: E.cyan, desc: '流动的风纹表示推动方向，战斗或挑战进行时会轻轻推动经过的角色。不会直接造成伤害，逆风仍能走动，也能借顺风调整位置；结束后停止推动。' },
+    { id: 'flow-water', name: '流水', icon: tex(K('flow-water', forest)), tag: '环境设施', tagColor: E.cyan, desc: '水纹与箭头标出流向，战斗或挑战进行时，进入水道会受到轻微推动。流水本身不造成伤害，也不会封住道路；仍用移动或冲刺调整位置，结束后停止推动。' },
+    { id: 'flow-conveyor', name: '传送带', icon: tex(K('flow-conveyor', BIOMES[4])), tag: '环境设施', tagColor: E.cyan, desc: '滚动的带面与箭头显示方向，战斗或挑战进行时会缓慢带走站在上面的角色。本身不造成伤害，逆向也能移动，结束后停止推动；手机用原有摇杆走位即可。' },
     { id: 'barrel', name: '爆炸物', icon: tex(K('prop-barrel', forest)), tag: '道具', tagColor: E.orange, desc: `打几下就会爆炸，范围伤害很高，还会带上元素：${BIOMES.map((k) => themeProps(k.id).names[1]).join('、')}。能用来清怪，也会炸到你自己。`, gallery: { title: '各画风的爆炸物', pics: across((k) => K('prop-barrel', k)) } },
     { id: 'crate', name: '可破坏道具', icon: tex(K('prop-crate', forest)), tag: '道具', tagColor: E.tan, desc: `每种画风各不相同：${BIOMES.map((k) => themeProps(k.id).names[0]).join('、')}。任何攻击都能打碎，有时掉出生命或宝石。`, gallery: { title: '各画风的可破坏道具', pics: across((k) => K('prop-crate', k)) } },
     {

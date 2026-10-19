@@ -17,6 +17,8 @@ export const COMBAT_ROOMS = 4;
 export interface RunState {
   hero: HeroId;
   seed: number;
+  /** Old saves stay on the original generator for their full run. */
+  dungeonVersion?: 2;
   diff: Difficulty;
   rng: Rng;
   styles: StyleKit[];
@@ -72,6 +74,7 @@ export function newRun(params: URLSearchParams, heroId: HeroId = 'adonis', diffi
   return {
     hero: hero.id,
     seed,
+    dungeonVersion: 2,
     diff: DIFFICULTIES[difficultyId ?? (params.get('diff') as DifficultyId)] ?? DIFFICULTIES[settings.get().diff] ?? DIFFICULTIES.normal,
     rng,
     styles,
@@ -106,6 +109,7 @@ export function snapshotRun(run: RunState): Omit<SavedRun, 'v' | 'savedAt' | 'ro
   return {
     hero: run.hero,
     seed: run.seed,
+    dungeonVersion: run.dungeonVersion,
     diff: run.diff.id,
     styles: run.styles.map((k) => k.id),
     level: run.level,
@@ -136,6 +140,7 @@ export function restoreRun(s: SavedRun): RunState {
   return {
     hero: HEROES[s.hero as HeroId] ? (s.hero as HeroId) : 'knight',
     seed: s.seed,
+    dungeonVersion: s.dungeonVersion === 2 ? 2 : undefined,
     diff: DIFFICULTIES[s.diff] ?? DIFFICULTIES.normal,
     rng: new Rng((s.seed ^ (s.kills * 7919 + s.level * 104729)) >>> 0 || 1),
     styles: styles.length === LEVELS ? styles : KITS.slice(0, LEVELS),

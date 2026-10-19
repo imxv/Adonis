@@ -22,7 +22,7 @@ import { interactNearby, updateInteractionHints, updateNearbyWeaponPreview, rese
 import { WEAPON_POWER } from './weaponMetrics';
 import { HEROES, type HeroId } from '../data/heroes';
 import { DIFFICULTIES, type DifficultyId } from '../data/difficulty';
-import { T, collide, generateDungeon, openSpot, randomFloorIn, raycast, roomAt, roomCenter, solidAt, type DRoom, type Dungeon } from './dungeon';
+import { T, collide, generateDungeon, enhanceDungeon, openSpot, randomFloorIn, raycast, roomAt, roomCenter, solidAt, type DRoom, type Dungeon } from './dungeon';
 import { updateEnemyAI } from './enemyAI';
 import { FlowField } from './flow';
 import { Rhythm, type Grade } from './rhythm';
@@ -53,6 +53,10 @@ import type { FusionId } from '../data/spells';
 import { addScore, clearRun, loadRun, saveRun, scoreOf, type SavedRun } from '../save';
 import { buildCodex } from '../ui/codex';
 import { clearSpellVisuals, updateSpells, zap } from './spells';
+import { destroyTraps, populateTraps, settleTraps, updateTraps, grounded, type Trap } from './traps';
+import { currentPush, destroyCurrents, populateCurrents, updateCurrents, type Current } from './currents';
+import { challengeProgress, destroyChallenges, finishChallenge, populateChallenges, updateChallenge, type Challenge } from './challenge';
+export type { Trap } from './traps';
 
 type Mode = 'title' | 'play' | 'choose' | 'pause' | 'ascend' | 'transition' | 'dead' | 'end';
 
@@ -68,38 +72,6 @@ interface Pedestal {
   choice: Choice;
   room: DRoom;
 }
-
-interface SpikeTrap {
-  kind: 'spikes';
-  room: DRoom;
-  tiles: [number, number][];
-  cx: number;
-  cy: number;
-  period: number;
-  phase: number;
-  t: number;
-  state: 'down' | 'warn' | 'up';
-  sprites: Img[];
-  hit: Map<Enemy, number>;
-}
-
-interface SawTrap {
-  kind: 'saw';
-  room: DRoom;
-  ax: number;
-  ay: number;
-  bx: number;
-  by: number;
-  u: number;
-  dir: number;
-  spin: number;
-  x: number;
-  y: number;
-  sprite: Img;
-  hit: Map<Enemy, number>;
-}
-
-export type Trap = SpikeTrap | SawTrap;
 
 /** How strong each enemy's summon looks: weak ones rise from a rune, strong ones step out of a rift. */
 const SPAWN_TIER: Record<EnemyKind, 1 | 2 | 3> = { wanderer: 1, bat: 1, charger: 2, shooter: 2, bomber: 2, shield: 3, brute: 3, sporeling: 1, yeti: 3, scorpion: 2, magma: 2, turret: 2, ghost: 2, ninja: 2, angel: 3, jelly: 2, drone: 1 };
@@ -146,6 +118,9 @@ export class GameScene extends Phaser.Scene {
   pedestals: Pedestal[] = [];
   gates: Img[] = [];
   traps: Trap[] = [];
+  currents: Current[] = [];
+  challenges: Challenge[] = [];
+  activeChallenge?: Challenge;
   worldLabels: Img[] = [];
   trapdoor?: { img: Img; label: Img; final: boolean };
   dungeon!: Dungeon;
@@ -362,7 +337,7 @@ export class GameScene extends Phaser.Scene {
   saveProgress() {
     const run = this.run;
     const d = this.dungeon;
-    if (!run || !d || this.mode === 'dead' || this.mode === 'end' || this.mode === 'title') return;
+    if (this.sys.settings.key !== 'game' || !run || !d || this.mode === 'dead' || this.mode === 'end' || this.mode === 'title') return;
     saveRun({
       v: 1,
       savedAt: Date.now(),
@@ -371,7 +346,7 @@ export class GameScene extends Phaser.Scene {
         const w = p.weapon!;
         return { x: p.x, y: p.y, id: w.def.id, level: w.level, cd: w.cd, ammo: w.ammo, reloadT: w.reloadT, spin: w.spin, onChest: !!p.chest };
       }),
-      rooms: d.rooms.map((r) => ({ id: r.id, cleared: r.cleared, visited: r.visited, seen: r.seen })),
+      rooms: d.rooms.map((r) => ({ id: r.id, cleared: r.cleared, visited: r.visited, seen: r.seen, challenge: challengeProgress(this, r) })),
       at: (this.safeRoom ?? d.start).id,
     });
   }
@@ -474,8 +449,9 @@ export class GameScene extends Phaser.Scene {
     this.pedestals = [];
     this.gates.forEach((g) => g.destroy());
     this.gates = [];
-    for (const t of this.traps) (t.kind === 'spikes' ? t.sprites : [t.sprite]).forEach((o) => o.destroy());
-    this.traps = [];
+    destroyTraps(this);
+    destroyCurrents(this);
+    destroyChallenges(this);
     this.worldLabels.forEach((l) => l.destroy());
     this.worldLabels = [];
     if (this.trapdoor) {
@@ -502,6 +478,7 @@ export class GameScene extends Phaser.Scene {
     audio.setIntensity(0);
     const seed = this.run.seed + this.run.level * 7919;
     const d = generateDungeon(new Rng(seed), this.run.level, this.run.diff.traps);
+    if (this.run.dungeonVersion === 2) enhanceDungeon(d, seed, this.run.level, kit.id);
     this.dungeon = d;
     this.flow = new FlowField(d);
     this.bg?.destroy();
@@ -541,6 +518,7 @@ export class GameScene extends Phaser.Scene {
     this.light.setLevel(kit, d, seed);
     this.dressLevel(kit, d);
     this.populate(new Rng(seed + 1));
+    populateChallenges(this, saved);
     this.ambient?.destroy();
     const cam = this.cameras.main;
     this.ambient = this.add
@@ -599,86 +577,14 @@ export class GameScene extends Phaser.Scene {
         continue;
       }
       for (const p of r.props) this.addObstacle(p.kind, p.x, p.y);
-      for (const t of r.traps) {
-        if (t.kind === 'spikes') {
-          const sprites = t.tiles.map(([tx, ty]) => this.add.image(tx * T + T / 2, ty * T + T / 2, 'spikes-up').setDepth(DEPTH.shadow + 0.5).setVisible(false));
-          const cx2 = t.tiles.reduce((a, [tx]) => a + tx * T + T / 2, 0) / t.tiles.length;
-          const cy2 = t.tiles.reduce((a, [, ty]) => a + ty * T + T / 2, 0) / t.tiles.length;
-          this.traps.push({ kind: 'spikes', room: r, tiles: t.tiles, cx: cx2, cy: cy2, period: t.period, phase: t.phase, t: 0, state: 'down', sprites, hit: new Map() });
-        } else {
-          const [[ax, ay], [bx, by]] = t.tiles;
-          const u = t.phase;
-          const s = { kind: 'saw' as const, room: r, ax: ax * T + T / 2, ay: ay * T + T / 2, bx: bx * T + T / 2, by: by * T + T / 2, u, dir: 1, spin: 0, x: 0, y: 0, hit: new Map(), sprite: this.add.image(0, 0, 'saw').setDepth(DEPTH.obstacle) };
-          s.x = s.ax + (s.bx - s.ax) * u;
-          s.y = s.ay + (s.by - s.ay) * u;
-          s.sprite.setPosition(Math.round(s.x), Math.round(s.y)).setAlpha(0.55);
-          this.traps.push(s);
-        }
-      }
+      populateTraps(this, r);
+      populateCurrents(this, r);
     }
     void rng;
   }
 
-  /** Traps run only while their room's fight is on; once it is cleared they settle and are safe to walk past. */
   updateTraps(dt: number) {
-    const p = this.player;
-    const scale = 1 + this.run.level * 0.5;
-    for (const tr of this.traps) {
-      const armed = this.active === tr.room;
-      if (tr.kind === 'spikes') {
-        let state: SpikeTrap['state'] = 'down';
-        if (armed) {
-          tr.t += dt;
-          const c = ((tr.t / tr.period + tr.phase) % 1) * tr.period;
-          const upFrom = tr.period - 0.9;
-          state = c >= upFrom ? 'up' : c >= upFrom - 0.6 ? 'warn' : 'down';
-        }
-        if (state !== tr.state) {
-          tr.state = state;
-          for (const sp of tr.sprites) sp.setVisible(state !== 'down').setTexture(state === 'up' ? 'spikes-up' : 'spikes-warn');
-          if (state === 'up' && dist2(p.x, p.y, tr.cx, tr.cy) < 150 * 150) audio.block();
-        }
-        if (state !== 'up') continue;
-        for (const [tx, ty] of tr.tiles) {
-          const x = tx * T + T / 2;
-          const y = ty * T + T / 2;
-          if (this.mode === 'play' && Math.abs(p.x - x) < 8 + p.r * 0.4 && Math.abs(p.y - y) < 8 + p.r * 0.4) this.hurtPlayer(1, x, y - 6);
-          for (const e of this.enemies) {
-            if (e.dead || e.kind === 'bat' || e.kind === 'guardian' || (e.boss?.air ?? 0) > 0) continue;
-            if (Math.abs(e.x - x) > 8 || Math.abs(e.y - y) > 8 || (tr.hit.get(e) ?? 0) > this.time0) continue;
-            tr.hit.set(e, this.time0 + 0.6);
-            this.damageEnemy(e, 8 * scale, { src: '地刺', kx: e.x - x, ky: e.y - y, knock: 40, noCrit: true });
-          }
-        }
-      } else {
-        if (armed) {
-          const len = Math.max(1, dist(tr.ax, tr.ay, tr.bx, tr.by));
-          tr.u += (tr.dir * 62 * dt) / len;
-          if (tr.u > 1) {
-            tr.u = 2 - tr.u;
-            tr.dir = -1;
-          } else if (tr.u < 0) {
-            tr.u = -tr.u;
-            tr.dir = 1;
-          }
-          tr.spin += dt;
-        }
-        tr.x = tr.ax + (tr.bx - tr.ax) * tr.u;
-        tr.y = tr.ay + (tr.by - tr.ay) * tr.u;
-        // Spinning by flips keeps the pixels crisp; free rotation would smear them.
-        const f = Math.floor(tr.spin * 24) % 4;
-        tr.sprite.setPosition(Math.round(tr.x), Math.round(tr.y)).setFlip(f === 1 || f === 2, f >= 2).setAlpha(armed ? 1 : 0.55);
-        if (!armed) continue;
-        if (Math.random() < dt * 8) this.fx.sparks(tr.x, tr.y + 5, 1, 'gold');
-        if (this.mode === 'play' && dist2(p.x, p.y - 3, tr.x, tr.y) < (7 + p.r * 0.7) ** 2) this.hurtPlayer(1, tr.x, tr.y);
-        for (const e of this.enemies) {
-          if (e.dead || e.kind === 'guardian' || (e.boss?.air ?? 0) > 0) continue;
-          if (dist2(e.x, e.y - 3, tr.x, tr.y) > (7 + e.r) ** 2 || (tr.hit.get(e) ?? 0) > this.time0) continue;
-          tr.hit.set(e, this.time0 + 0.5);
-          this.damageEnemy(e, 10 * scale, { src: '锯片', kx: e.x - tr.x, ky: e.y - tr.y, knock: 120, noCrit: true });
-        }
-      }
-    }
+    updateTraps(this, dt);
   }
 
   worldText(x: number, y: number, text: string, color: string = E.white) {
@@ -733,10 +639,11 @@ export class GameScene extends Phaser.Scene {
     const here = roomAt(d, p.x, p.y, 1);
     if (here && here !== this.room) {
       this.room = here;
-      if (here.cleared || here.type === 'start' || here.type === 'treasure') this.safeRoom = here;
+      if (here.cleared || here.type === 'start' || here.type === 'treasure' || here.type === 'challenge') this.safeRoom = here;
       if (!here.visited) {
         here.visited = true;
         this.markSeen(here);
+        if (here.type === 'challenge' && !here.cleared) ui.toast('可选试炼：靠近祭台交互开始；受击失败，每房一次', 2300);
         if (here.type === 'treasure') {
           this.spawnPedestals(here);
           ui.toast('宝物房 三选一', 1200);
@@ -1170,6 +1077,7 @@ export class GameScene extends Phaser.Scene {
     const r = this.active;
     if (!r || r.cleared) return;
     r.cleared = true;
+    settleTraps(this, r);
     this.active = undefined;
     this.pendingSpawns = 0;
     const grade = this.rhythm.gradeFight();
@@ -1353,6 +1261,8 @@ export class GameScene extends Phaser.Scene {
     }
     this.ehazards = this.ehazards.filter((h) => h.t > 0);
     this.updateTraps(dt);
+    updateCurrents(this);
+    updateChallenge(this, dt);
     this.updateTelegraphs(dt);
     if (this.mode === 'play') this.updateRoom(dt);
     this.comboT -= dt;
@@ -1580,8 +1490,10 @@ export class GameScene extends Phaser.Scene {
       p.vx += (ix * speed - p.vx) * f;
       p.vy += (iy * speed - p.vy) * f;
     }
-    p.x += p.vx * dt;
-    p.y += p.vy * dt;
+    const [flowX, flowY] = currentPush(this, p.x, p.y);
+    const flowResistance = p.dashT > 0 ? 0.1 : 1;
+    p.x += (p.vx + flowX * flowResistance) * dt;
+    p.y += (p.vy + flowY * flowResistance) * dt;
     for (const o of this.obstacles) {
       if (o.dead) continue;
       const d = dist(p.x, p.y, o.x, o.y);
@@ -2404,7 +2316,7 @@ export class GameScene extends Phaser.Scene {
   damageEnemy(
     e: Enemy,
     amount: number,
-    o: { src: string; kx?: number; ky?: number; knock?: number; crit?: boolean; noCrit?: boolean; dot?: boolean; ignoreShield?: boolean; arc?: boolean; noElement?: boolean; color?: string; element?: Element; quiet?: boolean; heavy?: boolean; noReact?: boolean },
+    o: { src: string; kx?: number; ky?: number; knock?: number; crit?: boolean; noCrit?: boolean; dot?: boolean; ignoreShield?: boolean; arc?: boolean; noElement?: boolean; color?: string; element?: Element; quiet?: boolean; heavy?: boolean; noReact?: boolean; environmental?: boolean },
   ) {
     if (e.dead) return;
     if ((e.boss && e.boss.invuln > 0) || (e.kind === 'ghost' && e.state === 'fade')) {
@@ -2483,7 +2395,7 @@ export class GameScene extends Phaser.Scene {
         for (let i = 0; i < m.splitOnCrit; i++) this.spawnProj('shard', e.x, e.y, rand(0, TAU), 260, 0.4, 2, dmg * 0.35, 0, 20, '裂变').hit.add(e);
       }
     }
-    if (e.hp <= 0) this.killEnemy(e, o.src);
+    if (e.hp <= 0) this.killEnemy(e, o.src, o.environmental);
   }
 
   /** Throttle the small words over an enemy (resists), so a stream of hits doesn't bury it in text. */
@@ -2528,7 +2440,7 @@ export class GameScene extends Phaser.Scene {
     this.nextCrystalDropAt = this.time0 + CRYSTAL_RULES.dropCooldown;
   }
 
-  killEnemy(e: Enemy, _src: string) {
+  killEnemy(e: Enemy, _src: string, environmental = false) {
     if (e.dead) return;
     e.dead = true;
     const run = this.run;
@@ -2555,7 +2467,7 @@ export class GameScene extends Phaser.Scene {
     this.stop(e.elite ? 0.08 : 0.014);
     if (e.elite) this.fx.shake(0.22);
     if (this.combo > 0 && this.combo % 20 === 0) this.fx.callout(this.player.x, this.player.y - 32, `${this.combo}连杀！`, E.yellow);
-    for (const s of run.spells) {
+    for (const s of environmental ? [] : run.spells) {
       if (s.id === 'aura' && s.evolved && dist2(e.x, e.y, this.player.x, this.player.y) < 60 * 60) {
         s.kills++;
         if (s.kills % 12 === 0) this.heal(1, this.player.x, this.player.y);
@@ -2566,10 +2478,10 @@ export class GameScene extends Phaser.Scene {
       this.dropChest(e.x, e.y);
       this.dropHeart(e.x + 8, e.y);
     } else if (Math.random() < 0.015) this.dropHeart(e.x, e.y);
-    if (run.mods.healOnKill > 0 && Math.random() < run.mods.healOnKill) this.heal(1, e.x, e.y);
-    if (run.mods.explodeOnKill > 0) this.explode(e.x, e.y, 30, e.maxHp * run.mods.explodeOnKill, { src: '连锁殉爆', small: true, volume: 0.35 });
-    if (e.kind === 'bomber') this.explode(e.x, e.y, 36, 18, { src: '炸弹怪', hurtsPlayer: 1, volume: 0.6 });
-    this.spreadPoison(e);
+    if (!environmental && run.mods.healOnKill > 0 && Math.random() < run.mods.healOnKill) this.heal(1, e.x, e.y);
+    if (!environmental && run.mods.explodeOnKill > 0) this.explode(e.x, e.y, 30, e.maxHp * run.mods.explodeOnKill, { src: '连锁殉爆', small: true, volume: 0.35 });
+    if (e.kind === 'bomber') this.explode(e.x, e.y, 36, 18, { src: '炸弹怪', hurtsPlayer: 1, volume: 0.6, environmental });
+    if (!environmental) this.spreadPoison(e);
     if (e.affix === 'split' && !e.mini) for (let i = 0; i < 2; i++) this.spawnEnemy(e.kind as EnemyKind, e.x + rand(-8, 8), e.y + rand(-8, 8), false, true);
     if (e.affix === 'burst') for (let i = 0; i < 10; i++) this.spawnEnemyBullet(e.x, e.y, (i / 10) * TAU, 80);
     // The element mark over its head goes with it.
@@ -2601,13 +2513,18 @@ export class GameScene extends Phaser.Scene {
     this.decals?.stamp(`splat-${Math.floor(rand(0, 4))}`, undefined, Math.round(e.x), Math.round(e.y + 1), { angle: Math.floor(rand(0, 4)) * 90, scale, alpha, tint: hexToNum(col) });
   }
 
-  explode(x: number, y: number, r: number, dmg: number, o: { src: string; hurtsPlayer?: number; knock?: number; small?: boolean; element?: Element; noReact?: boolean; volume?: number }) {
+  explode(x: number, y: number, r: number, dmg: number, o: { src: string; hurtsPlayer?: number; knock?: number; small?: boolean; element?: Element; noReact?: boolean; volume?: number; environmental?: boolean }) {
     for (const e of this.enemies) {
       if (e.dead) continue;
-      if (dist2(x, y, e.x, e.y) < (r + e.r) ** 2) this.damageEnemy(e, dmg, { src: o.src, kx: e.x - x, ky: e.y - y, knock: o.knock ?? 100, ignoreShield: true, noElement: o.small, element: o.element, noReact: o.noReact, heavy: true });
+      if (dist2(x, y, e.x, e.y) < (r + e.r) ** 2) this.damageEnemy(e, dmg, { src: o.src, kx: e.x - x, ky: e.y - y, knock: o.knock ?? 100, ignoreShield: true, noElement: o.environmental || o.small, noCrit: o.environmental, element: o.environmental ? undefined : o.element, noReact: o.environmental || o.noReact, heavy: true, environmental: o.environmental });
     }
+    const owner = this.active;
+    const dungeon = this.dungeon;
     for (const b of this.obstacles) {
-      if (!b.dead && b.kind !== 'pillar' && dist2(x, y, b.x, b.y) < (r + b.r) ** 2) this.time.delayedCall(60, () => this.damageObstacle(b, 999));
+      if (!b.dead && b.kind !== 'pillar' && dist2(x, y, b.x, b.y) < (r + b.r) ** 2) this.time.delayedCall(60, () => {
+        if (o.environmental && (this.mode !== 'play' || this.active !== owner || this.dungeon !== dungeon || owner?.cleared)) return;
+        this.damageObstacle(b, 999, o.environmental);
+      });
     }
     if (o.hurtsPlayer && this.mode === 'play' && dist2(x, y, this.player.x, this.player.y) < (r + this.player.r) ** 2) this.hurtPlayer(o.hurtsPlayer, x, y);
     this.fx.boom(x, y, r * 1.2);
@@ -2624,7 +2541,7 @@ export class GameScene extends Phaser.Scene {
     for (const o of this.obstacles) if (!o.dead && o.kind !== 'pillar' && dist2(x, y, o.x, o.y) < (r + o.r) ** 2) this.damageObstacle(o, dmg);
   }
 
-  damageObstacle(o: Obstacle, dmg: number) {
+  damageObstacle(o: Obstacle, dmg: number, environmental = false) {
     if (o.dead) return;
     o.hp -= dmg;
     o.sprite.setTintFill(0xffffff);
@@ -2632,7 +2549,7 @@ export class GameScene extends Phaser.Scene {
     if (o.hp <= 0) {
       o.dead = true;
       o.sprite.destroy();
-      if (o.kind === 'barrel') this.explode(o.x, o.y, 44, 30, { src: '爆炸桶', hurtsPlayer: 2, knock: 160, volume: 0.5 });
+      if (o.kind === 'barrel') this.explode(o.x, o.y, 44, 30, { src: '爆炸桶', hurtsPlayer: 2, knock: 160, volume: 0.5, environmental });
       else {
         this.fx.burst(o.x, o.y, 8);
         this.fx.dust(o.x, o.y, 6);
@@ -2673,6 +2590,7 @@ export class GameScene extends Phaser.Scene {
     this.stop(left > 0 ? 0.08 : 0.04);
     this.combo = 0;
     this.rhythm.hurt();
+    if (this.activeChallenge) finishChallenge(this, false);
     if (run.hp <= 0) this.die();
     return true;
   }
@@ -2685,6 +2603,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   die() {
+    if (this.activeChallenge) finishChallenge(this, false);
+    settleTraps(this);
     this.mode = 'dead';
     this.slow(0.25, 1.2);
     this.fx.petals(this.player.x, this.player.y, 30);
@@ -2777,8 +2697,9 @@ export class GameScene extends Phaser.Scene {
       const kd = Math.exp(-dt * 10);
       e.kx *= kd;
       e.ky *= kd;
-      e.x += (e.vx * slowMul + e.kx) * dt;
-      e.y += (e.vy * slowMul + e.ky) * dt;
+      const [flowX, flowY] = grounded(e) && !e.boss ? currentPush(this, e.x, e.y) : [0, 0];
+      e.x += (e.vx * slowMul + e.kx + flowX) * dt;
+      e.y += (e.vy * slowMul + e.ky + flowY) * dt;
     }
     for (let i = 0; i < list.length; i++) {
       const a = list[i];

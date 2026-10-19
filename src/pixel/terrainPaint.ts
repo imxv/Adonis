@@ -38,8 +38,11 @@ export function createTerrain(P: Paint, d: Dungeon, seed: number, salt: number):
       for (let y = gy - 2; y <= gy + 2; y++) for (let x = gx - 2; x <= gx + 2; x++) mark(quiet, x, y);
     }
     for (const trap of room.traps) {
-      if (trap.kind === 'spikes') for (const [x, y] of trap.tiles) mark(reserved, x, y);
-      else {
+      // Independent landing tiles are not endpoints, including a one-tile falling trap.
+      const directed = trap.kind === 'saw' || trap.kind === 'arrows' || trap.kind === 'vent' || trap.kind === 'beam';
+      if (!directed || trap.tiles.length < 2) {
+        for (const [x, y] of trap.tiles) mark(reserved, x, y);
+      } else {
         const [[ax, ay], [bx, by]] = trap.tiles;
         for (let y = Math.min(ay, by); y <= Math.max(ay, by); y++) {
           for (let x = Math.min(ax, bx); x <= Math.max(ax, bx); x++) mark(reserved, x, y);

@@ -127,8 +127,11 @@ export function paintForestFloor(P: Paint, d: Dungeon, seed: number): void {
 
   for (const r of d.rooms) {
     for (const trap of r.traps) {
-      if (trap.kind === 'spikes') for (const [x, y] of trap.tiles) mark(reserved, x, y);
-      else {
+      // Falling traps may have only one landing tile; only directed traps have a track.
+      const directed = trap.kind === 'saw' || trap.kind === 'arrows' || trap.kind === 'vent' || trap.kind === 'beam';
+      if (!directed || trap.tiles.length < 2) {
+        for (const [x, y] of trap.tiles) mark(reserved, x, y);
+      } else {
         const [[ax, ay], [bx, by]] = trap.tiles;
         for (let y = Math.min(ay, by); y <= Math.max(ay, by); y++) {
           for (let x = Math.min(ax, bx); x <= Math.max(ax, bx); x++) mark(reserved, x, y);

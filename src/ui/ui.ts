@@ -420,8 +420,11 @@ class UI implements LayerHost {
         P(x, y, w, h, E.slateD);
         P(x + 1, y + 1, w - 2, h - 2, E.navy);
       }
-      const mark = c.type === 'boss' ? ACCENT : c.type === 'treasure' ? E.yellow : c.type === 'horde' && !c.cleared ? E.magenta : '';
-      if (mark) P(x + 2, y + 1, 3, 3, mark);
+      const mark = c.type === 'boss' ? ACCENT : c.type === 'treasure' ? E.yellow : c.type === 'horde' && !c.cleared ? E.magenta : c.type === 'challenge' && !c.cleared ? E.cyan : '';
+      if (mark && c.type === 'challenge') {
+        P(x + 3, y + 1, 1, 3, mark);
+        P(x + 2, y + 2, 3, 1, mark);
+      } else if (mark) P(x + 2, y + 1, 3, 3, mark);
     }
   }
 

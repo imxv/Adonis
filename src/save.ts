@@ -21,12 +21,20 @@ export interface SavedGroundWeapon {
   spin?: number;
 }
 
+export interface SavedChallenge {
+  attempted: boolean;
+  completed: boolean;
+  rewarded: boolean;
+}
+
 export interface SavedRun {
   v: 1;
   savedAt: number;
   /** The hero of this run; saves from before heroes existed were the knight's. */
   hero?: string;
   seed: number;
+  /** Missing means the original seeded dungeon layout for the rest of this run. */
+  dungeonVersion?: 2;
   diff: DifficultyId;
   styles: string[];
   level: number;
@@ -53,7 +61,7 @@ export interface SavedRun {
   damage: Record<string, number>;
   elapsed: number;
   /** Progress on the current floor. */
-  rooms: { id: string; cleared: boolean; visited: boolean; seen: boolean }[];
+  rooms: { id: string; cleared: boolean; visited: boolean; seen: boolean; challenge?: SavedChallenge }[];
   /** Room to resume in: the last safe room the player stood in. */
   at: string;
 }

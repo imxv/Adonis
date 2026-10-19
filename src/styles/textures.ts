@@ -17,6 +17,7 @@ import { PET_ART_KINDS, petProjectileArt, petTextureFrames } from '../pixel/petA
 import { vitalIcons } from '../pixel/vitalIcons';
 import { whaleHeroFrames } from '../pixel/whaleHero';
 import { registerJesusTextures } from '../pixel/jesusArt';
+import { buildTrapTextures } from '../pixel/trapArt';
 
 export const K = (name: string, kit: Biome) => `${name}@${kit.id}`;
 
@@ -477,6 +478,7 @@ function boar(pose: 'idle' | 'run' | 'windup' | 'air'): Grid {
 
 export function buildKitTextures(scene: Phaser.Scene, kit: Biome) {
   if (scene.textures.exists(K('en-wanderer-a', kit))) return;
+  buildTrapTextures(scene, kit);
   const px = kit.px;
   const glow = { 4: [px.glow, px.glow, px.glow] as Ramp };
 
@@ -642,7 +644,7 @@ export function buildLevel(scene: Phaser.Scene, kit: Biome, d: Dungeon, seed: nu
   }
   paintBiomeFloor(P, kit.id, d, seed);
 
-  // Trap fixtures are part of the floor: spike plates and saw slots, visible before the traps arm.
+  // Legacy fixtures stay on the floor. New traps use their own stateful runtime sprites.
   for (const r of d.rooms) {
     for (const t of r.traps) {
       if (t.kind === 'spikes') {
@@ -654,7 +656,7 @@ export function buildLevel(scene: Phaser.Scene, kit: Biome, d: Dungeon, seed: nu
           P(x + 1, y + 14, E.navy, 14, 1);
           for (const [hx, hy] of [[3, 5], [10, 5], [3, 13], [10, 13]]) P(x + hx, y + hy, E.ink, 3, 2);
         }
-      } else {
+      } else if (t.kind === 'saw' && t.tiles.length >= 2) {
         const [[ax, ay], [bx, by]] = t.tiles;
         const x0 = Math.min(ax, bx) * T + 8;
         const y0 = Math.min(ay, by) * T + 8;
