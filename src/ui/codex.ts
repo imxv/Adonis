@@ -324,7 +324,7 @@ export function buildCodex(scene: Phaser.Scene): CodexTab[] {
     ['challenge', '机关挑战房', '可选的支路房间，不影响通往 Boss 的路线。靠近起点按 F 或手机交互按钮开始，在 20 秒内按顺序踏过三个标记；受击或超时就失败，每房只能尝试一次。成功获得 150 分，并回复 1 点生命和 1 格护甲，不超过上限。开始前、结束后机关都安全。', E.slate, E.cyan],
     ['boss', 'Boss 房', '每层最深处的死胡同，四根掩体柱可以挡子弹。打倒 Boss 后出现通往下一层的地洞。', E.redD, E.hot],
   ];
-  for (const [id, name, desc, floor, mark] of rooms) maps.push({ id: `room-${id}`, name, icon: pic(roomIcon(floor, mark)), tag: '房间', tagColor: E.grey, desc });
+  const roomEntries: CodexEntry[] = rooms.map(([id, name, desc, floor, mark]) => ({ id: `room-${id}`, name, icon: pic(roomIcon(floor, mark)), tag: '房间', tagColor: E.grey, desc }));
 
   // ---------------------------------------------------------------- traps, facilities, scenery, loot and exits
   const traps: CodexEntry[] = [
@@ -373,7 +373,8 @@ export function buildCodex(scene: Phaser.Scene): CodexTab[] {
     { id: 'pets', name: '宠物', entries: pets },
     { id: 'monsters', name: '怪物', entries: monsters },
     { id: 'bosses', name: 'Boss', entries: bosses },
-    { id: 'maps', name: '地图', entries: maps },
+    { id: 'maps', name: '地图主题', entries: maps },
+    { id: 'rooms', name: '房间类型', entries: roomEntries },
     { id: 'traps', name: '机关', entries: traps },
     { id: 'facilities', name: '环境设施', entries: facilities },
     { id: 'scenery', name: '场景物件', entries: scenery },
