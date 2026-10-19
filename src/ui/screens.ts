@@ -286,10 +286,64 @@ export function openHelp(host: LayerHost) {
   body.innerHTML = `<div class="cx-tabs">${GUIDE.map((p, i) => `<div class="cx-tab" data-i="${i}">${px(p.name, E.white)}</div>`).join('')}</div><div class="gd-page"></div>`;
   const tabEls = [...body.querySelectorAll<HTMLElement>('.cx-tab')];
   const page = body.querySelector('.gd-page') as HTMLElement;
+  page.tabIndex = 0;
+  page.setAttribute('role', 'region');
+  const cells = new Map<HTMLElement, { text: string; width: number }>();
+  const pending = new Map<HTMLElement, number>();
+  let renderFrame = 0;
+  let closed = false;
+  let scrollPosition = 0;
+  let layoutHeight = 0;
+  // ResizeObserver reports the text cell's own CSS pixels, before UI/mobile zoom.
+  const observer = new ResizeObserver((entries) => {
+    if (closed) return;
+    let pageResized = false;
+    for (const entry of entries) {
+      if (entry.target === page) {
+        pageResized = true;
+        continue;
+      }
+      const cell = entry.target as HTMLElement;
+      const width = Math.floor(entry.contentRect.width);
+      if (width > 0 && cells.get(cell)?.width !== width) pending.set(cell, width);
+    }
+    if ((!pending.size && !pageResized) || renderFrame) return;
+    renderFrame = requestAnimationFrame(() => {
+      renderFrame = 0;
+      // Rotation can clamp the old DOM to zero before its new lines are drawn.
+      const scrollTop = scrollPosition;
+      for (const [cell, width] of pending) {
+        const content = cells.get(cell);
+        if (!content || content.width === width) continue;
+        content.width = width;
+        // pxBlock keeps trailing punctuation attached; reserve one 12px glyph for it.
+        cell.innerHTML = pxBlock(content.text, GREY, width - 12);
+      }
+      pending.clear();
+      page.scrollTop = scrollTop;
+      scrollPosition = page.scrollTop;
+      layoutHeight = page.clientHeight;
+    });
+  });
+  const rememberScroll = () => {
+    if (!renderFrame && page.clientHeight === layoutHeight) scrollPosition = page.scrollTop;
+  };
+  page.addEventListener('scroll', rememberScroll, { passive: true });
+  const clearLayout = () => {
+    observer.disconnect();
+    cancelAnimationFrame(renderFrame);
+    renderFrame = 0;
+    pending.clear();
+    cells.clear();
+  };
   let cur = 0;
   const show = (i: number) => {
+    clearLayout();
+    scrollPosition = 0;
+    layoutHeight = 0;
     cur = (i + GUIDE.length) % GUIDE.length;
     tabEls.forEach((el, k) => el.classList.toggle('sel', k === cur));
+    page.setAttribute('aria-label', `${GUIDE[cur].name}说明`);
     const touch = isTouchBrowser();
     const rows: [string, string][] = touch && cur === 0 ? [
       ['左摇杆', '拖动移动；松开后停止'],
@@ -302,12 +356,26 @@ export function openHelp(host: LayerHost) {
       ['暂停', '轻触暂停打开菜单；奖励面板可直接轻触卡片或跳过'],
       ['横竖屏', '两种方向均可游玩；横屏视野更开阔'],
     ] : GUIDE[cur].rows;
-    page.innerHTML = rows.map(([k, v]) => `<div class="gd-row"><div class="gk">${px(k, E.yellow)}</div><div class="gv">${pxBlock(touch ? v.replaceAll('按 F', '轻触交互').replaceAll('按左键', '轻触右摇杆') : v, GREY, 300)}</div></div>`).join('');
+    page.innerHTML = rows.map(([k]) => `<div class="gd-row"><div class="gk">${px(k, E.yellow)}</div><div class="gv"></div></div>`).join('');
+    page.querySelectorAll<HTMLElement>('.gv').forEach((cell, index) => {
+      const text = rows[index][1];
+      cells.set(cell, { text: touch ? text.replaceAll('按 F', '轻触交互').replaceAll('按左键', '轻触右摇杆') : text, width: -1 });
+      observer.observe(cell);
+    });
+    page.scrollTop = 0;
+    observer.observe(page);
   };
   tabEls.forEach((el, i) => el.addEventListener('click', () => show(i)));
-  show(0);
   ov.querySelector('.fsub')!.innerHTML = px(isTouchBrowser() ? '轻触分类 · 上下滑动' : '← → 翻页', DIM);
   openFrame(host, ov, (e) => {
+    if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].includes(e.key)) {
+      e.preventDefault();
+      if (e.key === 'Home') page.scrollTop = 0;
+      else if (e.key === 'End') page.scrollTop = page.scrollHeight;
+      else page.scrollTop += (e.key.endsWith('Up') ? -1 : 1) * (e.key.startsWith('Page') ? page.clientHeight : 24);
+      scrollPosition = page.scrollTop;
+      return;
+    }
     const digit = Number(e.key);
     if (digit >= 1 && digit <= GUIDE.length) show(digit - 1);
     else if (isLeft(e) || e.key === 'q' || e.key === 'Q') show(cur - 1);
@@ -315,7 +383,13 @@ export function openHelp(host: LayerHost) {
     else return;
     e.preventDefault();
     audio.hover();
+  }, () => {
+    closed = true;
+    page.removeEventListener('scroll', rememberScroll);
+    clearLayout();
   });
+  // Mount first: the host sizes touch menus when the layer is pushed.
+  show(0);
 }
 
 // ---------------------------------------------------------------- settings

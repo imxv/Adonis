@@ -2271,19 +2271,43 @@ canvas.bt {
   min-width: 18px;
 }
 
+.guide .frame,
+.guide .fbody {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.guide .fhead,
+.guide .cx-tabs { flex: none; }
+
 .gd-page {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 2px 4px;
+  padding: 2px 4px 8px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
 }
 
 .gd-row {
+  flex: none;
+  min-width: 0;
   display: grid;
-  grid-template-columns: 70px 1fr;
+  grid-template-columns: 80px minmax(0, 1fr);
   gap: 6px;
   align-items: start;
 }
+
+.gd-row .gk,
+.gd-row .gv { min-width: 0; }
 
 .st-list {
   display: flex;
