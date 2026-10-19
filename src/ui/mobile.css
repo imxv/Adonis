@@ -45,6 +45,21 @@ body.touch-device {
 .touch-device .guide .fbody { overflow: hidden; }
 .touch-device .cx-tabs { flex-wrap: wrap; flex: none; gap: 4px; }
 .touch-device .cx-tab { justify-content: center; padding: 4px 9px; }
+.touch-device .codex .cx-tabs {
+  position: relative;
+  flex-wrap: nowrap;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 3px;
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #8b9bb4 #262b44;
+}
+.touch-device .codex .cx-tabs::-webkit-scrollbar { height: 3px; }
+.touch-device .codex .cx-tabs::-webkit-scrollbar-track { background: #262b44; }
+.touch-device .codex .cx-tabs::-webkit-scrollbar-thumb { background: #8b9bb4; }
 .touch-device .gd-page { gap: 12px; }
 .touch-device .gd-row { grid-template-columns: 88px minmax(0, 1fr); }
 .touch-device .st-list { padding: 2px 10px; gap: 6px; }

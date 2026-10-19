@@ -160,6 +160,7 @@ export function openCodex(host: LayerHost, tabs: CodexTab[]) {
   body.innerHTML = `<div class="cx-tabs">${tabs.map((t, i) => `<div class="cx-tab" data-i="${i}">${px(t.name, E.white)}${px(String(t.entries.length), DIM, { small: true })}</div>`).join('')}</div><div class="cx-main"><div class="cx-grid"></div><div class="cx-detail"></div></div>`;
   const grid = body.querySelector('.cx-grid') as HTMLElement;
   const detail = body.querySelector('.cx-detail') as HTMLElement;
+  const tabStrip = body.querySelector('.cx-tabs') as HTMLElement;
   const tabEls = [...body.querySelectorAll<HTMLElement>('.cx-tab')];
   const COLS = 6;
   let tab = 0;
@@ -169,7 +170,23 @@ export function openCodex(host: LayerHost, tabs: CodexTab[]) {
   let layoutHeight = 0;
   let scrollPosition = 0;
   let renderFrame = 0;
+  let tabFrame = 0;
   let closed = false;
+
+  const revealTab = () => {
+    cancelAnimationFrame(tabFrame);
+    tabFrame = requestAnimationFrame(() => {
+      tabFrame = 0;
+      if (closed || !tabStrip.isConnected || tabStrip.clientWidth <= 0) return;
+      // Only the touch codex uses an overflowing single row. Scroll that row, never its ancestors.
+      if (getComputedStyle(tabStrip).overflowX !== 'auto' || tabStrip.scrollWidth <= tabStrip.clientWidth) return;
+      const selected = tabEls[tab];
+      const left = selected.offsetLeft;
+      const right = left + selected.offsetWidth;
+      if (left < tabStrip.scrollLeft) tabStrip.scrollLeft = left;
+      else if (right > tabStrip.scrollLeft + tabStrip.clientWidth) tabStrip.scrollLeft = right - tabStrip.clientWidth;
+    });
+  };
 
   // clientWidth is in layout pixels, before #ui-root's transform/zoom, and excludes borders.
   const contentWidth = () => {
@@ -184,6 +201,7 @@ export function openCodex(host: LayerHost, tabs: CodexTab[]) {
   };
   const observer = new ResizeObserver(() => {
     if (closed || renderFrame) return;
+    revealTab();
     if (contentWidth() === layoutWidth && detail.clientHeight === layoutHeight) return;
     renderFrame = requestAnimationFrame(() => {
       renderFrame = 0;
@@ -213,6 +231,7 @@ export function openCodex(host: LayerHost, tabs: CodexTab[]) {
   const openTab = (t: number) => {
     tab = (t + tabs.length) % tabs.length;
     tabEls.forEach((el, k) => el.classList.toggle('sel', k === tab));
+    revealTab();
     grid.innerHTML = tabs[tab].entries.map((e) => `<div class="cx-cell">${iconHtml(e, false)}</div>`).join('');
     cells = [...grid.querySelectorAll<HTMLElement>('.cx-cell')];
     cells.forEach((c, i) => {
@@ -250,9 +269,11 @@ export function openCodex(host: LayerHost, tabs: CodexTab[]) {
     closed = true;
     observer.disconnect();
     cancelAnimationFrame(renderFrame);
+    cancelAnimationFrame(tabFrame);
     detail.removeEventListener('scroll', rememberScroll);
   });
   observer.observe(detail);
+  observer.observe(tabStrip);
 }
 
 // ---------------------------------------------------------------- how to play

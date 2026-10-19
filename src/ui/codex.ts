@@ -326,17 +326,21 @@ export function buildCodex(scene: Phaser.Scene): CodexTab[] {
   ];
   for (const [id, name, desc, floor, mark] of rooms) maps.push({ id: `room-${id}`, name, icon: pic(roomIcon(floor, mark)), tag: '房间', tagColor: E.grey, desc });
 
-  // ---------------------------------------------------------------- traps and pickups
-  const things: CodexEntry[] = [
+  // ---------------------------------------------------------------- traps, facilities, scenery, loot and exits
+  const traps: CodexEntry[] = [
     { id: 'spikes', name: '地刺', icon: tex('spikes-up'), tag: '机关', tagColor: E.hot, desc: '战斗或已开始的挑战中周期性弹起：先冒出尖头，约 1 秒预警后整片弹起。扎到造成 1 点伤害，也会扎伤地上的敌人。清房或挑战结束后收起。' },
     { id: 'saw', name: '锯片', icon: tex('saw'), tag: '机关', tagColor: E.hot, desc: '启动前先提示滑槽路径，约 1 秒后开始往返移动，碰到造成 1 点伤害；怪物碰到也会受伤并被弹开，可以引怪过去。只在战斗或已开始的挑战中运转。' },
     { id: 'arrows', name: '墙面箭阵', icon: tex(K('trap-arrows', forest)), tag: '机关', tagColor: E.hot, desc: '墙孔闪亮，出现约 1 秒的方向预警后射出箭矢。注意射击方向，及时离开箭路；也能把敌人引进射程。清房后停止攻击。', gallery: { title: '各画风的箭孔', pics: across((k) => K('trap-arrows', k)) } },
     { id: 'vent', name: '周期喷口', icon: tex(K('trap-vent', BIOMES[4])), tag: '机关', tagColor: E.hot, desc: '喷口先冒烟并显示约 1 秒的范围预警，再喷出短距离火焰或蒸汽。利用停歇时间穿过，不要只凭颜色判断危险。玩家和敌人都会受伤，清房后停止喷射。', gallery: { title: '各画风的喷口', pics: across((k) => K('trap-vent', k)) } },
     { id: 'falling', name: '预警落物', icon: tex(K('trap-debris', forest)), tag: '机关', tagColor: E.hot, desc: '地面先亮出落点和约 1 秒预警，随后落石或冰锥砸下。及时离开落点，也可以把敌人引到那里。冰封雪原会落下冰锥；清房后不再产生伤害。', gallery: { title: '落石与冰锥', pics: across((k) => K('trap-debris', k)) } },
     { id: 'beam', name: '交替光栅', icon: tex(K('trap-beam', BIOMES[9])), tag: '机关', tagColor: E.hot, desc: '发射柱先显示约 1 秒虚线预警，再亮起实线光束；两组光束交替启动。观察切换节奏，从空隙穿过，也可以引怪进入光束。清房后停止伤害。', gallery: { title: '各画风的发射柱', pics: across((k) => K('trap-beam', k)) } },
+  ];
+  const facilities: CodexEntry[] = [
     { id: 'flow-wind', name: '风道', icon: tex(K('flow-wind', forest)), tag: '环境设施', tagColor: E.cyan, desc: '流动的风纹表示推动方向，战斗或挑战进行时会轻轻推动经过的角色。不会直接造成伤害，逆风仍能走动，也能借顺风调整位置；结束后停止推动。' },
     { id: 'flow-water', name: '流水', icon: tex(K('flow-water', forest)), tag: '环境设施', tagColor: E.cyan, desc: '水纹与箭头标出流向，战斗或挑战进行时，进入水道会受到轻微推动。流水本身不造成伤害，也不会封住道路；仍用移动或冲刺调整位置，结束后停止推动。' },
     { id: 'flow-conveyor', name: '传送带', icon: tex(K('flow-conveyor', BIOMES[4])), tag: '环境设施', tagColor: E.cyan, desc: '滚动的带面与箭头显示方向，战斗或挑战进行时会缓慢带走站在上面的角色。本身不造成伤害，逆向也能移动，结束后停止推动；手机用原有摇杆走位即可。' },
+  ];
+  const scenery: CodexEntry[] = [
     { id: 'barrel', name: '爆炸物', icon: tex(K('prop-barrel', forest)), tag: '道具', tagColor: E.orange, desc: `打几下就会爆炸，范围伤害很高，还会带上元素：${BIOMES.map((k) => themeProps(k.id).names[1]).join('、')}。能用来清怪，也会炸到你自己。`, gallery: { title: '各画风的爆炸物', pics: across((k) => K('prop-barrel', k)) } },
     { id: 'crate', name: '可破坏道具', icon: tex(K('prop-crate', forest)), tag: '道具', tagColor: E.tan, desc: `每种画风各不相同：${BIOMES.map((k) => themeProps(k.id).names[0]).join('、')}。任何攻击都能打碎，有时掉出生命或宝石。`, gallery: { title: '各画风的可破坏道具', pics: across((k) => K('prop-crate', k)) } },
     {
@@ -348,12 +352,16 @@ export function buildCodex(scene: Phaser.Scene): CodexTab[] {
       desc: '十种画风各有六种场景摆件，成对靠墙摆放：冰封石门、沙漠遗物、蒸汽机械、庭院竹簇等各有特色。打不坏，会挡路也会挡子弹，怪物会绕开走。部分摆件会发光。地面的冰纹、沙丘、铺装、落花与小碎片只是装饰，不会挡路。',
       gallery: { title: '各画风的装饰', pics: BIOMES.flatMap((k) => DECO_NAMES[k.id].map((_, i) => tex(K(`deco-${i}`, k)))) },
     },
+  ];
+  const loot: CodexEntry[] = [
     { id: 'chest', name: '技能/强化箱', icon: tex('chest'), tag: '奖励', tagColor: E.yellow, desc: '靠近按 F 打开，直接给一件奖励：法术升级、稀有加成，满足条件时是法术进化。' },
     { id: 'chest-w', name: '武器箱', icon: tex('chest-w'), tag: '奖励', tagColor: E.cyan, desc: '钢制的箱子，按 F 只开出一把武器，升起后悬浮在箱子上，再按 F 拾取。非战斗时靠近可观看当前角色攻击假人的演示和武器指标。已带两把时可任选一把替换；取消会保留箱上武器，旧武器保留等级与弹药落地。清房、尸潮房和守卫都可能掉落。' },
     { id: 'level-token', name: '升级水晶', icon: tex('lvl-token'), tag: '成长', tagColor: E.yellow, desc: '升级时落在身边，名称旁标明等级；靠近按 F 打开成长选项，自己选择升级时机。留在地上的升级水晶会跟随你进入下一层。' },
     { id: 'crystal', name: '元素护盾水晶', icon: tex('crystal'), tag: '掉落', tagColor: E.yellow, desc: '元素结晶反应形成，缺护甲时靠近自动拾取，每 2 秒最多回复 1 格现有护甲，不超过上限，也不产生额外护盾。每 3 秒最多生成 1 颗，地上最多 3 颗，每颗 12 秒后消失。满甲时保留到过期；暂停时计时冻结，不带入下一层。颜色对应生成它的元素。' },
     { id: 'gems', name: '经验宝石', icon: tex('gem-2'), tag: '掉落', tagColor: E.cyan, desc: '击杀掉落，蓝色 1 点、绿色 2 点、红色 5 点经验。清完房间会自动飞向你。', gallery: { title: '三种宝石', pics: ['gem-1', 'gem-2', 'gem-3'].map(tex) } },
     { id: 'heart', name: '生命', icon: tex('heart'), tag: '掉落', tagColor: E.red, desc: '回复 1 点生命。精英怪必掉，木箱和清房偶尔掉。护甲会在 2 秒不受伤后自动回复。' },
+  ];
+  const exits: CodexEntry[] = [
     { id: 'trapdoor', name: '地洞', icon: half('trapdoor'), art: tex('trapdoor'), tag: '出口', tagColor: E.grey, desc: '打倒 Boss 后出现，走进去前往下一层。最后一层出现的是一朵银莲花，走上去结束这次轮回。' },
     { id: 'bloom', name: '银莲花', icon: tex('bloom'), tag: '传说', tagColor: E.red, desc: '阿多尼斯的血开出的花。打倒第五层的野猪后，它会在最深处盛开，走上去就能结束这一次轮回。' },
   ];
@@ -366,7 +374,11 @@ export function buildCodex(scene: Phaser.Scene): CodexTab[] {
     { id: 'monsters', name: '怪物', entries: monsters },
     { id: 'bosses', name: 'Boss', entries: bosses },
     { id: 'maps', name: '地图', entries: maps },
-    { id: 'things', name: '机关', entries: things },
+    { id: 'traps', name: '机关', entries: traps },
+    { id: 'facilities', name: '环境设施', entries: facilities },
+    { id: 'scenery', name: '场景物件', entries: scenery },
+    { id: 'loot', name: '宝箱与掉落', entries: loot },
+    { id: 'exits', name: '出口', entries: exits },
     { id: 'elements', name: '元素', entries: elementEntries(tex) },
   ];
 }
