@@ -68,6 +68,7 @@ export class TouchControls {
     window.addEventListener('blur', () => this.reset(), { signal: this.lifetime.signal });
     window.addEventListener('resize', () => this.reset(), { signal: this.lifetime.signal });
     window.addEventListener('orientationchange', () => this.reset(), { signal: this.lifetime.signal });
+    document.addEventListener('fullscreenchange', () => this.reset(), { signal: this.lifetime.signal });
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) this.reset();
     }, { signal: this.lifetime.signal });

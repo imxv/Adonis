@@ -1,0 +1,128 @@
+.mobile-entry {
+  padding: 20px;
+  background: rgba(7, 6, 11, 0.94);
+}
+
+.mobile-entry .me-card {
+  position: relative;
+  flex: none;
+  width: 360px;
+  max-width: 100%;
+  max-height: 100%;
+  padding: 28px 24px 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  border-top: 2px solid #fee761;
+  background: linear-gradient(145deg, #1d1b30, #0c0b15 75%);
+  box-shadow: inset 0 0 0 1px #3a4466, 0 0 0 2px #07060b;
+  animation: mobileEntryReveal 180ms steps(4) both;
+}
+
+.me-eyebrow,
+.me-title,
+.me-description,
+.me-actions {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+}
+
+.mobile-entry .me-title { margin: 0; }
+.mobile-entry .me-description { gap: 8px; }
+.mobile-entry .me-actions { width: 100%; gap: 6px; margin-top: 8px; }
+
+.mobile-entry .me-actions button {
+  appearance: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  min-height: max(42px, var(--touch-target, 44px));
+  padding: 10px 16px;
+  border: 1px solid #566c86;
+  border-radius: 0;
+  background: #262b44;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.mobile-entry .me-actions .me-cancel { border-color: transparent; background: transparent; }
+.mobile-entry .me-actions button:active { background: #3a4466; }
+.mobile-entry .me-actions button:focus-visible { outline: 2px solid #fee761; outline-offset: 2px; }
+
+.mobile-entry .me-art {
+  position: relative;
+  flex: none;
+  width: 120px;
+  height: 112px;
+  margin: 3px 0;
+}
+
+.mobile-entry .me-orbit {
+  position: absolute;
+  inset: 7px 9px;
+  border: 1px dashed #3a4466;
+  border-radius: 50%;
+}
+
+.mobile-entry .me-orbit::before,
+.mobile-entry .me-orbit::after {
+  content: '';
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border-top: 3px solid #fee761;
+  border-right: 3px solid #fee761;
+}
+
+.mobile-entry .me-orbit::before { top: 7px; right: 9px; transform: rotate(15deg); }
+.mobile-entry .me-orbit::after { bottom: 7px; left: 9px; transform: rotate(195deg); }
+
+.mobile-entry .me-phone {
+  position: absolute;
+  top: 20px;
+  left: 37px;
+  width: 46px;
+  height: 72px;
+  border: 3px solid #8b9bb4;
+  background: #151424;
+  box-shadow: 3px 3px 0 #07060b;
+  animation: mobileEntryRotate 2.8s steps(12) infinite;
+}
+
+.mobile-entry .me-phone::before {
+  content: '';
+  position: absolute;
+  inset: 7px 4px 12px;
+  border: 1px solid #3a4466;
+  background: linear-gradient(135deg, #3a4466, #262b44);
+}
+
+.mobile-entry .me-phone::after { content: ''; position: absolute; bottom: 3px; left: 16px; width: 8px; height: 3px; background: #fee761; }
+.mobile-entry .me-phone b { position: absolute; top: 26px; left: 15px; width: 10px; height: 10px; background: #fee761; box-shadow: 0 0 0 3px #262b44; }
+.mobile-entry .me-spark { position: absolute; top: 2px; left: 14px; width: 4px; height: 4px; background: #41a6f6; box-shadow: 90px 91px #fee761; }
+
+.mobile-entry .me-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+
+@keyframes mobileEntryReveal {
+  from { transform: translateY(8px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes mobileEntryRotate {
+  0%, 15% { transform: rotate(0); }
+  50%, 85% { transform: rotate(-90deg); }
+  100% { transform: rotate(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-entry .me-card,
+  .mobile-entry .me-phone { animation: none; }
+  .mobile-entry .me-phone { transform: rotate(-90deg); }
+}

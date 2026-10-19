@@ -6,6 +6,118 @@ export function isTouchBrowser(): boolean {
     || (navigator.maxTouchPoints > 0 && window.matchMedia('(hover: none)').matches);
 }
 
+export function isLandscapeViewport(): boolean {
+  return window.innerWidth > window.innerHeight;
+}
+
+type LockableOrientation = ScreenOrientation & {
+  lock?: (orientation: 'landscape') => Promise<void>;
+};
+
+let displayRequest: { cancel: (exitFullscreen?: boolean) => void; acceptsFullscreen: () => boolean } | undefined;
+let ownsFullscreen = false;
+let exitingFullscreen: Promise<void> | undefined;
+let orientationOwner: object | undefined;
+
+/** Called synchronously by the title's user gesture. UI progress never waits on browser promises. */
+export function requestMobileDisplay() {
+  displayRequest?.cancel(false);
+  const token = {};
+  const target = document.documentElement;
+  const orientation = screen.orientation as LockableOrientation | undefined;
+  let cancelled = false;
+  let wantsLandscape = true;
+  let requestedFullscreen = false;
+  let awaitingFullscreen = false;
+  let ignoreLateFullscreen = false;
+  let lockStarted = false;
+  const releaseOrientation = (stop = true) => {
+    if (stop) wantsLandscape = false;
+    if (orientationOwner !== token) return;
+    orientationOwner = undefined;
+    try { orientation?.unlock?.(); } catch { /* Unsupported or already released. */ }
+  };
+  const exitOwnedFullscreen = () => {
+    if (exitingFullscreen || (!ownsFullscreen && !requestedFullscreen) || document.fullscreenElement !== target) return;
+    try {
+      const pending = document.exitFullscreen();
+      exitingFullscreen = pending;
+      let released = false;
+      void pending.then(() => {
+        released = true;
+        if (document.fullscreenElement !== target) ownsFullscreen = false;
+      }, () => {}).finally(() => {
+        if (exitingFullscreen === pending) exitingFullscreen = undefined;
+        // A cancelled request may have entered while the previous exit was finishing.
+        if (released && !displayRequest?.acceptsFullscreen()) exitOwnedFullscreen();
+      });
+    } catch { /* Browser owns fullscreen. */ }
+  };
+  const lockLandscape = () => {
+    if (cancelled || !wantsLandscape || lockStarted || typeof orientation?.lock !== 'function') return;
+    lockStarted = true;
+    orientationOwner = token;
+    try {
+      Promise.resolve(orientation.lock('landscape')).then(() => {
+        // A late completion must not override portrait/cancel, or unlock a newer request.
+        if ((cancelled || !wantsLandscape) && (!orientationOwner || orientationOwner === token)) {
+          orientationOwner = undefined;
+          try { orientation.unlock?.(); } catch { /* Already released. */ }
+        }
+      }, () => { if (orientationOwner === token) orientationOwner = undefined; });
+    } catch {
+      if (orientationOwner === token) orientationOwner = undefined;
+    }
+  };
+  const fullscreenChanged = () => {
+    if (document.fullscreenElement === target && requestedFullscreen) ownsFullscreen = true;
+    if (document.fullscreenElement === target && ignoreLateFullscreen) exitOwnedFullscreen();
+    else if (document.fullscreenElement === target) lockLandscape();
+    else {
+      ownsFullscreen = false;
+      // An earlier cancelled attempt may still be exiting while this gesture requests fullscreen anew.
+      releaseOrientation(!awaitingFullscreen);
+    }
+  };
+  const cancel = (exitFullscreen = true) => {
+    if (cancelled) return;
+    cancelled = true;
+    releaseOrientation();
+    document.removeEventListener('fullscreenchange', fullscreenChanged);
+    window.removeEventListener('pagehide', onPageHide);
+    if (exitFullscreen) exitOwnedFullscreen();
+  };
+  const onPageHide = () => cancel();
+  displayRequest = { cancel, acceptsFullscreen: () => !cancelled && !ignoreLateFullscreen };
+  document.addEventListener('fullscreenchange', fullscreenChanged);
+  window.addEventListener('pagehide', onPageHide);
+
+  if (document.fullscreenElement === target && !exitingFullscreen) lockLandscape();
+  else if (typeof target.requestFullscreen === 'function' && document.fullscreenEnabled !== false) {
+    requestedFullscreen = true;
+    awaitingFullscreen = true;
+    try {
+      // Keep this before any await, timer, animation, or choice panel.
+      Promise.resolve(target.requestFullscreen()).then(() => {
+        awaitingFullscreen = false;
+        if (document.fullscreenElement === target) ownsFullscreen = true;
+        if (cancelled || ignoreLateFullscreen) {
+          if (!displayRequest?.acceptsFullscreen()) exitOwnedFullscreen();
+        } else lockLandscape();
+      }, () => { awaitingFullscreen = false; if (!cancelled) lockLandscape(); });
+    } catch { awaitingFullscreen = false; lockLandscape(); }
+  } else lockLandscape();
+
+  return {
+    portrait: () => {
+      // Keep an already entered fullscreen, but discard a request still arriving after this choice.
+      ignoreLateFullscreen = document.fullscreenElement !== target;
+      releaseOrientation();
+    },
+    cancel: () => cancel(),
+  };
+}
+
 let safeAreaProbe: HTMLDivElement | undefined;
 
 export function safeViewport() {
@@ -52,6 +164,8 @@ export function installMobileViewport(): () => void {
   const schedule = () => { if (!frame) frame = requestAnimationFrame(update); };
   window.addEventListener('resize', schedule);
   window.addEventListener('orientationchange', schedule);
+  document.addEventListener('fullscreenchange', schedule);
+  screen.orientation?.addEventListener('change', schedule);
   window.visualViewport?.addEventListener('resize', schedule);
   window.visualViewport?.addEventListener('scroll', schedule);
   pointer.addEventListener('change', schedule);
@@ -60,6 +174,9 @@ export function installMobileViewport(): () => void {
     cancelAnimationFrame(frame);
     window.removeEventListener('resize', schedule);
     window.removeEventListener('orientationchange', schedule);
+    document.removeEventListener('fullscreenchange', schedule);
+    screen.orientation?.removeEventListener('change', schedule);
+    displayRequest?.cancel(false);
     window.visualViewport?.removeEventListener('resize', schedule);
     window.visualViewport?.removeEventListener('scroll', schedule);
     pointer.removeEventListener('change', schedule);

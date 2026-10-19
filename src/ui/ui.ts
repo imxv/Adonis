@@ -22,6 +22,7 @@ import { WeaponPreview } from './weaponPreview';
 import { BeatBar } from './beatBar';
 import { TitlePainting } from './titleArt';
 import { openDifficultySelect } from './difficultySelect';
+import { beginMobileEntry } from './mobileEntry';
 import { ASCENSION_NAME, ASCENSION_BONUS_LINES } from '../game/ascension';
 import './ascension.css';
 import { isTouchBrowser, safeViewport } from '../platform/mobile';
@@ -922,16 +923,20 @@ class UI implements LayerHost {
     ov.querySelector('.menu')!.append(...rows);
     ov.querySelector('.menu')!.after(painting.caption);
     let tabs: CodexTab[] | undefined;
+    let leaving = false;
     const leave = (go: () => void) => {
+      if (leaving) return;
+      leaving = true;
       this.close(layer, 250);
       go();
     };
     const nav = new MenuNav(
       rows,
       (i) => {
+        if (leaving || this.layers.at(-1) !== layer) return;
         audio.select();
-        if (i === 0) leave(a.onContinue);
-        else if (i === 1) {
+        if (i === 0) beginMobileEntry(this, () => leave(a.onContinue));
+        else if (i === 1) beginMobileEntry(this, () => {
           // Choose a hero, then their trial. Backtracking keeps the hero selected.
           const choose = (initialHero: HeroId = 'adonis') => this.heroSelect((hero) => {
             openDifficultySelect(this, {
@@ -945,7 +950,8 @@ class UI implements LayerHost {
           }, initialHero);
           if (a.save()) confirmBox(this, '已有一局存档。开始新的冒险会覆盖它，确定吗？', choose);
           else choose();
-        } else if (i === 2) openBoard(this);
+        });
+        else if (i === 2) openBoard(this);
         else if (i === 3) openHelp(this);
         else if (i === 4) openCodex(this, (tabs ??= a.codex()));
         else openSettings(this);
@@ -954,7 +960,11 @@ class UI implements LayerHost {
     );
     nav.onFocus = (i) => painting.setCaption(i);
     nav.select(save ? 0 : 1);
-    const layer = this.push(ov, (e) => nav.key(e));
+    const layer = this.push(ov, (e) => {
+      const activate = e.key === 'Enter' || e.key === ' ';
+      if (activate) e.preventDefault();
+      if (!activate || !e.repeat) nav.key(e);
+    });
   }
 
   /** Pause: the menu on the left, the run on the right (hero, progress, guns, spells, pets, upgrades). */
