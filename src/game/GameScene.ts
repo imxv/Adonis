@@ -21,7 +21,7 @@ import { dropLevelToken, packLevelTokens, updateLevelTokens, type LevelToken } f
 import { interactNearby, updateInteractionHints, updateNearbyWeaponPreview, resetWeaponPreview } from './interactions';
 import { WEAPON_POWER } from './weaponMetrics';
 import { HEROES, type HeroId } from '../data/heroes';
-import { DIFFICULTIES, type DifficultyId } from '../data/difficulty';
+import { DIFFICULTIES, FLOOR_SCALING, HEART_DROPS, floorScale, type DifficultyId } from '../data/difficulty';
 import { T, collide, generateDungeon, enhanceDungeon, openSpot, randomFloorIn, raycast, roomAt, roomCenter, solidAt, type DRoom, type Dungeon } from './dungeon';
 import { updateEnemyAI } from './enemyAI';
 import { FlowField } from './flow';
@@ -788,7 +788,7 @@ export class GameScene extends Phaser.Scene {
     const budget = (9 + level * 5 + depth * 1.5) * this.run.diff.enemies;
     const waveCount = depth >= 3 || level >= 2 ? 3 : 2;
     const kinds = this.enemyKinds();
-    let elites = rng.chance(0.12 + level * 0.1 + depth * 0.03) ? 1 : 0;
+    let elites = rng.chance(0.12 + level * (0.1 + FLOOR_SCALING.elites) + depth * 0.03) ? 1 : 0;
     this.waves = [];
     for (let w = 0; w < waveCount; w++) {
       let left = Math.round((budget * (0.85 + w * 0.2)) / waveCount);
@@ -913,7 +913,7 @@ export class GameScene extends Phaser.Scene {
     // Monsters toughen with the floor and with the knight's own growth, so a stack of level-ups never turns a room
     // into something the spells clear on their own.
     const growth = 1 + 0.015 * Math.max(0, this.run.xpLevel - 5);
-    const scaleHp = (1.65 + level * 1.05 + depth * 0.12) * growth * (mini ? 0.5 : 1) * this.run.diff.hp;
+    const scaleHp = (1.65 + level * 1.05 + depth * 0.12) * growth * (mini ? 0.5 : 1) * this.run.diff.hp * floorScale(FLOOR_SCALING.hp, level);
     const affix: Affix | undefined = elite ? rng.pick(Object.keys(AFFIXES) as Affix[]) : undefined;
     // Elites take x4: with the sturdier base that is what they had before, so only the rank and file got tougher.
     const hp = def.hp * scaleHp * (elite ? 4 : 1) * (affix === 'tough' ? 1.4 : 1);
@@ -1116,7 +1116,7 @@ export class GameScene extends Phaser.Scene {
       const x = this.run.rng.next();
       if (x < 0.3) this.dropChest(cx, cy, true);
       else if (x < 0.45) this.dropChest(cx, cy);
-      else if (x < 0.65) this.dropHeart(cx, cy);
+      else if (x < 0.45 + HEART_DROPS.roomClear) this.dropHeart(cx, cy);
     }
   }
 
@@ -2476,8 +2476,8 @@ export class GameScene extends Phaser.Scene {
     this.dropGem(e.x, e.y, Math.max(1, Math.round(e.xp)));
     if (e.elite) {
       this.dropChest(e.x, e.y);
-      this.dropHeart(e.x + 8, e.y);
-    } else if (Math.random() < 0.015) this.dropHeart(e.x, e.y);
+      if (Math.random() < HEART_DROPS.elite) this.dropHeart(e.x + 8, e.y);
+    } else if (Math.random() < HEART_DROPS.kill) this.dropHeart(e.x, e.y);
     if (!environmental && run.mods.healOnKill > 0 && Math.random() < run.mods.healOnKill) this.heal(1, e.x, e.y);
     if (!environmental && run.mods.explodeOnKill > 0) this.explode(e.x, e.y, 30, e.maxHp * run.mods.explodeOnKill, { src: '连锁殉爆', small: true, volume: 0.35 });
     if (e.kind === 'bomber') this.explode(e.x, e.y, 36, 18, { src: '炸弹怪', hurtsPlayer: 1, volume: 0.6, environmental });
@@ -2553,7 +2553,7 @@ export class GameScene extends Phaser.Scene {
       else {
         this.fx.burst(o.x, o.y, 8);
         this.fx.dust(o.x, o.y, 6);
-        if (Math.random() < 0.25) this.dropHeart(o.x, o.y);
+        if (Math.random() < HEART_DROPS.crate) this.dropHeart(o.x, o.y);
         else this.dropGem(o.x, o.y, 2);
       }
     }
@@ -2563,7 +2563,9 @@ export class GameScene extends Phaser.Scene {
     const p = this.player;
     if (this.mode !== 'play' || p.iframes > 0 || this.god || this.fusing) return false;
     const run = this.run;
-    let left = n;
+    // Deeper floors hit harder; the fractional part of the scaled damage is rolled.
+    const scaled = n * floorScale(FLOOR_SCALING.damage, run.level);
+    let left = Math.floor(scaled) + (Math.random() < scaled % 1 ? 1 : 0);
     const guard = Math.min(0.24, run.mods.petGuard * run.pets.length);
     if (guard > 0 && Math.random() < guard) {
       p.iframes = 0.4;

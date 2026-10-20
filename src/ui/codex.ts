@@ -248,7 +248,7 @@ export function buildCodex(scene: Phaser.Scene): CodexTab[] {
     icon: pic(eliteIcon(canvasOf(K('en-shield-a', forest)))),
     tag: '随机出现',
     tagColor: E.hot,
-    desc: '体型更大，脚下有红色光圈，生命是普通怪的 5 倍。打倒后必掉一个宝箱和一颗心。每个精英都带一个词缀：',
+    desc: '体型更大，脚下有红色光圈，生命是普通怪的 5 倍。打倒后必掉一个宝箱，一半概率再掉一颗心。每个精英都带一个词缀：',
     sections: [{ title: '词缀', lines: ['迅捷：移动速度 +40%', '坚韧：生命 +40%，受到的伤害 -20%', '分裂：死后分裂成两只小怪', '弹幕：死后向四周射出一圈子弹'] }],
   });
 
@@ -359,7 +359,7 @@ export function buildCodex(scene: Phaser.Scene): CodexTab[] {
     { id: 'level-token', name: '升级水晶', icon: tex('lvl-token'), tag: '成长', tagColor: E.yellow, desc: '升级时落在身边，名称旁标明等级；靠近按 F 打开成长选项，自己选择升级时机。留在地上的升级水晶会跟随你进入下一层。' },
     { id: 'crystal', name: '元素护盾水晶', icon: tex('crystal'), tag: '掉落', tagColor: E.yellow, desc: '元素结晶反应形成，缺护甲时靠近自动拾取，每 2 秒最多回复 1 格现有护甲，不超过上限，也不产生额外护盾。每 3 秒最多生成 1 颗，地上最多 3 颗，每颗 12 秒后消失。满甲时保留到过期；暂停时计时冻结，不带入下一层。颜色对应生成它的元素。' },
     { id: 'gems', name: '经验宝石', icon: tex('gem-2'), tag: '掉落', tagColor: E.cyan, desc: '击杀掉落，蓝色 1 点、绿色 2 点、红色 5 点经验。清完房间会自动飞向你。', gallery: { title: '三种宝石', pics: ['gem-1', 'gem-2', 'gem-3'].map(tex) } },
-    { id: 'heart', name: '生命', icon: tex('heart'), tag: '掉落', tagColor: E.red, desc: '回复 1 点生命。精英怪必掉，木箱和清房偶尔掉。护甲会在 2 秒不受伤后自动回复。' },
+    { id: 'heart', name: '生命', icon: tex('heart'), tag: '掉落', tagColor: E.red, desc: '回复 1 点生命。精英怪一半概率掉，木箱和清房偶尔掉。护甲会在 2 秒不受伤后自动回复。' },
   ];
   const exits: CodexEntry[] = [
     { id: 'trapdoor', name: '地洞', icon: half('trapdoor'), art: tex('trapdoor'), tag: '出口', tagColor: E.grey, desc: '打倒 Boss 后出现，走进去前往下一层。最后一层出现的是一朵银莲花，走上去结束这次轮回。' },
