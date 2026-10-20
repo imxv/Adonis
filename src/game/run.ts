@@ -402,6 +402,33 @@ export function rollChoices(run: RunState, kind: 'level' | 'rare' | 'weapon' | '
   return out.slice(0, target);
 }
 
+/**
+ * A gold chest deals three cards: an evolution when one is ready, then spell steps (ones that lead toward a fusion first),
+ * and at least one rare upgrade. A run with no spell to grow simply gets rare upgrades.
+ */
+export function rollChestChoices(run: RunState): Choice[] {
+  const rng = run.rng;
+  const out: Choice[] = evolutionsReady(run).slice(0, 1);
+  const sc = rng.shuffle(spellChoices(run));
+  sc.sort((x, y) => Number(towardFusion(run, y)) - Number(towardFusion(run, x)));
+  out.push(...sc.slice(0, 2 - out.length));
+  for (const c of rollChoices(run, 'rare')) {
+    if (out.length >= 3) break;
+    if (!out.some((x) => JSON.stringify(x) === JSON.stringify(c))) out.push(c);
+  }
+  return out.slice(0, 3);
+}
+
+/** The fusion a spell card leads to, if its partner is already held; `now` when taking it completes the pair. */
+export function fusionHint(run: RunState, c: Choice): { fusion: FusionId; partner: SpellId; now: boolean } | undefined {
+  if (c.type !== 'spell-new' && c.type !== 'spell-up') return undefined;
+  const f = fusionOf(c.id);
+  const partner = f && run.spells.find((s) => s.id === f.partner);
+  if (!f || !partner) return undefined;
+  const lv = c.type === 'spell-up' ? (run.spells.find((s) => s.id === c.id)?.level ?? 1) + 1 : 1;
+  return { fusion: f.fusion, partner: f.partner, now: lv >= FUSE_LEVEL && partner.level >= FUSE_LEVEL };
+}
+
 /** Upgrades that would unlock an evolution for a spell you hold get offered more often. */
 function spellPairBonus(run: RunState, upgradeId: string) {
   return run.spells.some((s) => SPELLS[s.id].evolveWith === upgradeId && (run.stacks[upgradeId] ?? 0) === 0);

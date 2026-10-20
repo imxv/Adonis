@@ -4,7 +4,7 @@ import { HEROES, HERO_ORDER, type HeroId } from '../data/heroes';
 import { FUSE_LEVEL, SPELLS, fusionOf, spellName, type FusionId } from '../data/spells';
 import { PETS, PET_ORDER } from '../data/enemies';
 import type { StyleKit } from '../styles/types';
-import { LEVELS, type Choice, type RunState } from '../game/run';
+import { LEVELS, fusionHint, type Choice, type RunState } from '../game/run';
 import type { Dir } from '../game/dirs';
 import { ICONS, ICON_SIZE } from '../styles/textures';
 import { E } from '../pixel/palette';
@@ -710,6 +710,14 @@ class UI implements LayerHost {
             <i class="pk-shine"></i>
           </div>
         </div>`;
+      // A spell whose partner you already hold says what it will fuse into, on a tab under the card.
+      const fuse = fusionHint(run, c);
+      if (fuse) {
+        const tab = el('div', `pk-fuse${fuse.now ? ' now' : ''}`);
+        tab.innerHTML = `${icon(`spell-${fuse.fusion}`, 1)}${px(fuse.now ? '将融合' : '可融合', E.magenta)}${px(SPELLS[fuse.fusion].name, E.white)}`;
+        card.appendChild(tab);
+        ov.classList.add('has-fuse');
+      }
       table.appendChild(card);
       cards.push(card);
     });

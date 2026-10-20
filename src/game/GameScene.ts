@@ -48,7 +48,7 @@ import { Lighting } from './lighting';
 import { destroyPets, resetPets, syncPets, updatePets } from './pets';
 import { tryAscend } from './ascension';
 import { AscensionFx } from './ascensionFx';
-import { LEVELS, applyChoice, applyFusion, choiceValid, evolutionsReady, fusionsReady, newRun, restoreRun, rollChoices, snapshotRun, spellTaken, xpForLevel, type Choice, type RunState } from './run';
+import { LEVELS, applyChoice, applyFusion, choiceValid, fusionsReady, newRun, restoreRun, rollChestChoices, rollChoices, snapshotRun, spellTaken, xpForLevel, type Choice, type RunState } from './run';
 import type { FusionId } from '../data/spells';
 import { addScore, clearRun, loadRun, saveRun, scoreOf, type SavedRun } from '../save';
 import { buildCodex } from '../ui/codex';
@@ -2959,22 +2959,17 @@ export class GameScene extends Phaser.Scene {
     this.stop(0.08);
     audio.levelUp();
     const run = this.run;
-    const evo = evolutionsReady(run);
-    let c: Choice;
-    if (evo.length) c = evo[0];
-    else {
-      const ups = run.spells.filter((s) => s.level < 5 && !SPELLS[s.id].fusion).map((s) => ({ type: 'spell-up', id: s.id }) as Choice);
-      c = ups.length && run.rng.chance(0.6) ? run.rng.pick(ups) : rollChoices(run, 'rare')[0];
-    }
-    this.chooseReward(c, (taken) => {
-      ui.chestReward(taken, run);
-      this.mode = 'play';
-    }, () => {
-      // A reward chest is already open: cancelling a weapon swap leaves its reward on the floor.
-      if (c.type === 'weapon-new') this.dropWeapon(c.instance ?? { def: WEAPONS[c.id], level: 1, cd: 0 });
-      this.mode = 'play';
-      this.saveProgress();
-    });
+    const items = rollChestChoices(run);
+    const show = () => {
+      this.mode = 'choose';
+      ui.choices('技能宝箱', '选择一项奖励', items, run, (i) => {
+        this.chooseReward(items[i], (taken) => {
+          ui.chestReward(taken, run);
+          this.mode = 'play';
+        }, show);
+      }, { tag: 'CHEST' });
+    };
+    show();
   }
 
   /** Treasure room: three items on pedestals; take one and the others crumble. */
