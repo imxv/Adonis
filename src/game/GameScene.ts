@@ -309,6 +309,7 @@ export class GameScene extends Phaser.Scene {
   showTitle() {
     this.mode = 'title';
     ui.showHud(false);
+    audio.playHome();
     ui.title({
       save: () => loadRun(),
       initialDifficulty: () => DIFFICULTIES[this.params.get('diff') as DifficultyId]?.id ?? settings.get().diff,
