@@ -6,7 +6,7 @@ import { audio } from '../audio/audio';
 import { ENEMIES, AFFIXES, PETS, PET_ORDER, SPAWN_STYLE, type Affix, type EnemyKind, type SpawnStyle } from '../data/enemies';
 import { SPELLS, SPELL_ORDER } from '../data/spells';
 import { UPGRADE_BY_ID } from '../data/upgrades';
-import { MAX_WEAPONS, WEAPONS, WEAPON_ORDER, magSize, reloadTime, weaponLevelCount, weaponLevelDamage, type MeleeMove, type MoveKind, type WeaponInstance } from '../data/weapons';
+import { MAX_WEAPONS, WEAPONS, WEAPON_ORDER, magSize, reloadTime, type MeleeMove, type MoveKind, type WeaponInstance } from '../data/weapons';
 import { E } from '../pixel/palette';
 import { K, buildCommonTextures, buildKitTextures, buildLevel, textTexture } from '../styles/textures';
 import type { StyleKit } from '../styles/types';
@@ -344,7 +344,7 @@ export class GameScene extends Phaser.Scene {
       ...snapshotRun(run),
       groundWeapons: this.pickups.filter((p) => p.kind === 'weapon' && !p.dead && p.weapon).map((p) => {
         const w = p.weapon!;
-        return { x: p.x, y: p.y, id: w.def.id, level: w.level, cd: w.cd, ammo: w.ammo, reloadT: w.reloadT, spin: w.spin, onChest: !!p.chest };
+        return { x: p.x, y: p.y, id: w.def.id, cd: w.cd, ammo: w.ammo, reloadT: w.reloadT, spin: w.spin, onChest: !!p.chest };
       }),
       rooms: d.rooms.map((r) => ({ id: r.id, cleared: r.cleared, visited: r.visited, seen: r.seen, challenge: challengeProgress(this, r) })),
       at: (this.safeRoom ?? d.start).id,
@@ -547,7 +547,7 @@ export class GameScene extends Phaser.Scene {
     if (saved && saved.level === this.run.level) {
       for (const weapon of saved.groundWeapons ?? []) {
         const { x, y, id, onChest, ...state } = weapon;
-        if (WEAPONS[id] && Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(state.level)) {
+        if (WEAPONS[id] && Number.isFinite(x) && Number.isFinite(y)) {
           this.dropWeapon({ ...state, def: WEAPONS[id] }, x, y, !!onChest, false);
         }
       }
@@ -1109,13 +1109,15 @@ export class GameScene extends Phaser.Scene {
     }
     ui.toast('房间清空', 900);
     if (r.type === 'horde') {
-      this.dropChest(cx - 14, cy);
-      this.dropChest(cx + 14, cy, true);
+      // A horde always leaves a reward chest; a weapon chest only half the time.
+      const weapon = this.run.rng.next() < 0.5;
+      this.dropChest(weapon ? cx - 14 : cx, cy);
+      if (weapon) this.dropChest(cx + 14, cy, true);
     } else {
-      // Weapon chests are common, so a run gets to try many of the twelve guns.
+      // Weapon chests stay occasional, so a run settles on a gun instead of swapping every room.
       const x = this.run.rng.next();
-      if (x < 0.3) this.dropChest(cx, cy, true);
-      else if (x < 0.45) this.dropChest(cx, cy);
+      if (x < 0.15) this.dropChest(cx, cy, true);
+      else if (x < 0.3) this.dropChest(cx, cy);
       else if (x < 0.65) this.dropHeart(cx, cy);
     }
   }
@@ -1336,7 +1338,7 @@ export class GameScene extends Phaser.Scene {
       guns: run.weapons.map((w, i) => {
         const mag = magSize(w, run.mods.mag);
         const rt = reloadTime(w, run.mods.reload);
-        return { id: w.def.id, name: w.def.name, level: w.level, held: i === run.held, kind: w.def.kind, mag: mag || undefined, ammo: w.ammo, reload: (w.reloadT ?? 0) > 0 && rt > 0 ? 1 - w.reloadT! / rt : undefined };
+        return { id: w.def.id, name: w.def.name, held: i === run.held, kind: w.def.kind, mag: mag || undefined, ammo: w.ammo, reload: (w.reloadT ?? 0) > 0 && rt > 0 ? 1 - w.reloadT! / rt : undefined };
       }),
       skill: p.skillT > 0 ? 1 : 1 - clamp(p.skillCd / 14, 0, 1),
       skillActive: p.skillT > 0,
@@ -1645,11 +1647,11 @@ export class GameScene extends Phaser.Scene {
     const p = this.player;
     const m = this.run.mods;
     const def = w.def;
-    const extra = m.count + weaponLevelCount(w.level);
+    const extra = m.count;
     const count = def.count + extra;
     // Weapons carry the fight: they hit 15% above their listed damage, while monsters got sturdier than that, so
     // shooting clears a room about as fast as before and spells alone take twice as long.
-    const dmg = def.damage * WEAPON_POWER * weaponLevelDamage(w.level) * this.damageMult();
+    const dmg = def.damage * WEAPON_POWER * this.damageMult();
     const area = m.area;
     const pierce = def.pierce + m.pierce;
     const speed = def.speed * m.speed;
@@ -2935,7 +2937,7 @@ export class GameScene extends Phaser.Scene {
       // Roll once, then retain that exact instance on the floor through cancel/save/continue.
       const pool = WEAPON_ORDER.filter((id) => !this.run.weapons.some((w) => w.def.id === id));
       const def = WEAPONS[this.run.rng.pick(pool.length ? pool : WEAPON_ORDER)];
-      const weapon: WeaponInstance = { def, level: 1, cd: 0 };
+      const weapon: WeaponInstance = { def, cd: 0 };
       if (def.mag) weapon.ammo = magSize(weapon, this.run.mods.mag);
       this.removePickup(p);
       this.dropWeapon(weapon, p.x, p.y, true);
@@ -2970,7 +2972,7 @@ export class GameScene extends Phaser.Scene {
       this.mode = 'play';
     }, () => {
       // A reward chest is already open: cancelling a weapon swap leaves its reward on the floor.
-      if (c.type === 'weapon-new') this.dropWeapon(c.instance ?? { def: WEAPONS[c.id], level: 1, cd: 0 });
+      if (c.type === 'weapon-new') this.dropWeapon(c.instance ?? { def: WEAPONS[c.id], cd: 0 });
       this.mode = 'play';
       this.saveProgress();
     });
@@ -3136,7 +3138,7 @@ export class GameScene extends Phaser.Scene {
     if (choice.type === 'weapon-new' && this.run.weapons.length >= MAX_WEAPONS) {
       const run = this.run;
       this.mode = 'choose';
-      const incoming = choice.instance ?? { def: WEAPONS[choice.id], level: 1, cd: 0 };
+      const incoming = choice.instance ?? { def: WEAPONS[choice.id], cd: 0 };
       ui.weaponSwap(incoming, run, (index) => {
         if (this.run !== run) return;
         if (index < 0) onCancel();

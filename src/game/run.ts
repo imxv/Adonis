@@ -2,7 +2,7 @@ import { HEROES, type HeroId } from '../data/heroes';
 import { Rng } from '../core/rng';
 import { baseMods, type Mods, type Tag } from '../core/stats';
 import { RARITY_INFO, UPGRADES, UPGRADE_BY_ID, type Rarity, type UpgradeDef } from '../data/upgrades';
-import { MAX_WEAPONS, MAX_WEAPON_LEVEL, WEAPONS, WEAPON_ORDER, type WeaponInstance } from '../data/weapons';
+import { MAX_WEAPONS, WEAPONS, WEAPON_ORDER, type WeaponInstance } from '../data/weapons';
 import { FUSE_LEVEL, FUSION_ORDER, MAX_SPELLS, MAX_SPELL_LEVEL, SPELLS, SPELL_ORDER, fusionOf, type FusionId, type SpellId, type SpellInstance } from '../data/spells';
 import { PET_ORDER, type Pets } from '../data/enemies';
 import { KITS, KIT_BY_ID } from '../styles/kits';
@@ -83,7 +83,7 @@ export function newRun(params: URLSearchParams, heroId: HeroId = 'adonis', diffi
     mods,
     stacks: {},
     tags: {},
-    weapons: [{ def: WEAPONS[WEAPONS[start] ? start : 'pistol'], level: 1, cd: 0 }],
+    weapons: [{ def: WEAPONS[WEAPONS[start] ? start : 'pistol'], cd: 0 }],
     held: 0,
     spells,
     pets: [],
@@ -116,7 +116,7 @@ export function snapshotRun(run: RunState): Omit<SavedRun, 'v' | 'savedAt' | 'ro
     mods: JSON.parse(JSON.stringify(run.mods)),
     stacks: { ...run.stacks },
     tags: { ...run.tags },
-    weapons: run.weapons.map((w) => ({ id: w.def.id, level: w.level })),
+    weapons: run.weapons.map((w) => ({ id: w.def.id })),
     held: run.held,
     spells: run.spells.map((s) => ({ id: s.id, level: s.level, evolved: s.evolved, kills: s.kills })),
     pets: [...run.pets],
@@ -149,7 +149,7 @@ export function restoreRun(s: SavedRun): RunState {
     mods: { ...baseMods(), ...s.mods, elements: { ...baseMods().elements, ...s.mods.elements } },
     stacks: { ...s.stacks },
     tags: { ...s.tags },
-    weapons: s.weapons.filter((w) => WEAPONS[w.id]).map((w) => ({ def: WEAPONS[w.id], level: w.level, cd: 0 })),
+    weapons: s.weapons.filter((w) => WEAPONS[w.id]).map((w) => ({ def: WEAPONS[w.id], cd: 0 })),
     held: Math.min(s.held, Math.max(0, s.weapons.length - 1)),
     spells: s.spells.filter((x) => SPELLS[x.id]).map((x) => ({ ...newSpell(x.id), level: x.level, evolved: x.evolved, kills: x.kills })),
     pets: [...new Set(s.pets.filter((p) => PET_ORDER.includes(p)))],
@@ -175,7 +175,6 @@ export const newSpell = (id: SpellId): SpellInstance => ({ id, level: 1, evolved
 export type Choice =
   | { type: 'upgrade'; def: UpgradeDef }
   | { type: 'weapon-new'; id: string; instance?: WeaponInstance }
-  | { type: 'weapon-up'; index: number }
   | { type: 'spell-new'; id: SpellId }
   | { type: 'spell-up'; id: SpellId }
   | { type: 'evolve'; id: SpellId }
@@ -203,8 +202,6 @@ export function choiceValid(run: RunState, c: Choice): boolean {
       return upgradeValid(run, c.def);
     case 'weapon-new':
       return WEAPON_ORDER.includes(c.id) && (!c.instance || c.instance.def.id === c.id) && !run.weapons.some((w) => w.def.id === c.id);
-    case 'weapon-up':
-      return !!run.weapons[c.index] && run.weapons[c.index].level < MAX_WEAPON_LEVEL;
     case 'spell-new':
       return !spellTaken(run, c.id) && run.spells.length < MAX_SPELLS;
     case 'spell-up': {
@@ -231,7 +228,7 @@ export function applyChoice(run: RunState, c: Choice, replaceIndex?: number): We
       applyUpgrade(run, c.def);
       break;
     case 'weapon-new': {
-      const incoming = c.instance ? { ...c.instance, def: WEAPONS[c.id] } : { def: WEAPONS[c.id], level: 1, cd: 0 };
+      const incoming = c.instance ? { ...c.instance, def: WEAPONS[c.id] } : { def: WEAPONS[c.id], cd: 0 };
       if (run.weapons.length < MAX_WEAPONS) {
         run.weapons.push(incoming);
         run.held = run.weapons.length - 1;
@@ -245,9 +242,6 @@ export function applyChoice(run: RunState, c: Choice, replaceIndex?: number): We
       }
       break;
     }
-    case 'weapon-up':
-      run.weapons[c.index].level++;
-      break;
     case 'spell-new':
       run.spells.push(newSpell(c.id));
       break;
@@ -290,9 +284,6 @@ function availableUpgrades(run: RunState, minRarity?: Rarity) {
 function weaponChoices(run: RunState): Choice[] {
   const out: Choice[] = [];
   for (const id of WEAPON_ORDER) if (!run.weapons.some((w) => w.def.id === id)) out.push({ type: 'weapon-new', id });
-  run.weapons.forEach((w, index) => {
-    if (w.level < MAX_WEAPON_LEVEL) out.push({ type: 'weapon-up', index });
-  });
   return out;
 }
 

@@ -355,7 +355,7 @@ export function buildCodex(scene: Phaser.Scene): CodexTab[] {
   ];
   const loot: CodexEntry[] = [
     { id: 'chest', name: '技能/强化箱', icon: tex('chest'), tag: '奖励', tagColor: E.yellow, desc: '靠近按 F 打开，直接给一件奖励：法术升级、稀有加成，满足条件时是法术进化。' },
-    { id: 'chest-w', name: '武器箱', icon: tex('chest-w'), tag: '奖励', tagColor: E.cyan, desc: '钢制的箱子，按 F 只开出一把武器，升起后悬浮在箱子上，再按 F 拾取。非战斗时靠近可观看当前角色攻击假人的演示和武器指标。已带两把时可任选一把替换；取消会保留箱上武器，旧武器保留等级与弹药落地。清房、尸潮房和守卫都可能掉落。' },
+    { id: 'chest-w', name: '武器箱', icon: tex('chest-w'), tag: '奖励', tagColor: E.cyan, desc: '钢制的箱子，按 F 只开出一把武器，升起后悬浮在箱子上，再按 F 拾取。非战斗时靠近可观看当前角色攻击假人的演示和武器指标。已带两把时可任选一把替换；取消会保留箱上武器，旧武器保留弹药落地。清房、尸潮房和守卫都可能掉落。' },
     { id: 'level-token', name: '升级水晶', icon: tex('lvl-token'), tag: '成长', tagColor: E.yellow, desc: '升级时落在身边，名称旁标明等级；靠近按 F 打开成长选项，自己选择升级时机。留在地上的升级水晶会跟随你进入下一层。' },
     { id: 'crystal', name: '元素护盾水晶', icon: tex('crystal'), tag: '掉落', tagColor: E.yellow, desc: '元素结晶反应形成，缺护甲时靠近自动拾取，每 2 秒最多回复 1 格现有护甲，不超过上限，也不产生额外护盾。每 3 秒最多生成 1 颗，地上最多 3 颗，每颗 12 秒后消失。满甲时保留到过期；暂停时计时冻结，不带入下一层。颜色对应生成它的元素。' },
     { id: 'gems', name: '经验宝石', icon: tex('gem-2'), tag: '掉落', tagColor: E.cyan, desc: '击杀掉落，蓝色 1 点、绿色 2 点、红色 5 点经验。清完房间会自动飞向你。', gallery: { title: '三种宝石', pics: ['gem-1', 'gem-2', 'gem-3'].map(tex) } },
