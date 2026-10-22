@@ -52,8 +52,7 @@ function nearest(s: GameScene, targets: Target[]) {
 
 function choiceCategory(choice: Choice) {
   switch (choice.type) {
-    case 'weapon-new':
-    case 'weapon-up': return '武器';
+    case 'weapon-new': return '武器';
     case 'spell-new': return '技能';
     case 'spell-up': return '技能升级';
     case 'evolve': return '技能进化';
@@ -122,7 +121,7 @@ export function updateInteractionHints(s: GameScene) {
     } else {
       const p = target.item;
       if (p.kind === 'weapon' && p.weapon) {
-        lines = [p.weapon.def.name, `Lv.${p.weapon.level}`];
+        lines = [p.weapon.def.name];
         color = E.cyan;
         action = '拾取';
       } else {
@@ -165,7 +164,7 @@ function previewKeepClear(s: GameScene): PreviewKeepClear[] {
     }
   }
   for (const p of s.pedestals) {
-    if ((p.choice.type === 'weapon-new' || p.choice.type === 'weapon-up') && Math.hypot(p.x - s.player.x, p.y - s.player.y) < 48) {
+    if (p.choice.type === 'weapon-new' && Math.hypot(p.x - s.player.x, p.y - s.player.y) < 48) {
       images.push(p.ped, p.item, p.label);
     }
   }
@@ -192,16 +191,12 @@ export function updateNearbyWeaponPreview(s: GameScene, dt: number) {
   const target = nearest(s, candidates(s));
   const ground = target?.kind === 'pickup' && target.item.kind === 'weapon' ? target.item.weapon : undefined;
   const choice = target?.kind === 'pedestal' ? target.item.choice : undefined;
-  if (!target || (!ground && choice?.type !== 'weapon-new' && choice?.type !== 'weapon-up')) return resetWeaponPreview(s);
+  if (!target || (!ground && choice?.type !== 'weapon-new')) return resetWeaponPreview(s);
   let focus = previews.get(s);
   if (focus?.item !== target.item) {
     ui.hideWeaponPreview();
     let weapon = ground;
-    if (!weapon && choice?.type === 'weapon-new') weapon = choice.instance ?? { def: WEAPONS[choice.id], level: 1, cd: 0 };
-    if (!weapon && choice?.type === 'weapon-up') {
-      const owned = s.run.weapons[choice.index];
-      if (owned) weapon = { ...owned, level: owned.level + 1 };
-    }
+    if (!weapon && choice?.type === 'weapon-new') weapon = choice.instance ?? { def: WEAPONS[choice.id], cd: 0 };
     if (!weapon) return resetWeaponPreview(s);
     focus = { item: target.item, weapon, dwell: 0 };
     previews.set(s, focus);

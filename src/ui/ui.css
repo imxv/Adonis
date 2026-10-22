@@ -319,26 +319,6 @@ body {
   transform-origin: 40% 60%;
 }
 
-/* Weapon level as pips under the gun. */
-.wcard .gun .pips {
-  position: absolute;
-  left: 50%;
-  bottom: 0;
-  display: flex;
-  gap: 1px;
-  transform: translateX(-7px);
-}
-
-.wcard .gun .pips i {
-  width: 2px;
-  height: 2px;
-  background: #3a4466;
-}
-
-.wcard .gun .pips i.on {
-  background: var(--gold);
-}
-
 .wcard .cnt {
   display: flex;
   align-items: flex-end;

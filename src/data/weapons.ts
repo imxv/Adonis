@@ -85,11 +85,9 @@ export const WEAPONS: Record<string, WeaponDef> = {
 
 export const WEAPON_ORDER = Object.keys(WEAPONS);
 export const MAX_WEAPONS = 2;
-export const MAX_WEAPON_LEVEL = 5;
 
 export interface WeaponInstance {
   def: WeaponDef;
-  level: number;
   cd: number;
   /** Rounds left; undefined for weapons without a magazine. */
   ammo?: number;
@@ -103,9 +101,6 @@ export const magSize = (w: WeaponInstance, magMul: number) => (w.def.mag ? Math.
 /** Reloads run 60% longer than the listed base, so emptying a magazine is a real decision. */
 export const RELOAD_PACE = 1.6;
 export const reloadTime = (w: WeaponInstance, reloadMul: number) => (w.def.reload ?? 0) * reloadMul * RELOAD_PACE;
-
-export const weaponLevelDamage = (level: number) => 1 + 0.3 * (level - 1);
-export const weaponLevelCount = (level: number) => (level >= 3 ? 1 : 0) + (level >= 5 ? 1 : 0);
 
 export const STAT_MEANING: Record<Delivery, { count: string; area: string; pierce: string }> = {
   bolt: { count: '多发', area: '弹体变大', pierce: '穿透敌人' },

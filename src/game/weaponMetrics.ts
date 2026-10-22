@@ -1,4 +1,4 @@
-import { magSize, reloadTime, weaponLevelCount, weaponLevelDamage, type MeleeMove, type MoveKind, type WeaponInstance } from '../data/weapons';
+import { magSize, reloadTime, type MeleeMove, type MoveKind, type WeaponInstance } from '../data/weapons';
 import type { RunState } from './run';
 
 /** Shared with combat so the inspection panel includes the weapon-wide damage tuning. */
@@ -83,10 +83,10 @@ const number = (n: number) => Number(n.toFixed(1)).toString();
 export function weaponMetrics(w: WeaponInstance, run: RunState): WeaponMetrics {
   const def = w.def;
   const m = run.mods;
-  const extra = m.count + weaponLevelCount(w.level);
+  const extra = m.count;
   const count = def.count + extra;
   const lowHealth = run.hp <= m.maxHp / 2 ? 1 + m.desperate : 1;
-  const damage = def.damage * WEAPON_POWER * weaponLevelDamage(w.level) * m.damage * lowHealth;
+  const damage = def.damage * WEAPON_POWER * m.damage * lowHealth;
   const rate = Math.max(0.2, m.fireRate * (1 + Math.min(0.4, run.frenzyStacks * m.frenzy)));
   const attackRate = rate / def.cooldown;
   const maxAttackRate = rate / (def.spinTo ?? def.cooldown);
@@ -183,7 +183,7 @@ export function weaponMetrics(w: WeaponInstance, run: RunState): WeaponMetrics {
     knockback: def.kind === 'chain' ? 14 : def.knockback * m.knockback,
     traits,
     usage: USAGE[def.id] ?? def.desc,
-    note: '已计入等级与当前增益；不含暴击、元素反应、节拍及双持技能。',
+    note: '已计入当前增益；不含暴击、元素反应、节拍及双持技能。',
     meleeCombo,
   };
 }

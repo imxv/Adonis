@@ -319,7 +319,7 @@ export function buildCodex(scene: Phaser.Scene): CodexTab[] {
   const rooms: [string, string, string, string, string][] = [
     ['start', '起点', '每层从这里出发，没有敌人。第一层的地上写着操作提示。', E.greyM, E.white],
     ['combat', '战斗房', '走进门两格后铁栅门会关上，打完两三波敌人才打开。房间有矩形、切角、十字、L 形、柱厅、回廊几种形状，里面有掩体，越深的层越常见机关。清完有概率掉宝箱、武器箱或生命。', E.slate, E.red],
-    ['horde', '尸潮房', '每层一个。坚持 20 到 28 秒，敌人源源不断，还会有蝙蝠群横扫和史莱姆包围圈。撑到最后必掉一个宝箱和一个武器箱。', E.purple, E.magenta],
+    ['horde', '尸潮房', '每层一个。坚持 20 到 28 秒，敌人源源不断，还会有蝙蝠群横扫和史莱姆包围圈。撑到最后必掉一个宝箱，一半概率再掉一个武器箱。', E.purple, E.magenta],
     ['treasure', '宝物房', '藏在死胡同里。三个台子上各放一件宝物，通常有新武器、新法术和宠物，靠近按 F 领取。只能拿一件，拿走后其余的会碎掉。', E.slate, E.yellow],
     ['challenge', '机关挑战房', '可选的支路房间，不影响通往 Boss 的路线。靠近起点按 F 或手机交互按钮开始，在 20 秒内按顺序踏过三个标记；受击或超时就失败，每房只能尝试一次。成功获得 150 分，并回复 1 点生命和 1 格护甲，不超过上限。开始前、结束后机关都安全。', E.slate, E.cyan],
     ['boss', 'Boss 房', '每层最深处的死胡同，四根掩体柱可以挡子弹。打倒 Boss 后出现通往下一层的地洞。', E.redD, E.hot],
@@ -355,7 +355,7 @@ export function buildCodex(scene: Phaser.Scene): CodexTab[] {
   ];
   const loot: CodexEntry[] = [
     { id: 'chest', name: '技能/强化箱', icon: tex('chest'), tag: '奖励', tagColor: E.yellow, desc: '靠近按 F 打开，翻出三张卡任选其一：法术升级或新法术、稀有加成，满足条件时还有法术进化。能和已有法术融合的卡，下方会标出融合后的法术。' },
-    { id: 'chest-w', name: '武器箱', icon: tex('chest-w'), tag: '奖励', tagColor: E.cyan, desc: '钢制的箱子，按 F 只开出一把武器，升起后悬浮在箱子上，再按 F 拾取。非战斗时靠近可观看当前角色攻击假人的演示和武器指标。已带两把时可任选一把替换；取消会保留箱上武器，旧武器保留等级与弹药落地。清房、尸潮房和守卫都可能掉落。' },
+    { id: 'chest-w', name: '武器箱', icon: tex('chest-w'), tag: '奖励', tagColor: E.cyan, desc: '钢制的箱子，按 F 只开出一把武器，升起后悬浮在箱子上，再按 F 拾取。非战斗时靠近可观看当前角色攻击假人的演示和武器指标。已带两把时可任选一把替换；取消会保留箱上武器，旧武器保留弹药落地。清房、尸潮房和守卫都可能掉落。' },
     { id: 'level-token', name: '升级水晶', icon: tex('lvl-token'), tag: '成长', tagColor: E.yellow, desc: '升级时落在身边，名称旁标明等级；靠近按 F 打开成长选项，自己选择升级时机。留在地上的升级水晶会跟随你进入下一层。' },
     { id: 'crystal', name: '元素护盾水晶', icon: tex('crystal'), tag: '掉落', tagColor: E.yellow, desc: '元素结晶反应形成，缺护甲时靠近自动拾取，每 2 秒最多回复 1 格现有护甲，不超过上限，也不产生额外护盾。每 3 秒最多生成 1 颗，地上最多 3 颗，每颗 12 秒后消失。满甲时保留到过期；暂停时计时冻结，不带入下一层。颜色对应生成它的元素。' },
     { id: 'gems', name: '经验宝石', icon: tex('gem-2'), tag: '掉落', tagColor: E.cyan, desc: '击杀掉落，蓝色 1 点、绿色 2 点、红色 5 点经验。清完房间会自动飞向你。', gallery: { title: '三种宝石', pics: ['gem-1', 'gem-2', 'gem-3'].map(tex) } },
