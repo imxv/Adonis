@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { hexToNum } from '../core/math';
 import { K, textTexture } from '../styles/textures';
 import type { StyleKit } from '../styles/types';
-import { ELEMENT_COLOR } from './entities';
+import { ELEMENT_COLOR, type Proj } from './entities';
 import type { Element } from '../core/stats';
 import { E } from '../pixel/palette';
 import { settings } from '../settings';
@@ -33,10 +33,35 @@ export const DEPTH = {
 
 interface Num {
   img: Phaser.GameObjects.Image;
+  x: number;
   y: number;
+  vx: number;
   vy: number;
   life: number;
   max: number;
+  /** Seconds left at double size: a crit lands big, then snaps down. */
+  pop: number;
+}
+
+/** The star where a hit lands, two frames long. */
+interface Hit {
+  img: Phaser.GameObjects.Image;
+  t: number;
+  dur: number;
+}
+
+/** A chunk knocked off something: it flies, falls, bounces once and fades on the floor. */
+interface Gib {
+  img: Phaser.GameObjects.Image;
+  x: number;
+  y: number;
+  /** Height above the floor. */
+  z: number;
+  vx: number;
+  vy: number;
+  vz: number;
+  t: number;
+  life: number;
 }
 
 interface Ring {
@@ -102,8 +127,13 @@ export class Fx {
   private streamGfx: Phaser.GameObjects.Graphics;
   private rays: Rays[] = [];
   private rayGfx: Phaser.GameObjects.Graphics;
-  private shakeUntil = 0;
-  private shakeAmt = 0;
+  private trailGfx: Phaser.GameObjects.Graphics;
+  private hits: Hit[] = [];
+  private freeHits: Phaser.GameObjects.Image[] = [];
+  private gibs: Gib[] = [];
+  /** Camera shake as trauma: hits add to it, it drains away, and the view shakes in proportion. */
+  private trauma = 0;
+  private shakeT = 0;
 
   constructor(private scene: Phaser.Scene) {
     const { width, height } = scene.scale;
@@ -113,6 +143,21 @@ export class Fx {
     this.dimRect = scene.add.rectangle(-16, -16, width + 32, height + 32, 0x07060b, 1).setOrigin(0).setAlpha(0).setDepth(DEPTH.light + 0.05).setScrollFactor(0);
     this.streamGfx = scene.add.graphics().setDepth(DEPTH.particles + 0.4).setBlendMode(Phaser.BlendModes.ADD);
     this.rayGfx = scene.add.graphics().setDepth(DEPTH.numbers + 0.8).setBlendMode(Phaser.BlendModes.ADD);
+    this.trailGfx = scene.add.graphics().setDepth(DEPTH.proj - 0.1);
+  }
+
+  /** A short streak behind each fast shot, so bullets read as speed rather than dots. */
+  trails(shots: Proj[]) {
+    const g = this.trailGfx;
+    g.clear();
+    for (const p of shots) {
+      if (p.dead || (p.kind !== 'bolt' && p.kind !== 'pellet' && p.kind !== 'shard')) continue;
+      // Never longer than the way it has come, so a fresh shot doesn't trail back into the gun.
+      const k = Math.min(0.022, (p.life0 ?? 0) - p.life);
+      if (k <= 0) continue;
+      g.lineStyle(1, p.element ? hexToNum(ELEMENT_COLOR[p.element]) : 0xfee761, 0.55);
+      g.lineBetween(Math.round(p.x - p.vx * k), Math.round(p.y - p.vy * k), Math.round(p.x), Math.round(p.y));
+    }
   }
 
   /** Darken the world (not the effects) toward `alpha` over `dur` ms. */
@@ -201,15 +246,18 @@ export class Fx {
     }
   }
 
+  /** Shake the view. Shakes stack a little rather than replacing each other, and always ease out smoothly. */
   shake(amount: number) {
     if (!settings.get().shake) return;
-    const cam = this.scene.cameras.main;
-    const now = performance.now();
-    if (now < this.shakeUntil && amount <= this.shakeAmt) return;
-    this.shakeAmt = amount;
-    const dur = 70 + amount * 260;
-    this.shakeUntil = now + dur;
-    cam.shake(dur, 0.002 + amount * 0.009, true);
+    this.trauma = Math.min(1, Math.max(this.trauma, amount) + Math.min(this.trauma, amount) * 0.4);
+  }
+
+  /** Where the shake puts the camera this frame, in pixels: smooth wobble, not random jitter. */
+  shakeOffset(): [number, number] {
+    if (this.trauma <= 0) return [0, 0];
+    const t = this.shakeT;
+    const a = 9 * this.trauma;
+    return [a * (Math.sin(t * 61) * 0.6 + Math.sin(t * 97 + 1.3) * 0.4), a * 0.8 * (Math.sin(t * 53 + 2.1) * 0.6 + Math.sin(t * 89 + 0.7) * 0.4)];
   }
 
   flash(color: string, alpha = 0.35, dur = 180) {
@@ -253,9 +301,51 @@ export class Fx {
     this.scene.tweens.add({ targets: img, alpha: 0, duration: dur, onComplete: () => img.destroy() });
   }
 
-  muzzle(x: number, y: number, a: number) {
-    const img = this.scene.add.image(x, y, 'muzzle').setDepth(DEPTH.proj).setRotation(a);
-    this.scene.time.delayedCall(45, () => img.destroy());
+  /** The flash at the muzzle: a star for light guns, a cone of fire that flickers down for heavy ones. */
+  muzzle(x: number, y: number, a: number, heavy = 0) {
+    const s = this.scene;
+    if (heavy < 0.04) {
+      const img = s.add.image(x, y, 'muzzle').setDepth(DEPTH.proj).setRotation(a);
+      s.time.delayedCall(45, () => img.destroy());
+      return;
+    }
+    const big = Math.min(2, 1 + heavy * 6);
+    const img = s.add.image(x, y, 'muzzle-big').setOrigin(0.12, 0.5).setDepth(DEPTH.proj).setRotation(a).setScale(big, Math.random() < 0.5 ? 1 : -1);
+    s.time.delayedCall(40, () => img.setTexture('muzzle').setOrigin(0.5).setScale(1));
+    s.time.delayedCall(80, () => img.destroy());
+    this.dust(x + Math.cos(a) * 4, y + Math.sin(a) * 4, heavy >= 0.1 ? 4 : 2);
+  }
+
+  /** A star where a hit lands, white unless tinted; big ones are for crits and heavy blows. */
+  impact(x: number, y: number, color: string = E.white, big = false) {
+    const img = (this.freeHits.pop() ?? this.scene.add.image(0, 0, 'hit-0')).setTexture('hit-0').setVisible(true);
+    img.setPosition(Math.round(x), Math.round(y)).setDepth(DEPTH.particles + 0.2).setScale(big ? 2 : 1).setTint(hexToNum(color)).setAlpha(1);
+    this.hits.push({ img, t: 0, dur: big ? 0.11 : 0.075 });
+    if (this.hits.length > 40) this.dropHit(this.hits[0]);
+  }
+
+  private dropHit(h: Hit) {
+    h.img.setVisible(false);
+    this.freeHits.push(h.img);
+    this.hits.splice(this.hits.indexOf(h), 1);
+  }
+
+  /**
+   * Chunks thrown off a kill, mostly the way the blow was going: they arc up, land, skip once and fade where they
+   * lie. `force` scales how far they fly.
+   */
+  gib(x: number, y: number, dx: number, dy: number, n: number, colors: string[], force = 1) {
+    const l = Math.hypot(dx, dy);
+    const base = l > 0.01 ? Math.atan2(dy, dx) : Math.random() * Math.PI * 2;
+    const spread = l > 0.01 ? 1.1 : Math.PI;
+    for (let i = 0; i < n; i++) {
+      if (this.gibs.length > 140) this.gibs.shift()!.img.destroy();
+      const a = base + (Math.random() * 2 - 1) * spread;
+      const sp = (40 + Math.random() * 90) * force;
+      const big = Math.random() < 0.45;
+      const img = this.scene.add.image(x, y, 'dot').setDepth(DEPTH.enemy + 0.3).setTint(hexToNum(colors[i % colors.length])).setScale(big ? 1 : 0.5);
+      this.gibs.push({ img, x, y, z: 4 + Math.random() * 4, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.7, vz: 50 + Math.random() * 70 * force, t: 0, life: 0.6 + Math.random() * 0.5 });
+    }
   }
 
   number(x: number, y: number, value: number, opts: { crit?: boolean; color?: string; small?: boolean; text?: string } = {}) {
@@ -267,9 +357,13 @@ export class Fx {
     // Plain hits use the 8px numeral font; crits use the 12px font, so they read bigger at a whole-pixel scale.
     const key = textTexture(this.scene, text, { color, outline: E.ink, small: !opts.crit });
     const img = (this.free.pop() ?? this.scene.add.image(0, 0, key)).setTexture(key).setDepth(DEPTH.numbers).setVisible(true).setAlpha(1).setScale(1);
-    img.setPosition(Math.round(x + Phaser.Math.Between(-4, 4)), Math.round(y));
+    const nx = x + Phaser.Math.Between(-4, 4);
+    img.setPosition(Math.round(nx), Math.round(y));
     const life = opts.crit ? 0.7 : opts.small ? 0.4 : 0.5;
-    this.nums.push({ img, y, vy: opts.crit ? -46 : -32, life, max: life });
+    // Numbers fan out a little sideways, so a stream of hits stays readable; a crit lands at double size.
+    const pop = opts.crit ? 0.08 : 0;
+    if (pop) img.setScale(2);
+    this.nums.push({ img, x: nx, y, vx: Phaser.Math.Between(-18, 18), vy: opts.crit ? -52 : -36, life, max: life, pop });
   }
 
   /** A word that pops up in the world, in the pixel font. */
@@ -335,6 +429,34 @@ export class Fx {
     }
   }
 
+  private updateGibs(dt: number) {
+    for (let i = this.gibs.length - 1; i >= 0; i--) {
+      const g = this.gibs[i];
+      g.t += dt;
+      if (g.t >= g.life) {
+        g.img.destroy();
+        this.gibs.splice(i, 1);
+        continue;
+      }
+      if (g.z > 0 || g.vz > 0) {
+        g.vz -= 420 * dt;
+        g.z += g.vz * dt;
+        g.x += g.vx * dt;
+        g.y += g.vy * dt;
+        if (g.z <= 0) {
+          g.z = 0;
+          // One skip off the floor, then it lies still.
+          if (g.vz < -60) {
+            g.vz = -g.vz * 0.3;
+            g.vx *= 0.45;
+            g.vy *= 0.45;
+          } else g.vz = 0;
+        }
+      }
+      g.img.setPosition(Math.round(g.x), Math.round(g.y - g.z)).setAlpha(Math.min(1, (g.life - g.t) / 0.2));
+    }
+  }
+
   private recycle(n: Num) {
     n.img.setVisible(false);
     this.free.push(n.img);
@@ -342,12 +464,24 @@ export class Fx {
   }
 
   update(dt: number) {
+    this.shakeT += dt;
+    this.trauma = Math.max(0, this.trauma - dt * (1.4 + this.trauma * 2.6));
+    for (let i = this.hits.length - 1; i >= 0; i--) {
+      const h = this.hits[i];
+      h.t += dt;
+      if (h.t >= h.dur) this.dropHit(h);
+      else if (h.t >= h.dur * 0.45) h.img.setTexture('hit-1');
+    }
+    this.updateGibs(dt);
     for (let i = this.nums.length - 1; i >= 0; i--) {
       const n = this.nums[i];
       n.life -= dt;
+      n.x += n.vx * dt;
       n.y += n.vy * dt;
+      n.vx *= 0.9;
       n.vy *= 0.88;
-      n.img.setY(Math.round(n.y)).setAlpha(n.life < 0.15 ? n.life / 0.15 : 1);
+      if (n.pop > 0 && (n.pop -= dt) <= 0) n.img.setScale(1);
+      n.img.setPosition(Math.round(n.x), Math.round(n.y)).setAlpha(n.life < 0.15 ? n.life / 0.15 : 1);
       if (n.life <= 0) this.recycle(n);
     }
     const g = this.ringGfx;
