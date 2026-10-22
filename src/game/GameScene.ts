@@ -1118,7 +1118,7 @@ export class GameScene extends Phaser.Scene {
       const x = this.run.rng.next();
       if (x < 0.15) this.dropChest(cx, cy, true);
       else if (x < 0.3) this.dropChest(cx, cy);
-      else if (x < 0.65) this.dropHeart(cx, cy);
+      else if (x < 0.5) this.dropHeart(cx, cy);
     }
   }
 
