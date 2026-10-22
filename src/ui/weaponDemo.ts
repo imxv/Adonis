@@ -25,12 +25,15 @@ export function provideWeaponTraining(factory: TrainingFactory) {
 export class WeaponDemo {
   private key = '';
   private training?: WeaponTrainingScene;
+  private starting = false;
   private failedAt = -Infinity;
   private configured = '';
   private pending?: { weapon: WeaponInstance; run: RunState; signature: string };
   private viewport = { x: 0, y: 0, width: 112, height: 44 };
   private visible = false;
   private still = false;
+  /** The state last asked of the scene. Pause and resume are queued, so the scene's own status lags a frame. */
+  private running = true;
   private ready = false;
   private disposed = false;
 
@@ -45,7 +48,14 @@ export class WeaponDemo {
     const signature = JSON.stringify([weapon.def.id, run.hero, run.ascended, run.styles[run.level].id, metrics]);
     this.pending = { weapon, run, signature };
     this.configure();
-    if (!this.training && performance.now() - this.failedAt > RETRY_AFTER * 1000) this.load();
+    if (this.training || this.starting || performance.now() - this.failedAt < RETRY_AFTER * 1000) return;
+    // The HUD asks from inside the game step, where the scene manager would only queue the scene and
+    // start it next frame, outside the catch below. A microtask runs once the step has returned.
+    this.starting = true;
+    queueMicrotask(() => {
+      this.starting = false;
+      if (!this.disposed && !this.training) this.load();
+    });
   }
 
   private load() {
@@ -68,6 +78,7 @@ export class WeaponDemo {
       }, key);
       this.key = key;
       this.training = scene;
+      this.running = true;
       // The scene starts synchronously here, so an error while it builds lands in the catch below.
       this.game.scene.add(key, scene, true);
     } catch (error) {
@@ -127,9 +138,11 @@ export class WeaponDemo {
     const scene = this.training;
     if (!this.ready || !scene || this.disposed) return;
     scene.scene.setVisible(this.visible);
-    if (!this.visible || this.still) {
-      if (scene.sys.isActive()) scene.scene.pause();
-    } else if (scene.sys.isPaused()) scene.scene.resume();
+    const running = this.visible && !this.still;
+    if (running === this.running) return;
+    this.running = running;
+    if (running) scene.scene.resume();
+    else scene.scene.pause();
   }
 
   destroy() {
