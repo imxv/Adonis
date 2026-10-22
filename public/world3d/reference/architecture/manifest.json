@@ -1,0 +1,1842 @@
+{
+  "revision": "adonis-architecture-pbr-v3-mineral",
+  "source": "Original deterministic numerical generation; no external assets or reference-image pixels.",
+  "generator": "src/world3d/reference/architecture-textures-generate.py",
+  "generatorSha256": "1a57ee5c86291bab5e3ce36211e51291c8034302b945193e9159d666165133c4",
+  "repeat": "Wrapped stochastic fields / RepeatWrapping; physical tile sizes are per surface. Divide metre UVs by metersPerTile.",
+  "normalConvention": "OpenGL tangent +Y; source origin top-left; imageOrientation flipY on decode",
+  "colourSpace": {
+    "baseColor": "sRGB",
+    "normal": "linear data",
+    "roughness": "linear data",
+    "ao": "linear data",
+    "metalness": "linear data"
+  },
+  "surfaces": {
+    "marble": {
+      "metersPerTile": 4.0,
+      "physicalFeatures": "Warm ivory calcite clouds 0.3-1.5m, broken branching mineral veins 3-14mm, sparse pores 2-6mm.",
+      "metrics": {
+        "veinAreaAboveHalf": 0.0009441375732421875,
+        "heightMillimetresP01P99": [
+          -0.1711,
+          0.1634
+        ],
+        "normalSlopeRms": 0.00762963155284524,
+        "luminanceRoughnessCorrelation": 0.004818327900337428,
+        "oneMetreColourCorrelationX": -0.008518463948692332
+      }
+    },
+    "limestone": {
+      "metersPerTile": 3.0,
+      "physicalFeatures": "Pale warm cut limestone, irregular mineral mottling 0.15-0.8m, calcite/ochre inclusions, shallow pores 3-9mm.",
+      "metrics": {
+        "poreAreaAboveQuarter": 0.0471649169921875,
+        "heightMillimetresP01P99": [
+          -0.708,
+          0.5511
+        ],
+        "normalSlopeRms": 0.030410196632146835,
+        "luminanceRoughnessCorrelation": -0.06750231895769639,
+        "oneMetreColourCorrelationX": 0.06744358252213217
+      }
+    },
+    "bridge-stone": {
+      "metersPerTile": 3.0,
+      "physicalFeatures": "Cool grey masonry, mineral facies 0.08-0.7m, pale calcite islands, sparse iron inclusions and pits 3-12mm.",
+      "metrics": {
+        "poreAreaAboveQuarter": 0.09665203094482422,
+        "heightMillimetresP01P99": [
+          -1.1259,
+          0.8513
+        ],
+        "normalSlopeRms": 0.05290767177939415,
+        "luminanceRoughnessCorrelation": 0.03306810200461735,
+        "oneMetreColourCorrelationX": 0.06576259197904558
+      }
+    },
+    "blue-painted-stone": {
+      "metersPerTile": 2.0,
+      "physicalFeatures": "Continuous deep blue pigment, microcrack-bound small paint loss 2-8mm, no broad white islands or geometry-edge masks.",
+      "metrics": {
+        "paintLossAreaAboveHalf": 0.00109100341796875,
+        "continuousBlueArea": 0.9959030151367188,
+        "heightMillimetresP01P99": [
+          -0.1013,
+          0.0961
+        ],
+        "normalSlopeRms": 0.010080134496092796,
+        "luminanceRoughnessCorrelation": 0.38100071834604793,
+        "oneMetreColourCorrelationX": -0.04816098150265338
+      }
+    },
+    "roof": {
+      "metersPerTile": 2.0,
+      "physicalFeatures": "Fired terracotta kiln variation 0.1-0.6m, sparse inclusions and cavities, no painted tile layout.",
+      "metrics": {
+        "heightMillimetresP01P99": [
+          -0.4505,
+          0.4364
+        ],
+        "normalSlopeRms": 0.03123585134744644,
+        "luminanceRoughnessCorrelation": 0.43680424837030735,
+        "oneMetreColourCorrelationX": -0.2554118824740675
+      }
+    },
+    "gold": {
+      "metersPerTile": 1.0,
+      "physicalFeatures": "Gold leaf, local nonmetallic brown grime, shallow tool texture, independent roughness/metalness.",
+      "metrics": {
+        "nonmetalPatinaAreaAboveHalf": 0.028045654296875,
+        "heightMillimetresP01P99": [
+          -0.0386,
+          0.0355
+        ],
+        "normalSlopeRms": 0.0031428751535713673,
+        "luminanceRoughnessCorrelation": -0.8699416087208459,
+        "oneMetreColourCorrelationX": 0.9999999999999999
+      }
+    },
+    "bronze": {
+      "metersPerTile": 1.0,
+      "physicalFeatures": "Warm cast bronze, local green oxide patina, cast pores, independent roughness/metalness.",
+      "metrics": {
+        "nonmetalPatinaAreaAboveHalf": 0.1041717529296875,
+        "heightMillimetresP01P99": [
+          -0.0426,
+          0.0339
+        ],
+        "normalSlopeRms": 0.0031168991699814796,
+        "luminanceRoughnessCorrelation": -0.9358177944612358,
+        "oneMetreColourCorrelationX": 1.0
+      }
+    }
+  },
+  "files": [
+    {
+      "path": "high/marble-baseColor.png",
+      "width": 1024,
+      "height": 1024,
+      "metersPerTile": 4.0,
+      "channels": 3,
+      "bytes": 257201,
+      "sha256": "43653f06735fadead081dfb033cb959f513e38f88b0373105587828180dde6f5",
+      "mean": [
+        229.652,
+        221.761,
+        205.974
+      ],
+      "min": [
+        194,
+        190,
+        179
+      ],
+      "max": [
+        247,
+        239,
+        224
+      ],
+      "p05": [
+        221.0,
+        213.0,
+        197.0
+      ],
+      "p95": [
+        240.0,
+        232.0,
+        217.0
+      ]
+    },
+    {
+      "path": "high/marble-normal.png",
+      "width": 1024,
+      "height": 1024,
+      "metersPerTile": 4.0,
+      "channels": 3,
+      "bytes": 512593,
+      "sha256": "859bfcc3fb744a1b52beecce28dfe03219eecf2ce75762efc2533ecf71ccebf6",
+      "mean": [
+        127.5,
+        127.5,
+        255.0
+      ],
+      "min": [
+        119,
+        119,
+        255
+      ],
+      "max": [
+        136,
+        136,
+        255
+      ],
+      "p05": [
+        126.0,
+        126.0,
+        255.0
+      ],
+      "p95": [
+        129.0,
+        129.0,
+        255.0
+      ]
+    },
+    {
+      "path": "high/marble-roughness.png",
+      "width": 1024,
+      "height": 1024,
+      "metersPerTile": 4.0,
+      "channels": 1,
+      "bytes": 203071,
+      "sha256": "577bd679df42547b52bf8227b4461d2925cbce9473a9d29e9aa7a34b0099421b",
+      "mean": [
+        153.461
+      ],
+      "min": [
+        120
+      ],
+      "max": [
+        206
+      ],
+      "p05": [
+        141.0
+      ],
+      "p95": [
+        166.0
+      ]
+    },
+    {
+      "path": "high/marble-ao.png",
+      "width": 1024,
+      "height": 1024,
+      "metersPerTile": 4.0,
+      "channels": 1,
+      "bytes": 27555,
+      "sha256": "dcfcec9a611239d2a514362d1b03ae90fe0ad6c54324fa560ce5e91c608d4b98",
+      "mean": [
+        254.946
+      ],
+      "min": [
+        236
+      ],
+      "max": [
+        255
+      ],
+      "p05": [
+        255.0
+      ],
+      "p95": [
+        255.0
+      ]
+    },
+    {
+      "path": "low/marble-baseColor.png",
+      "width": 512,
+      "height": 512,
+      "metersPerTile": 4.0,
+      "channels": 3,
+      "bytes": 100555,
+      "sha256": "151019396a20cba6f6dfb5ab68e44870cafe0a771a898685a9eaa51401b14e91",
+      "mean": [
+        229.612,
+        221.72,
+        205.934
+      ],
+      "min": [
+        199,
+        194,
+        182
+      ],
+      "max": [
+        247,
+        239,
+        224
+      ],
+      "p05": [
+        221.0,
+        213.0,
+        197.0
+      ],
+      "p95": [
+        240.0,
+        232.0,
+        217.0
+      ]
+    },
+    {
+      "path": "low/marble-normal.png",
+      "width": 512,
+      "height": 512,
+      "metersPerTile": 4.0,
+      "channels": 3,
+      "bytes": 144832,
+      "sha256": "8b6d40a64e23df3872733f78b737218586be93fb9b817b9b0bae055d1ccc5a3e",
+      "mean": [
+        127.499,
+        127.499,
+        255.0
+      ],
+      "min": [
+        123,
+        123,
+        255
+      ],
+      "max": [
+        132,
+        132,
+        255
+      ],
+      "p05": [
+        127.0,
+        127.0,
+        255.0
+      ],
+      "p95": [
+        128.0,
+        128.0,
+        255.0
+      ]
+    },
+    {
+      "path": "low/marble-roughness.png",
+      "width": 512,
+      "height": 512,
+      "metersPerTile": 4.0,
+      "channels": 1,
+      "bytes": 82448,
+      "sha256": "d8aa607e6c1b4e363f85b26c9a074668e279fc151f7f90b34a0a86e7b2f521e0",
+      "mean": [
+        153.448
+      ],
+      "min": [
+        120
+      ],
+      "max": [
+        186
+      ],
+      "p05": [
+        141.0
+      ],
+      "p95": [
+        166.0
+      ]
+    },
+    {
+      "path": "low/marble-ao.png",
+      "width": 512,
+      "height": 512,
+      "metersPerTile": 4.0,
+      "channels": 1,
+      "bytes": 13760,
+      "sha256": "3570f18e2c1902b2940a59d62b96c466f4a634de4cb2eaf85c420097c8f5bd02",
+      "mean": [
+        254.939
+      ],
+      "min": [
+        245
+      ],
+      "max": [
+        255
+      ],
+      "p05": [
+        255.0
+      ],
+      "p95": [
+        255.0
+      ]
+    },
+    {
+      "path": "high/limestone-baseColor.png",
+      "width": 512,
+      "height": 512,
+      "metersPerTile": 3.0,
+      "channels": 3,
+      "bytes": 207666,
+      "sha256": "2abe79073a94d1469e140cf176f4c568ec97055fd541ac0d2ada998551825952",
+      "mean": [
+        221.612,
+        212.234,
+        193.819
+      ],
+      "min": [
+        190,
+        181,
+        164
+      ],
+      "max": [
+        255,
+        241,
+        220
+      ],
+      "p05": [
+        211.0,
+        202.0,
+        184.0
+      ],
+      "p95": [
+        235.0,
+        224.0,
+        205.0
+      ]
+    },
+    {
+      "path": "high/limestone-normal.png",
+      "width": 512,
+      "height": 512,
+      "metersPerTile": 3.0,
+      "channels": 3,
+      "bytes": 280686,
+      "sha256": "54dfdc415a6148d67eb46cea3348d1085715212f28675132a93d6d39a58c591c",
+      "mean": [
+        127.501,
+        127.5,
+        254.997
+      ],
+      "min": [
+        110,
+        107,
+        253
+      ],
+      "max": [
+        147,
+        148,
+        255
+      ],
+      "p05": [
+        123.0,
+        123.0,
+        255.0
+      ],
+      "p95": [
+        132.0,
+        132.0,
+        255.0
+      ]
+    },
+    {
+      "path": "high/limestone-roughness.png",
+      "width": 512,
+      "height": 512,
+      "metersPerTile": 3.0,
+      "channels": 1,
+      "bytes": 119208,
+      "sha256": "7d36a4045d872d6b46b25a0a6ab2b8209f2f2d20e6dd57ccba900d46ad3d0e57",
+      "mean": [
+        198.824
+      ],
+      "min": [
+        156
+      ],
+      "max": [
+        248
+      ],
+      "p05": [
+        177.0
+      ],
+      "p95": [
+        216.0
+      ]
+    },
+    {
+      "path": "high/limestone-ao.png",
+      "width": 512,
+      "height": 512,
+      "metersPerTile": 3.0,
+      "channels": 1,
+      "bytes": 89020,
+      "sha256": "0b67006a24e85302bd4d26d05937a7d30c12b626de8eaecf2bfd2b0f19f38f3f",
+      "mean": [
+        253.522
+      ],
+      "min": [
+        190
+      ],
+      "max": [
+        255
+      ],
+      "p05": [
+        247.0
+      ],
+      "p95": [
+        255.0
+      ]
+    },
+    {
+      "path": "low/limestone-baseColor.png",
+      "width": 256,
+      "height": 256,
+      "metersPerTile": 3.0,
+      "channels": 3,
+      "bytes": 69779,
+      "sha256": "eb2708ffb3c12c1333bb32aeb9ec224f4312dd2be5cdde8f5f22ea6a4b8545a2",
+      "mean": [
+        221.613,
+        212.235,
+        193.819
+      ],
+      "min": [
+        196,
+        187,
+        169
+      ],
+      "max": [
+        255,
+        241,
+        220
+      ],
+      "p05": [
+        211.0,
+        202.0,
+        184.0
+      ],
+      "p95": [
+        235.0,
+        224.0,
+        205.0
+      ]
+    },
+    {
+      "path": "low/limestone-normal.png",
+      "width": 256,
+      "height": 256,
+      "metersPerTile": 3.0,
+      "channels": 3,
+      "bytes": 73286,
+      "sha256": "1df3f7ea42fe0df420c5b7a6e391550ee8e84592579847bfaec9d47ae7632512",
+      "mean": [
+        127.502,
+        127.5,
+        255.0
+      ],
+      "min": [
+        114,
+        115,
+        254
+      ],
+      "max": [
+        140,
+        142,
+        255
+      ],
+      "p05": [
+        124.0,
+        124.0,
+        255.0
+      ],
+      "p95": [
+        131.0,
+        131.0,
+        255.0
+      ]
+    },
+    {
+      "path": "low/limestone-roughness.png",
+      "width": 256,
+      "height": 256,
+      "metersPerTile": 3.0,
+      "channels": 1,
+      "bytes": 35270,
+      "sha256": "23e52e5f2c9d23d86a8ead3ad4596df4f835a23c8311b9c34c3f29ba89bdd463",
+      "mean": [
+        198.822
+      ],
+      "min": [
+        151
+      ],
+      "max": [
+        240
+      ],
+      "p05": [
+        178.0
+      ],
+      "p95": [
+        215.0
+      ]
+    },
+    {
+      "path": "low/limestone-ao.png",
+      "width": 256,
+      "height": 256,
+      "metersPerTile": 3.0,
+      "channels": 1,
+      "bytes": 27827,
+      "sha256": "3e9e423aae1b81d15f1d4b963431e298236816d54b5bc1279ae8b300630a9f8a",
+      "mean": [
+        253.417
+      ],
+      "min": [
+        214
+      ],
+      "max": [
+        255
+      ],
+      "p05": [
+        248.0
+      ],
+      "p95": [
+        255.0
+      ]
+    },
+    {
+      "path": "high/bridge-stone-baseColor.png",
+      "width": 1024,
+      "height": 1024,
+      "metersPerTile": 3.0,
+      "channels": 3,
+      "bytes": 677930,
+      "sha256": "f59de82d7efc0f6d306328ed45d9415d638f64b7fa8a196aed5fe8950a2c41f9",
+      "mean": [
+        183.948,
+        188.563,
+        182.162
+      ],
+      "min": [
+        140,
+        145,
+        140
+      ],
+      "max": [
+        232,
+        228,
+        219
+      ],
+      "p05": [
+        167.0,
+        172.0,
+        166.0
+      ],
+      "p95": [
+        202.0,
+        205.0,
+        198.0
+      ]
+    },
+    {
+      "path": "high/bridge-stone-normal.png",
+      "width": 1024,
+      "height": 1024,
+      "metersPerTile": 3.0,
+      "channels": 3,
+      "bytes": 1197298,
+      "sha256": "c66cfc39855595d0fd4802f710f481ee07ac691b3bdbeb429a964e2cee040d49",
+      "mean": [
+        127.5,
+        127.5,
+        254.919
+      ],
+      "min": [
+        94,
+        90,
+        249
+      ],
+      "max": [
+        159,
+        162,
+        255
+      ],
+      "p05": [
+        120.0,
+        120.0,
+        254.0
+      ],
+      "p95": [
+        135.0,
+        135.0,
+        255.0
+      ]
+    },
+    {
+      "path": "high/bridge-stone-roughness.png",
+      "width": 1024,
+      "height": 1024,
+      "metersPerTile": 3.0,
+      "channels": 1,
+      "bytes": 362101,
+      "sha256": "7da9ea4489fe52e717dc4952fce9f8c3ffdc4cd342e23c0d311067df07511bed",
+      "mean": [
+        212.546
+      ],
+      "min": [
+        165
+      ],
+      "max": [
+        250
+      ],
+      "p05": [
+        192.0
+      ],
+      "p95": [
+        230.0
+      ]
+    },
+    {
+      "path": "high/bridge-stone-ao.png",
+      "width": 1024,
+      "height": 1024,
+      "metersPerTile": 3.0,
+      "channels": 1,
+      "bytes": 302985,
+      "sha256": "06b652033fff6977f4aed78f5b3043c149add4accea3c2da54344a7efa078705",
+      "mean": [
+        252.611
+      ],
+      "min": [
+        194
+      ],
+      "max": [
+        255
+      ],
+      "p05": [
+        242.0
+      ],
+      "p95": [
+        255.0
+      ]
+    },
+    {
+      "path": "low/bridge-stone-baseColor.png",
+      "width": 512,
+      "height": 512,
+      "metersPerTile": 3.0,
+      "channels": 3,
+      "bytes": 258435,
+      "sha256": "0605e3a912ece3bb3b8435a2e8a2fa27f3bb2fb7c9175ff56ede349cc234115e",
+      "mean": [
+        183.948,
+        188.563,
+        182.161
+      ],
+      "min": [
+        141,
+        146,
+        141
+      ],
+      "max": [
+        232,
+        228,
+        219
+      ],
+      "p05": [
+        167.0,
+        172.0,
+        166.0
+      ],
+      "p95": [
+        202.0,
+        205.0,
+        198.0
+      ]
+    },
+    {
+      "path": "low/bridge-stone-normal.png",
+      "width": 512,
+      "height": 512,
+      "metersPerTile": 3.0,
+      "channels": 3,
+      "bytes": 337939,
+      "sha256": "fa2247646a959416f5c1d950662a03d8f13668447187235a423ff1f21eda9471",
+      "mean": [
+        127.5,
+        127.5,
+        254.941
+      ],
+      "min": [
+        101,
+        100,
+        252
+      ],
+      "max": [
+        151,
+        156,
+        255
+      ],
+      "p05": [
+        120.0,
+        120.0,
+        254.0
+      ],
+      "p95": [
+        135.0,
+        135.0,
+        255.0
+      ]
+    },
+    {
+      "path": "low/bridge-stone-roughness.png",
+      "width": 512,
+      "height": 512,
+      "metersPerTile": 3.0,
+      "channels": 1,
+      "bytes": 125544,
+      "sha256": "c2a58cf0e5e6c1dbb048f849025f1ca3f7e8d5f53e342e28f1e517f5167dc82b",
+      "mean": [
+        212.541
+      ],
+      "min": [
+        167
+      ],
+      "max": [
+        252
+      ],
+      "p05": [
+        192.0
+      ],
+      "p95": [
+        230.0
+      ]
+    },
+    {
+      "path": "low/bridge-stone-ao.png",
+      "width": 512,
+      "height": 512,
+      "metersPerTile": 3.0,
+      "channels": 1,
+      "bytes": 103137,
+      "sha256": "85360253586e986b488cd6c3d918fb3fcf017e0609aca253fffd312f0e36c63d",
+      "mean": [
+        252.59
+      ],
+      "min": [
+        200
+      ],
+      "max": [
+        255
+      ],
+      "p05": [
+        242.0
+      ],
+      "p95": [
+        255.0
+      ]
+    },
+    {
+      "path": "high/blue-painted-stone-baseColor.png",
+      "width": 512,
+      "height": 512,
+      "metersPerTile": 2.0,
+      "channels": 3,
+      "bytes": 60279,
+      "sha256": "f8f3672dc6e4ce9aff229f616eeeae464c9c0ee7a7882168b25051d5b5e6e251",
+      "mean": [
+        25.319,
+        51.255,
+        79.167
+      ],
+      "min": [
+        18,
+        44,
+        72
+      ],
+      "max": [
+        205,
+        195,
+        174
+      ],
+      "p05": [
+        22.0,
+        48.0,
+        76.0
+      ],
+      "p95": [
+        28.0,
+        54.0,
+        82.0
+      ]
+    },
+    {
+      "path": "high/blue-painted-stone-normal.png",
+      "width": 512,
+      "height": 512,
+      "metersPerTile": 2.0,
+      "channels": 3,
+      "bytes": 173290,
+      "sha256": "99fb6a68dea7f5f5803d1fa37ef974d5986bd9946a8a2f94c242c138dc9c1c38",
+      "mean": [
+        127.5,
+        127.5,
+        255.0
+      ],
+      "min": [
+        121,
+        121,
+        255
+      ],
+      "max": [
+        133,
+        134,
+        255
+      ],
+      "p05": [
+        126.0,
+        126.0,
+        255.0
+      ],
+      "p95": [
+        129.0,
+        129.0,
+        255.0
+      ]
+    },
+    {
+      "path": "high/blue-painted-stone-roughness.png",
+      "width": 512,
+      "height": 512,
+      "metersPerTile": 2.0,
+      "channels": 1,
+      "bytes": 100973,
+      "sha256": "6a06ad61d44352a3d62cad5dbd27bd704e0c5f78e1f64ea18b2a2a6f9f1b9a72",
+      "mean": [
+        163.301
+      ],
+      "min": [
+        138
+      ],
+      "max": [
+        218
+      ],
+      "p05": [
+        154.0
+      ],
+      "p95": [
+        173.0
+      ]
+    },
+    {
+      "path": "high/blue-painted-stone-ao.png",
+      "width": 512,
+      "height": 512,
+      "metersPerTile": 2.0,
+      "channels": 1,
+      "bytes": 5411,
+      "sha256": "d365d031263385e5a4ac42f91a023192c3796e7db9c0302712b2be3336b25eb9",
+      "mean": [
+        254.974
+      ],
+      "min": [
+        245
+      ],
+      "max": [
+        255
+      ],
+      "p05": [
+        255.0
+      ],
+      "p95": [
+        255.0
+      ]
+    },
+    {
+      "path": "low/blue-painted-stone-baseColor.png",
+      "width": 256,
+      "height": 256,
+      "metersPerTile": 2.0,
+      "channels": 3,
+      "bytes": 23073,
+      "sha256": "18d7496706d1ef50191fac0fdabae533dff99b08206c78b5b7cc7be0657edebc",
+      "mean": [
+        25.294,
+        51.229,
+        79.141
+      ],
+      "min": [
+        10,
+        38,
+        69
+      ],
+      "max": [
+        180,
+        175,
+        161
+      ],
+      "p05": [
+        21.0,
+        47.0,
+        76.0
+      ],
+      "p95": [
+        28.0,
+        54.0,
+        82.0
+      ]
+    },
+    {
+      "path": "low/blue-painted-stone-normal.png",
+      "width": 256,
+      "height": 256,
+      "metersPerTile": 2.0,
+      "channels": 3,
+      "bytes": 46411,
+      "sha256": "7667e9f1d532c35be706515bb6ff58d8f03aa66af25b68bbc2b1d3083beef02d",
+      "mean": [
+        127.501,
+        127.501,
+        255.0
+      ],
+      "min": [
+        124,
+        124,
+        255
+      ],
+      "max": [
+        131,
+        132,
+        255
+      ],
+      "p05": [
+        126.0,
+        126.0,
+        255.0
+      ],
+      "p95": [
+        129.0,
+        129.0,
+        255.0
+      ]
+    },
+    {
+      "path": "low/blue-painted-stone-roughness.png",
+      "width": 256,
+      "height": 256,
+      "metersPerTile": 2.0,
+      "channels": 1,
+      "bytes": 28172,
+      "sha256": "a11af7edec0cf1728f12331756e7052b43314fb703fffba9067b1c63c1935b78",
+      "mean": [
+        163.302
+      ],
+      "min": [
+        139
+      ],
+      "max": [
+        209
+      ],
+      "p05": [
+        154.0
+      ],
+      "p95": [
+        173.0
+      ]
+    },
+    {
+      "path": "low/blue-painted-stone-ao.png",
+      "width": 256,
+      "height": 256,
+      "metersPerTile": 2.0,
+      "channels": 1,
+      "bytes": 2629,
+      "sha256": "f57d58cbc3a9445c4fdb14fd2b0125ab99641096be70249212bc869cc451a16d",
+      "mean": [
+        254.974
+      ],
+      "min": [
+        247
+      ],
+      "max": [
+        255
+      ],
+      "p05": [
+        255.0
+      ],
+      "p95": [
+        255.0
+      ]
+    },
+    {
+      "path": "high/roof-baseColor.png",
+      "width": 512,
+      "height": 512,
+      "metersPerTile": 2.0,
+      "channels": 3,
+      "bytes": 192923,
+      "sha256": "f086244d076ca370166512e82e2bdc7c572f5ae7f30f0f3af587821fe61c02c5",
+      "mean": [
+        161.869,
+        93.892,
+        64.925
+      ],
+      "min": [
+        133,
+        72,
+        48
+      ],
+      "max": [
+        183,
+        109,
+        76
+      ],
+      "p05": [
+        148.0,
+        84.0,
+        58.0
+      ],
+      "p95": [
+        174.0,
+        102.0,
+        71.0
+      ]
+    },
+    {
+      "path": "high/roof-normal.png",
+      "width": 512,
+      "height": 512,
+      "metersPerTile": 2.0,
+      "channels": 3,
+      "bytes": 282074,
+      "sha256": "1e0e8b6494e8f9b69ec943a1a91857445bfddb4be29dcddd1b18e5720441f43a",
+      "mean": [
+        127.499,
+        127.499,
+        254.999
+      ],
+      "min": [
+        114,
+        112,
+        254
+      ],
+      "max": [
+        143,
+        144,
+        255
+      ],
+      "p05": [
+        123.0,
+        123.0,
+        255.0
+      ],
+      "p95": [
+        132.0,
+        132.0,
+        255.0
+      ]
+    },
+    {
+      "path": "high/roof-roughness.png",
+      "width": 512,
+      "height": 512,
+      "metersPerTile": 2.0,
+      "channels": 1,
+      "bytes": 59649,
+      "sha256": "07a3e9fdc7ee82b06b8f16ce719c13770b6cf7c5cf68eee61be4920d2f42fe63",
+      "mean": [
+        216.94
+      ],
+      "min": [
+        196
+      ],
+      "max": [
+        250
+      ],
+      "p05": [
+        207.0
+      ],
+      "p95": [
+        228.0
+      ]
+    },
+    {
+      "path": "high/roof-ao.png",
+      "width": 512,
+      "height": 512,
+      "metersPerTile": 2.0,
+      "channels": 1,
+      "bytes": 20683,
+      "sha256": "ae534d1f26d22d79d944db9c3813eeaabcc1cd80cba650a8bdcfdeb2828379e4",
+      "mean": [
+        254.855
+      ],
+      "min": [
+        231
+      ],
+      "max": [
+        255
+      ],
+      "p05": [
+        255.0
+      ],
+      "p95": [
+        255.0
+      ]
+    },
+    {
+      "path": "low/roof-baseColor.png",
+      "width": 256,
+      "height": 256,
+      "metersPerTile": 2.0,
+      "channels": 3,
+      "bytes": 57128,
+      "sha256": "2402b3976cac26c1505bda9a70e95326d9e418d92c15682cb83a82c81d9a3df7",
+      "mean": [
+        161.869,
+        93.892,
+        64.921
+      ],
+      "min": [
+        137,
+        76,
+        52
+      ],
+      "max": [
+        182,
+        109,
+        75
+      ],
+      "p05": [
+        148.0,
+        84.0,
+        58.0
+      ],
+      "p95": [
+        174.0,
+        102.0,
+        71.0
+      ]
+    },
+    {
+      "path": "low/roof-normal.png",
+      "width": 256,
+      "height": 256,
+      "metersPerTile": 2.0,
+      "channels": 3,
+      "bytes": 74444,
+      "sha256": "4f140c90ab32ea4fca6515ef183b84f83b653b0e6fd493b0d94c3d469b7f442c",
+      "mean": [
+        127.501,
+        127.5,
+        255.0
+      ],
+      "min": [
+        118,
+        118,
+        255
+      ],
+      "max": [
+        137,
+        137,
+        255
+      ],
+      "p05": [
+        124.0,
+        124.0,
+        255.0
+      ],
+      "p95": [
+        131.0,
+        131.0,
+        255.0
+      ]
+    },
+    {
+      "path": "low/roof-roughness.png",
+      "width": 256,
+      "height": 256,
+      "metersPerTile": 2.0,
+      "channels": 1,
+      "bytes": 21794,
+      "sha256": "e356353bb7a98425aa1c18eb2db4c81882f3947e3c28c5960d45263100862dff",
+      "mean": [
+        216.924
+      ],
+      "min": [
+        196
+      ],
+      "max": [
+        242
+      ],
+      "p05": [
+        207.0
+      ],
+      "p95": [
+        227.0
+      ]
+    },
+    {
+      "path": "low/roof-ao.png",
+      "width": 256,
+      "height": 256,
+      "metersPerTile": 2.0,
+      "channels": 1,
+      "bytes": 9008,
+      "sha256": "2f957c9b3614b071d46978df1bf74e0b17c0dcd1e38d3012ceb30c848c33121f",
+      "mean": [
+        254.847
+      ],
+      "min": [
+        247
+      ],
+      "max": [
+        255
+      ],
+      "p05": [
+        254.0
+      ],
+      "p95": [
+        255.0
+      ]
+    },
+    {
+      "path": "high/gold-baseColor.png",
+      "width": 256,
+      "height": 256,
+      "metersPerTile": 1.0,
+      "channels": 3,
+      "bytes": 40367,
+      "sha256": "26ffef5e9dbfe3145c72d6358f5cbee014b7156f250b8d7f0a8de838aed6ad2b",
+      "mean": [
+        197.265,
+        158.767,
+        75.505
+      ],
+      "min": [
+        89,
+        65,
+        30
+      ],
+      "max": [
+        208,
+        169,
+        84
+      ],
+      "p05": [
+        179.0,
+        143.0,
+        69.0
+      ],
+      "p95": [
+        204.0,
+        165.0,
+        80.0
+      ]
+    },
+    {
+      "path": "high/gold-normal.png",
+      "width": 256,
+      "height": 256,
+      "metersPerTile": 1.0,
+      "channels": 3,
+      "bytes": 29642,
+      "sha256": "e1d5c47da1e572cc29398f5de2b9e333cde10e59cf554f59342e1f75d606187f",
+      "mean": [
+        127.499,
+        127.501,
+        255.0
+      ],
+      "min": [
+        126,
+        126,
+        255
+      ],
+      "max": [
+        129,
+        129,
+        255
+      ],
+      "p05": [
+        127.0,
+        127.0,
+        255.0
+      ],
+      "p95": [
+        128.0,
+        128.0,
+        255.0
+      ]
+    },
+    {
+      "path": "high/gold-roughness.png",
+      "width": 256,
+      "height": 256,
+      "metersPerTile": 1.0,
+      "channels": 1,
+      "bytes": 27350,
+      "sha256": "2ba634eb76ca21b11f3ef9728714824d10b7fde91d3b29f0ee177635e80d6557",
+      "mean": [
+        77.409
+      ],
+      "min": [
+        51
+      ],
+      "max": [
+        207
+      ],
+      "p05": [
+        62.0
+      ],
+      "p95": [
+        107.0
+      ]
+    },
+    {
+      "path": "high/gold-ao.png",
+      "width": 256,
+      "height": 256,
+      "metersPerTile": 1.0,
+      "channels": 1,
+      "bytes": 1175,
+      "sha256": "b2953d3fc5cebc254da298ea3dbe23281a0bc8aecd08769c6ecf91e17a68f06c",
+      "mean": [
+        254.981
+      ],
+      "min": [
+        246
+      ],
+      "max": [
+        255
+      ],
+      "p05": [
+        255.0
+      ],
+      "p95": [
+        255.0
+      ]
+    },
+    {
+      "path": "high/gold-metalness.png",
+      "width": 256,
+      "height": 256,
+      "metersPerTile": 1.0,
+      "channels": 1,
+      "bytes": 7847,
+      "sha256": "89f73afb21b9ec1eeb2cfa43dc2448d5ab266706e5c8d847a82694db5a1dcddf",
+      "mean": [
+        242.492
+      ],
+      "min": [
+        26
+      ],
+      "max": [
+        250
+      ],
+      "p05": [
+        200.0
+      ],
+      "p95": [
+        250.0
+      ]
+    },
+    {
+      "path": "low/gold-baseColor.png",
+      "width": 128,
+      "height": 128,
+      "metersPerTile": 1.0,
+      "channels": 3,
+      "bytes": 12634,
+      "sha256": "e6e541bf13ba6d208fd0dfa653db6653a497161fd415ac0ecea51c8eed698bbd",
+      "mean": [
+        197.265,
+        158.767,
+        75.504
+      ],
+      "min": [
+        84,
+        61,
+        33
+      ],
+      "max": [
+        212,
+        171,
+        84
+      ],
+      "p05": [
+        179.0,
+        144.0,
+        70.0
+      ],
+      "p95": [
+        204.0,
+        165.0,
+        80.0
+      ]
+    },
+    {
+      "path": "low/gold-normal.png",
+      "width": 128,
+      "height": 128,
+      "metersPerTile": 1.0,
+      "channels": 3,
+      "bytes": 8269,
+      "sha256": "2e9a2e92a7c05e59bd0a752368c3396962de67c3b82056e054e15b5586b285d5",
+      "mean": [
+        127.497,
+        127.501,
+        255.0
+      ],
+      "min": [
+        127,
+        127,
+        255
+      ],
+      "max": [
+        129,
+        128,
+        255
+      ],
+      "p05": [
+        127.0,
+        127.0,
+        255.0
+      ],
+      "p95": [
+        128.0,
+        128.0,
+        255.0
+      ]
+    },
+    {
+      "path": "low/gold-roughness.png",
+      "width": 128,
+      "height": 128,
+      "metersPerTile": 1.0,
+      "channels": 1,
+      "bytes": 8875,
+      "sha256": "9d700793f1ec43e4e96256f017b37deee47b3fe4a7f7d9c991190f32665b85b8",
+      "mean": [
+        77.409
+      ],
+      "min": [
+        50
+      ],
+      "max": [
+        207
+      ],
+      "p05": [
+        62.0
+      ],
+      "p95": [
+        106.0
+      ]
+    },
+    {
+      "path": "low/gold-ao.png",
+      "width": 128,
+      "height": 128,
+      "metersPerTile": 1.0,
+      "channels": 1,
+      "bytes": 804,
+      "sha256": "622cb38d97c79ddb58d993b2b3f137113c15f1fe90a96b60da8a212ff9147d9d",
+      "mean": [
+        254.982
+      ],
+      "min": [
+        253
+      ],
+      "max": [
+        255
+      ],
+      "p05": [
+        255.0
+      ],
+      "p95": [
+        255.0
+      ]
+    },
+    {
+      "path": "low/gold-metalness.png",
+      "width": 128,
+      "height": 128,
+      "metersPerTile": 1.0,
+      "channels": 1,
+      "bytes": 3750,
+      "sha256": "053c005b666ff7504213482a35eb246bab79a3dd82f187195a05f3a3f739cd6e",
+      "mean": [
+        242.482
+      ],
+      "min": [
+        8
+      ],
+      "max": [
+        255
+      ],
+      "p05": [
+        200.0
+      ],
+      "p95": [
+        250.0
+      ]
+    },
+    {
+      "path": "high/bronze-baseColor.png",
+      "width": 256,
+      "height": 256,
+      "metersPerTile": 1.0,
+      "channels": 3,
+      "bytes": 50995,
+      "sha256": "023a2916c51b3b48f41f1e144f36b869f84310724b2cbe8e4af668c21825e9bb",
+      "mean": [
+        131.932,
+        98.968,
+        57.765
+      ],
+      "min": [
+        39,
+        70,
+        43
+      ],
+      "max": [
+        150,
+        109,
+        67
+      ],
+      "p05": [
+        54.0,
+        80.0,
+        53.0
+      ],
+      "p95": [
+        145.0,
+        104.0,
+        67.0
+      ]
+    },
+    {
+      "path": "high/bronze-normal.png",
+      "width": 256,
+      "height": 256,
+      "metersPerTile": 1.0,
+      "channels": 3,
+      "bytes": 29781,
+      "sha256": "21930b4220cb5ea57c2285c5d0eb3bac8afc3e78dbdeea085a1ff8069a444d5c",
+      "mean": [
+        127.502,
+        127.499,
+        255.0
+      ],
+      "min": [
+        126,
+        126,
+        255
+      ],
+      "max": [
+        129,
+        129,
+        255
+      ],
+      "p05": [
+        127.0,
+        127.0,
+        255.0
+      ],
+      "p95": [
+        128.0,
+        128.0,
+        255.0
+      ]
+    },
+    {
+      "path": "high/bronze-roughness.png",
+      "width": 256,
+      "height": 256,
+      "metersPerTile": 1.0,
+      "channels": 1,
+      "bytes": 31914,
+      "sha256": "d875eb609d0f27e04dd69e6f9d97f6d09fcec1a01737a22ec4e5e1a57668de4e",
+      "mean": [
+        116.596
+      ],
+      "min": [
+        78
+      ],
+      "max": [
+        235
+      ],
+      "p05": [
+        93.0
+      ],
+      "p95": [
+        213.0
+      ]
+    },
+    {
+      "path": "high/bronze-ao.png",
+      "width": 256,
+      "height": 256,
+      "metersPerTile": 1.0,
+      "channels": 1,
+      "bytes": 1851,
+      "sha256": "a5928b893bc81c59e02d8888e691e5641a08ab5848600a6b762c91f8c10f6aea",
+      "mean": [
+        254.964
+      ],
+      "min": [
+        246
+      ],
+      "max": [
+        255
+      ],
+      "p05": [
+        255.0
+      ],
+      "p95": [
+        255.0
+      ]
+    },
+    {
+      "path": "high/bronze-metalness.png",
+      "width": 256,
+      "height": 256,
+      "metersPerTile": 1.0,
+      "channels": 1,
+      "bytes": 17077,
+      "sha256": "15c32792b643e1617296acbabfedc3ab7ac66aa54fc8efb2ce3ead5db6044185",
+      "mean": [
+        219.323
+      ],
+      "min": [
+        15
+      ],
+      "max": [
+        245
+      ],
+      "p05": [
+        32.0
+      ],
+      "p95": [
+        245.0
+      ]
+    },
+    {
+      "path": "low/bronze-baseColor.png",
+      "width": 128,
+      "height": 128,
+      "metersPerTile": 1.0,
+      "channels": 3,
+      "bytes": 17249,
+      "sha256": "41465ba4792f7a952ac3954692b6e9d935c922d75e4568c709bdcb57d2069b17",
+      "mean": [
+        131.93,
+        98.963,
+        57.761
+      ],
+      "min": [
+        36,
+        75,
+        48
+      ],
+      "max": [
+        153,
+        108,
+        68
+      ],
+      "p05": [
+        56.0,
+        80.0,
+        53.0
+      ],
+      "p95": [
+        146.0,
+        104.0,
+        66.0
+      ]
+    },
+    {
+      "path": "low/bronze-normal.png",
+      "width": 128,
+      "height": 128,
+      "metersPerTile": 1.0,
+      "channels": 3,
+      "bytes": 8302,
+      "sha256": "c08d4c7733eceb303b68076a7db582ced8416686978fde09cf6df1b8f405743d",
+      "mean": [
+        127.504,
+        127.499,
+        255.0
+      ],
+      "min": [
+        127,
+        127,
+        255
+      ],
+      "max": [
+        128,
+        128,
+        255
+      ],
+      "p05": [
+        127.0,
+        127.0,
+        255.0
+      ],
+      "p95": [
+        128.0,
+        128.0,
+        255.0
+      ]
+    },
+    {
+      "path": "low/bronze-roughness.png",
+      "width": 128,
+      "height": 128,
+      "metersPerTile": 1.0,
+      "channels": 1,
+      "bytes": 10220,
+      "sha256": "ec338490c3321a799d471c7dcf858f1921ff03c503e1630369d346cfe172393c",
+      "mean": [
+        116.596
+      ],
+      "min": [
+        78
+      ],
+      "max": [
+        245
+      ],
+      "p05": [
+        93.0
+      ],
+      "p95": [
+        212.0
+      ]
+    },
+    {
+      "path": "low/bronze-ao.png",
+      "width": 128,
+      "height": 128,
+      "metersPerTile": 1.0,
+      "channels": 1,
+      "bytes": 1187,
+      "sha256": "029d34f9ce8637e7f5d31be9b8a879664733be2c8ff7467df5a8db546076c3da",
+      "mean": [
+        254.966
+      ],
+      "min": [
+        252
+      ],
+      "max": [
+        255
+      ],
+      "p05": [
+        255.0
+      ],
+      "p95": [
+        255.0
+      ]
+    },
+    {
+      "path": "low/bronze-metalness.png",
+      "width": 128,
+      "height": 128,
+      "metersPerTile": 1.0,
+      "channels": 1,
+      "bytes": 7432,
+      "sha256": "4b348cf3037084af2cfa9b53484a1706f2a79627f17691925f80ce599f14a1fa",
+      "mean": [
+        219.326
+      ],
+      "min": [
+        0
+      ],
+      "max": [
+        255
+      ],
+      "p05": [
+        36.0
+      ],
+      "p95": [
+        247.0
+      ]
+    }
+  ],
+  "preview": {
+    "path": "contact-sheet.png",
+    "repeatProof": "stone-repeat-check.png",
+    "purpose": "Actual unlit maps, not an in-engine rendered material."
+  }
+}

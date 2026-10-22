@@ -1,0 +1,66 @@
+[
+  {
+    "map": "high/olive-bark-normal.webp",
+    "webp_lossless": true,
+    "normal_bytes_identical": true,
+    "normal_angle_mean_deg": 0.0,
+    "normal_angle_p95_deg": 0.0,
+    "normal_angle_max_deg": 0.0
+  },
+  {
+    "map": "low/olive-bark-normal.webp",
+    "webp_lossless": true,
+    "normal_bytes_identical": true,
+    "normal_angle_mean_deg": 0.0,
+    "normal_angle_p95_deg": 0.0,
+    "normal_angle_max_deg": 0.0
+  },
+  {
+    "map": "high/limestone-normal.webp",
+    "webp_lossless": true,
+    "normal_bytes_identical": true,
+    "normal_angle_mean_deg": 0.0,
+    "normal_angle_p95_deg": 0.0,
+    "normal_angle_max_deg": 0.0
+  },
+  {
+    "map": "low/limestone-normal.webp",
+    "webp_lossless": true,
+    "normal_bytes_identical": true,
+    "normal_angle_mean_deg": 0.0,
+    "normal_angle_p95_deg": 0.0,
+    "normal_angle_max_deg": 0.0
+  },
+  {
+    "map": "high/moss-normal.webp",
+    "webp_lossless": true,
+    "normal_bytes_identical": true,
+    "normal_angle_mean_deg": 0.0,
+    "normal_angle_p95_deg": 0.0,
+    "normal_angle_max_deg": 0.0
+  },
+  {
+    "map": "low/moss-normal.webp",
+    "webp_lossless": true,
+    "normal_bytes_identical": true,
+    "normal_angle_mean_deg": 0.0,
+    "normal_angle_p95_deg": 0.0,
+    "normal_angle_max_deg": 0.0
+  },
+  {
+    "map": "high/olive-sprays-normal.webp",
+    "webp_lossless": true,
+    "normal_bytes_identical": true,
+    "normal_angle_mean_deg": 0.0,
+    "normal_angle_p95_deg": 0.0,
+    "normal_angle_max_deg": 0.0
+  },
+  {
+    "map": "low/olive-sprays-normal.webp",
+    "webp_lossless": true,
+    "normal_bytes_identical": true,
+    "normal_angle_mean_deg": 0.0,
+    "normal_angle_p95_deg": 0.0,
+    "normal_angle_max_deg": 0.0
+  }
+]

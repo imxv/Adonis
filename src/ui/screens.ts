@@ -16,6 +16,8 @@ const HOT = E.hot;
 export interface Layer {
   el: HTMLElement;
   onKey?: (e: KeyboardEvent) => void;
+  /** Release owned listeners/observers only; closing a discarded layer must not select or navigate. */
+  dispose?: () => void;
   /** performance.now() when it opened: a layer only hears keys pressed after that. */
   openedAt: number;
 }
@@ -106,6 +108,12 @@ function frame(tag: string, title: string, cls: string) {
 }
 
 function openFrame(host: LayerHost, ov: HTMLElement, onKey: (e: KeyboardEvent) => void, onClose?: () => void) {
+  let disposed = false;
+  const dispose = () => {
+    if (disposed) return;
+    disposed = true;
+    onClose?.();
+  };
   const layer = host.push(ov, (e) => {
     if (isBack(e) || (isOk(e) && document.activeElement === ov.querySelector('.back'))) {
       e.preventDefault();
@@ -115,10 +123,11 @@ function openFrame(host: LayerHost, ov: HTMLElement, onKey: (e: KeyboardEvent) =
     }
     onKey(e);
   });
+  layer.dispose = dispose;
   const close = () => {
     audio.select();
     host.close(layer);
-    onClose?.();
+    dispose();
   };
   ov.querySelector('.back')!.addEventListener('click', close);
   return close;
@@ -171,7 +180,41 @@ export function openCodex(host: LayerHost, tabs: CodexTab[]) {
   let scrollPosition = 0;
   let renderFrame = 0;
   let tabFrame = 0;
+  let gridFrame = 0;
   let closed = false;
+
+  const revealCell = () => {
+    cancelAnimationFrame(gridFrame);
+    gridFrame = requestAnimationFrame(() => {
+      gridFrame = 0;
+      const selected = cells[sel];
+      if (closed || !grid.isConnected || !selected || grid.clientWidth <= 0 || grid.clientHeight <= 0) return;
+      const bounds = grid.getBoundingClientRect();
+      const cell = selected.getBoundingClientRect();
+      const style = getComputedStyle(grid);
+      // Rects include #ui-root's CSS zoom; scroll offsets and client sizes do not.
+      // The grid uses border-box sizing, so computed dimensions retain fractional layout pixels.
+      const width = parseFloat(style.width);
+      const height = parseFloat(style.height);
+      const scaleX = bounds.width / width;
+      const scaleY = bounds.height / height;
+      if (!(scaleX > 0) || !(scaleY > 0)) return;
+      const borderLeft = parseFloat(style.borderLeftWidth) || 0;
+      const borderTop = parseFloat(style.borderTopWidth) || 0;
+      // Scrollbars are hidden; avoid clientWidth/Height rounding the visible edge up.
+      const viewportWidth = width - borderLeft - (parseFloat(style.borderRightWidth) || 0);
+      const viewportHeight = height - borderTop - (parseFloat(style.borderBottomWidth) || 0);
+      const left = (cell.left - bounds.left) / scaleX - borderLeft;
+      const top = (cell.top - bounds.top) / scaleY - borderTop;
+      const right = left + cell.width / scaleX;
+      const bottom = top + cell.height / scaleY;
+      // Scroll this viewport only; scrollIntoView could also move its ancestors.
+      if (cell.width / scaleX > viewportWidth || left < 0) grid.scrollLeft += Math.floor(left);
+      else if (right > viewportWidth) grid.scrollLeft += Math.ceil(right - viewportWidth);
+      if (cell.height / scaleY > viewportHeight || top < 0) grid.scrollTop += Math.floor(top);
+      else if (bottom > viewportHeight) grid.scrollTop += Math.ceil(bottom - viewportHeight);
+    });
+  };
 
   const revealTab = () => {
     cancelAnimationFrame(tabFrame);
@@ -200,7 +243,9 @@ export function openCodex(host: LayerHost, tabs: CodexTab[]) {
     detail.innerHTML = detailHtml(tabs[tab].entries[sel], width);
   };
   const observer = new ResizeObserver(() => {
-    if (closed || renderFrame) return;
+    if (closed) return;
+    revealCell();
+    if (renderFrame) return;
     revealTab();
     if (contentWidth() === layoutWidth && detail.clientHeight === layoutHeight) return;
     renderFrame = requestAnimationFrame(() => {
@@ -227,6 +272,7 @@ export function openCodex(host: LayerHost, tabs: CodexTab[]) {
     renderDetail(contentWidth());
     detail.scrollTop = 0;
     layoutHeight = detail.clientHeight;
+    revealCell();
   };
   const openTab = (t: number) => {
     tab = (t + tabs.length) % tabs.length;
@@ -235,7 +281,8 @@ export function openCodex(host: LayerHost, tabs: CodexTab[]) {
     grid.innerHTML = tabs[tab].entries.map((e) => `<div class="cx-cell">${iconHtml(e, false)}</div>`).join('');
     cells = [...grid.querySelectorAll<HTMLElement>('.cx-cell')];
     cells.forEach((c, i) => {
-      c.addEventListener('mouseenter', () => {
+      // Scrolling can move a cell under a stationary pointer; only real mouse motion retargets it.
+      c.addEventListener('mousemove', () => {
         if (sel !== i) {
           audio.hover();
           show(i);
@@ -270,10 +317,12 @@ export function openCodex(host: LayerHost, tabs: CodexTab[]) {
     observer.disconnect();
     cancelAnimationFrame(renderFrame);
     cancelAnimationFrame(tabFrame);
+    cancelAnimationFrame(gridFrame);
     detail.removeEventListener('scroll', rememberScroll);
   });
   observer.observe(detail);
   observer.observe(tabStrip);
+  observer.observe(grid);
 }
 
 // ---------------------------------------------------------------- how to play

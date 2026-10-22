@@ -12,6 +12,7 @@ import { K, buildCommonTextures, buildKitTextures, buildLevel, textTexture } fro
 import type { StyleKit } from '../styles/types';
 import { decoArt } from '../pixel/decor';
 import { ui } from '../ui/ui';
+import { releaseMobileEntryDisplay } from '../ui/mobileEntry';
 import { settings } from '../settings';
 import { TouchControls } from '../input/touchControls';
 import { DIRS, DIR_VEC } from './dirs';
@@ -56,6 +57,8 @@ import { clearSpellVisuals, updateSpells, zap } from './spells';
 import { destroyTraps, populateTraps, settleTraps, updateTraps, grounded, type Trap } from './traps';
 import { currentPush, destroyCurrents, populateCurrents, updateCurrents, type Current } from './currents';
 import { challengeProgress, destroyChallenges, finishChallenge, populateChallenges, updateChallenge, type Challenge } from './challenge';
+import { HubController } from '../hub/controller';
+import { prepareRun, settleRun, SUPPLIES } from '../meta/profile';
 export type { Trap } from './traps';
 
 type Mode = 'title' | 'play' | 'choose' | 'pause' | 'ascend' | 'transition' | 'dead' | 'end';
@@ -212,6 +215,12 @@ export class GameScene extends Phaser.Scene {
   time0 = 0;
   aimX = 0;
   aimY = 0;
+  private hub?: HubController;
+  private releaseHubAudio?: () => void;
+  private hubSuspension?: { input: boolean; keyboard: boolean; capture: boolean; paused: boolean };
+  private runGeneration = 0;
+  private levelGeneration = 0;
+  private recorded?: { runId: string; score: number; rank: number; date: number; settlement: string; warning?: string | null };
 
   constructor(key = 'game') {
     super(key);
@@ -232,6 +241,14 @@ export class GameScene extends Phaser.Scene {
 
   create() {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.hub?.dispose();
+      this.hub = undefined;
+      this.releaseHubAudio?.();
+      this.releaseHubAudio = undefined;
+      this.hubSuspension = undefined;
+      releaseMobileEntryDisplay();
+      audio.stopMusic(true);
+      ui.dispose();
       this.resetAscension();
       this.ascensionFx?.destroy();
       this.ascensionFx = undefined;
@@ -302,14 +319,68 @@ export class GameScene extends Phaser.Scene {
       this.light.setEnabled(st.light);
     };
     apply(settings.get());
-    settings.onChange(apply);
+    const unsubscribeSettings = settings.onChange(apply);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { unsubscribeSettings(); });
+    this.hub = new HubController({
+      suspendGame: () => this.suspendForHub(),
+      resumeGame: () => this.resumeFromHub(),
+      releaseUI: () => ui.suspend(false),
+      showAdventure: (action) => this.openAdventureMenu(action),
+    });
     this.showTitle();
   }
 
   showTitle() {
+    this.runGeneration++;
     this.mode = 'title';
     ui.showHud(false);
     audio.playHome();
+    this.hub?.show();
+  }
+
+  private suspendForHub() {
+    releaseMobileEntryDisplay();
+    if (!this.hubSuspension) {
+      const keyboard = this.input.keyboard;
+      this.hubSuspension = { input: this.input.enabled, keyboard: !!keyboard?.enabled,
+        capture: !!keyboard?.manager.preventDefault, paused: this.scene.isPaused() };
+      this.touch?.setPlaying(false);
+      this.input.resetPointers();
+      keyboard?.resetKeys();
+      keyboard?.disableGlobalCapture();
+      if (keyboard) keyboard.enabled = false;
+      this.input.enabled = false;
+      // ScenePlugin.pause/resume queue their operations; rapid exit/re-entry must be synchronous.
+      // CREATE itself resets the scene status, so boot's first pause belongs just after that reset.
+      if (this.sys.settings.status === Phaser.Scenes.CREATING) {
+        this.events.once(Phaser.Scenes.Events.CREATE, () => { if (this.hubSuspension) this.sys.pause(); });
+      } else this.sys.pause();
+    }
+    ui.suspend(true);
+    this.releaseHubAudio ??= audio.suspendForMode(true);
+  }
+
+  private resumeFromHub() {
+    const owned = this.hubSuspension;
+    this.hubSuspension = undefined;
+    this.input.resetPointers();
+    const keyboard = this.input.keyboard;
+    keyboard?.resetKeys();
+    if (owned) {
+      this.input.enabled = owned.input;
+      if (keyboard) {
+        keyboard.enabled = owned.keyboard;
+        if (owned.capture) keyboard.enableGlobalCapture();
+      }
+      if (!owned.paused) this.sys.resume();
+    }
+    this.releaseHubAudio?.();
+    this.releaseHubAudio = undefined;
+    ui.suspend(false);
+  }
+
+  private openAdventureMenu(action?: 'new' | 'continue') {
+    ui.resetLayers();
     ui.title({
       save: () => loadRun(),
       initialDifficulty: () => DIFFICULTIES[this.params.get('diff') as DifficultyId]?.id ?? settings.get().diff,
@@ -324,6 +395,8 @@ export class GameScene extends Phaser.Scene {
         this.startRun(undefined, hero, difficulty);
       },
       codex: () => buildCodex(this),
+      initialAction: action,
+      onBack: () => this.hub?.show(),
     });
   }
 
@@ -354,28 +427,44 @@ export class GameScene extends Phaser.Scene {
 
   /** A finished run goes on the local leaderboard and its save is removed. */
   recordRun(victory: boolean) {
-    clearRun();
     const run = this.run;
+    if (this.recorded?.runId === run.runId) return this.recorded;
+    clearRun();
     const date = Date.now();
     const base = { victory, floor: run.level + 1, kills: run.kills, lv: run.xpLevel, secs: Math.round(run.elapsed), diff: run.diff.id };
     const score = scoreOf(base, run.score);
     const peak = this.rhythm.peakRank();
-    const rank = addScore({ ...base, score, date, rank: peak });
+    const rank = addScore({ ...base, score, date, rank: peak, runId: run.runId, supply: run.supply });
+    const result = settleRun({ runId: run.runId, victory, floor: base.floor, kills: run.kills, elapsedSeconds: run.elapsed });
+    const settlement = result.duplicate ? '本次冒险的花园奖励已领取。'
+      : result.applied ? `带回修复碎片 ${result.reward.fragments} · 种子 ${result.reward.seeds} · 花园生长 +${result.reward.growth}`
+      : result.reason === 'unavailable' || result.reason === 'capacity' ? '局外记录暂不可用，请查看花园提示。'
+      : '冒险满 30 秒，并击败 8 名敌人或抵达第 2 层，可带回花园材料。';
+    this.recorded = { runId: run.runId, score, rank, date, settlement, warning: result.warning };
     // The global board hears about it once the end screen is up.
     const entry: RunEntry = { ...base, score, rank: peak, weapon: run.weapons[run.held]?.def.id ?? '' };
-    this.time.delayedCall(1700, () => this.submitOnline(entry));
-    return { score, rank, date };
+    const generation = this.runGeneration;
+    // The existing online service has no assisted-run contract. Supplied runs use their own local board.
+    if (!run.supply && !result.duplicate) this.after(1700, () => {
+      if (this.runGeneration === generation && this.run.runId === run.runId && this.mode === 'end') this.submitOnline(entry, run.runId, generation);
+    });
+    return this.recorded;
   }
 
   /** Send a finished run to the global board: at once if the player has signed a name, else once they type one. */
-  submitOnline(entry: RunEntry) {
+  submitOnline(entry: RunEntry, runId = this.run.runId, generation = this.runGeneration) {
+    const current = () => this.runGeneration === generation && this.run.runId === runId && this.mode === 'end';
+    let sent = false;
     const send = () => {
+      if (!current() || sent) return;
+      sent = true;
       ui.endOnline('sending');
-      submitGlobal(entry).then((r) => ui.endOnline(r ? { rank: r.rank ?? 0, runs: r.runs } : 'offline'));
+      submitGlobal(entry).then((r) => { if (current()) ui.endOnline(r ? { rank: r.rank ?? 0, runs: r.runs } : 'offline'); });
     };
     if (playerName()) send();
     else
       ui.askName((name) => {
+        if (!current()) return;
         setPlayerName(name);
         send();
       });
@@ -400,12 +489,37 @@ export class GameScene extends Phaser.Scene {
   // ---------------------------------------------------------------- run and floors
 
   startRun(saved?: SavedRun, hero?: HeroId, difficulty?: DifficultyId) {
+    this.runGeneration++;
+    this.recorded = undefined;
+    this.hub?.enterRun();
+    ui.resetLayers();
     this.touch?.reset();
     ui.resetDamageFeedback();
     this.clearLevel();
     destroyPets(this);
     if (!saved) this.resetCrystalRuntime();
     this.run = saved ? restoreRun(saved) : newRun(this.params, hero, difficulty);
+    let preparationWarning: string | null = null;
+    if (!saved && this.sys.settings.key === 'game') {
+      const preparation = prepareRun(this.run.runId);
+      preparationWarning = preparation.warning ?? (!preparation.prepared ? '本次未能准备花园补给，仍可正常冒险。' : null);
+      const prepared = preparation.prepared;
+      if (prepared) {
+        this.run.prepared = { ...prepared, effect: { ...prepared.effect } };
+        if (prepared.assisted && prepared.supply) {
+          this.run.supply = { id: prepared.supply, name: SUPPLIES[prepared.supply].name };
+          this.run.mods.maxHp += prepared.effect.maxHpBonus;
+          this.run.hp += prepared.effect.maxHpBonus;
+          this.run.mods.pickupRadius *= prepared.effect.pickupRadiusMultiplier;
+          this.run.mods.dashCooldown *= prepared.effect.dashCooldownMultiplier;
+        }
+      }
+    }
+    // Derive the board marker from the actual receipt as well as older saved metadata.
+    if (!this.run.supply && this.run.prepared?.assisted) {
+      const id = this.run.prepared.supply;
+      this.run.supply = { id: id ?? 'garden-supply', name: id ? SUPPLIES[id]?.name ?? '花园补给' : '花园补给' };
+    }
     this.heroTex = this.run.ascended ? 'jesus' : HEROES[this.run.hero].tex;
     this.combo = 0;
     this.carryTokens = [];
@@ -420,10 +534,22 @@ export class GameScene extends Phaser.Scene {
       this.player.iframes = 1;
     }
     this.enterLevel(true, saved);
+    if (preparationWarning) ui.toast(preparationWarning, 6500);
   }
 
   clearLevel() {
+    this.levelGeneration++;
     this.resetAscension();
+    // Floor timers capture scene state; no old reward, ending or fusion may cross this boundary.
+    this.time.removeAllEvents();
+    this.time.clearPendingEvents();
+    // These untracked images normally expire through Clock callbacks, which this boundary cancels.
+    for (const child of this.children.getChildren()) {
+      if (child instanceof Phaser.GameObjects.Image && ['muzzle', 'b-meteor'].includes(child.texture.key)) {
+        this.tweens.killTweensOf(child);
+        child.destroy();
+      }
+    }
     resetWeaponPreview(this);
     resetPets(this);
     this.carryTokens.push(...packLevelTokens(this));
@@ -438,7 +564,7 @@ export class GameScene extends Phaser.Scene {
     this.obstacles = [];
     this.decor.forEach((s) => s.destroy());
     this.decor = [];
-    this.altar?.parts.forEach((o) => o.destroy());
+    this.altar?.parts.forEach((o) => { this.tweens.killTweensOf(o); o.destroy(); });
     this.altar = undefined;
     clearCores(this);
     this.ehazards = [];
@@ -466,6 +592,14 @@ export class GameScene extends Phaser.Scene {
     this.pendingSpawns = 0;
     clearSpellVisuals(this);
     this.light?.clearStatic();
+  }
+
+  /** Even an already-dispatching old timer cannot affect a new floor or mode. */
+  private after(delay: number, callback: () => void) {
+    const generation = this.levelGeneration;
+    return this.time.delayedCall(delay, () => {
+      if (generation === this.levelGeneration) callback();
+    });
   }
 
   enterLevel(first = false, saved?: SavedRun) {
@@ -541,10 +675,10 @@ export class GameScene extends Phaser.Scene {
     ui.banner(`第${['一', '二', '三', '四'][this.run.level]}层`, kit.name, kit.en, kit.subtitle, first ? 2400 : 2200);
     if (!first) cam.fadeIn(420, 255, 255, 255);
     if (saved && d.boss.cleared) this.spawnTrapdoor(...roomCenter(d.boss));
-    if (saved) this.time.delayedCall(800, () => this.checkFusions());
+    if (saved) this.after(800, () => this.checkFusions());
     // Crystals carried down the trapdoor land beside the knight.
     const carried = this.carryTokens.splice(0);
-    carried.forEach((lv, i) => this.time.delayedCall(700 + i * 150, () => dropLevelToken(this, lv, i, carried.length)));
+    carried.forEach((lv, i) => this.after(700 + i * 150, () => dropLevelToken(this, lv, i, carried.length)));
     if (saved && saved.level === this.run.level) {
       for (const weapon of saved.groundWeapons ?? []) {
         const { x, y, id, onChest, ...state } = weapon;
@@ -679,11 +813,11 @@ export class GameScene extends Phaser.Scene {
     audio.roar();
     this.fx.ring(cx, cy, 60, E.red, 500, 2);
     this.fx.shake(0.1);
-    ['3', '2', '1'].forEach((n, i) => this.time.delayedCall(i * 600, () => {
+    ['3', '2', '1'].forEach((n, i) => this.after(i * 600, () => {
       this.fx.callout(cx, cy - 26, n, E.hot, true);
       audio.beatHit(i === 2);
     }));
-    this.time.delayedCall(1800, () => {
+    this.after(1800, () => {
       // Walked off before the count ended: the altar waits for another go.
       if (!this.altar || roomAt(this.dungeon, this.player.x, this.player.y, 1) !== r) {
         if (this.altar) this.altar.started = false;
@@ -975,6 +1109,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   destroyEnemy(e: Enemy) {
+    e.dead = true;
+    e.boss?.look?.ambient?.destroy();
+    e.boss?.look?.sigil?.destroy();
     e.auraImg?.destroy();
     e.sprite.destroy();
     e.shadow.destroy();
@@ -1105,7 +1242,7 @@ export class GameScene extends Phaser.Scene {
     this.saveProgress();
     const [cx, cy] = roomCenter(r);
     if (bossDown) {
-      this.time.delayedCall(1600, () => this.spawnTrapdoor(cx, cy));
+      this.after(1600, () => this.spawnTrapdoor(cx, cy));
       return;
     }
     ui.toast('房间清空', 900);
@@ -1849,7 +1986,7 @@ export class GameScene extends Phaser.Scene {
       case 'whirl':
         // Two full turns: four sweeps all around, following the knight.
         for (let k = 0; k < 4; k++) {
-          this.time.delayedCall(k * 90, () => {
+          this.after(k * 90, () => {
             if (this.mode !== 'play') return;
             const px = this.player.x;
             const py = this.player.y - 4;
@@ -2524,7 +2661,7 @@ export class GameScene extends Phaser.Scene {
     const owner = this.active;
     const dungeon = this.dungeon;
     for (const b of this.obstacles) {
-      if (!b.dead && b.kind !== 'pillar' && dist2(x, y, b.x, b.y) < (r + b.r) ** 2) this.time.delayedCall(60, () => {
+      if (!b.dead && b.kind !== 'pillar' && dist2(x, y, b.x, b.y) < (r + b.r) ** 2) this.after(60, () => {
         if (o.environmental && (this.mode !== 'play' || this.active !== owner || this.dungeon !== dungeon || owner?.cleared)) return;
         this.damageObstacle(b, 999, o.environmental);
       });
@@ -2548,7 +2685,7 @@ export class GameScene extends Phaser.Scene {
     if (o.dead) return;
     o.hp -= dmg;
     o.sprite.setTintFill(0xffffff);
-    this.time.delayedCall(50, () => o.sprite.active && o.sprite.clearTint());
+    this.after(50, () => o.sprite.active && o.sprite.clearTint());
     if (o.hp <= 0) {
       o.dead = true;
       o.sprite.destroy();
@@ -2608,6 +2745,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   die() {
+    if (this.mode === 'dead' || this.mode === 'end' || this.mode === 'title') return;
     if (this.activeChallenge) finishChallenge(this, false);
     settleTraps(this);
     this.mode = 'dead';
@@ -2619,7 +2757,9 @@ export class GameScene extends Phaser.Scene {
     this.player.gun2.setVisible(false);
     audio.setIntensity(0);
     const rec = this.recordRun(false);
-    this.time.delayedCall(1400, () => {
+    const generation = this.runGeneration;
+    this.after(1400, () => {
+      if (this.runGeneration !== generation || this.mode !== 'dead') return;
       this.mode = 'end';
       ui.showHud(false);
       ui.end({ victory: false, run: this.run, ...rec }, () => this.restart(), () => this.endToTitle());
@@ -3153,8 +3293,8 @@ export class GameScene extends Phaser.Scene {
     }
     const replaced = applyChoice(this.run, c, replaceIndex);
     if (replaced) this.dropWeapon(replaced);
-    this.time.delayedCall(0, () => this.saveProgress());
-    if (c.type === 'spell-new' || c.type === 'spell-up') this.time.delayedCall(350, () => this.checkFusions());
+    this.after(0, () => this.saveProgress());
+    if (c.type === 'spell-new' || c.type === 'spell-up') this.after(350, () => this.checkFusions());
     if (c.type === 'pet') {
       syncPets(this);
       ui.toast(`${PETS[c.kind].name}加入了队伍`);
@@ -3190,9 +3330,9 @@ export class GameScene extends Phaser.Scene {
     this.fx.converge(() => ({ x: p.x, y: p.y - 8 }), G, [c1, c2, E.white], 72);
     // Rings closing in, each timed to shut on the landing.
     for (const [at, r, c] of [[0.1, 110, c1], [0.45, 90, c2], [0.8, 70, E.white]] as const) {
-      this.time.delayedCall(at * 1000, () => this.fx.implode(p.x, p.y - 8, r, c, (G - at) * 1000, at > 0.7 ? 2 : 1));
+      this.after(at * 1000, () => this.fx.implode(p.x, p.y - 8, r, c, (G - at) * 1000, at > 0.7 ? 2 : 1));
     }
-    [0.4, 0.75, 1.05].forEach((at, i) => this.time.delayedCall(at * 1000, () => this.fx.shake(0.02 + i * 0.025)));
+    [0.4, 0.75, 1.05].forEach((at, i) => this.after(at * 1000, () => this.fx.shake(0.02 + i * 0.025)));
 
     // The knight takes on the light: an additive copy of its sprite, brighter as the energy arrives.
     const glow = this.add.image(p.x, p.y, p.sprite.texture.key, p.sprite.frame.name).setDepth(DEPTH.particles - 0.5).setBlendMode(Phaser.BlendModes.ADD).setTintFill(hexToNum(c1)).setAlpha(0);
@@ -3220,7 +3360,7 @@ export class GameScene extends Phaser.Scene {
       },
       onComplete: () => icons.forEach((img) => img.destroy()),
     });
-    this.time.delayedCall(G * 1000, () => this.fusionLands(f, glow, halo));
+    this.after(G * 1000, () => this.fusionLands(f, glow, halo));
   }
 
   /** The landing beat of a fusion: flash, shockwave, and the new spell over the knight's head. */
@@ -3231,7 +3371,7 @@ export class GameScene extends Phaser.Scene {
     const y = p.y - 8;
     this.fx.dim(0, 500);
     this.fx.flash(E.white, 0.85, 170);
-    this.time.delayedCall(110, () => this.fx.flash(c1, 0.35, 560));
+    this.after(110, () => this.fx.flash(c1, 0.35, 560));
     this.fx.ring(x, y, 180, E.white, 520, 4);
     this.fx.ring(x, y, 130, c1, 720, 3);
     this.fx.ring(x, y, 80, c2, 460, 2);
@@ -3258,7 +3398,7 @@ export class GameScene extends Phaser.Scene {
     this.fx.callout(x, iy - 46, SPELLS[f].name, c1, true);
     ui.fusionReward(f);
     this.saveProgress();
-    this.time.delayedCall(800, () => {
+    this.after(800, () => {
       this.fusing = false;
       this.checkFusions();
     });
@@ -3328,6 +3468,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   victory() {
+    if (this.mode === 'end' || this.mode === 'dead' || this.mode === 'title') return;
     this.mode = 'end';
     ui.showHud(false);
     this.cameras.main.fadeIn(600, 255, 255, 255);

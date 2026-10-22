@@ -1,0 +1,183 @@
+{
+  "asset": "Lion Head",
+  "creator": "Tina",
+  "assetId": "lion_head",
+  "originalPage": "https://polyhaven.com/a/lion_head",
+  "license": {
+    "spdx": "CC0-1.0",
+    "providerStatement": "https://polyhaven.com/license",
+    "legalCode": "https://creativecommons.org/publicdomain/zero/1.0/legalcode"
+  },
+  "sourceVersion": "Downloaded 2026-10-21; exact revision identified by source SHA-256; no upstream semantic revision supplied",
+  "sourceFiles": [
+    {
+      "file": "lion_head.gltf",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/lion_head/lion_head_1k.gltf",
+      "bytes": 2746,
+      "sha256": "979bd8c7668c02dc26dafb137f8e9e49ecba9eb74ad8bf79c045e9f48fb40cd8",
+      "downloadedAt": "2026-10-21T11:07:12.729504+00:00"
+    },
+    {
+      "file": "lion_head.bin",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/lion_head/lion_head.bin",
+      "bytes": 1095444,
+      "sha256": "5ed0d6324198711ad30e506789f25e570ee82babbd74f1f09abe459e3c0f9ca3",
+      "downloadedAt": "2026-10-21T11:07:14.294248+00:00"
+    }
+  ],
+  "sourceGenerator": {
+    "generator": "Khronos glTF Blender I/O v4.2.60",
+    "version": "2.0"
+  },
+  "sourceTextures": "Not downloaded, copied, embedded or used. Existing project bronze material only.",
+  "modifications": {
+    "sourcePage": "https://polyhaven.com/a/lion_head",
+    "author": "Tina",
+    "license": "CC0-1.0",
+    "licenseUrl": "https://polyhaven.com/license",
+    "sourceTriangles": 47214,
+    "headTrianglesWithoutBase": 46880,
+    "mouthSourceY": 0.219,
+    "mouthSourceZ": 0.086,
+    "mouthGuardRadius": 0.1525,
+    "booleanSliverSimplifyTolerance": 0.0005,
+    "sliverCollapse": {
+      "maxEdge": 0.0006,
+      "minCrossSquared": 1e-14,
+      "edgeLinkAndOrientationPreserved": true
+    },
+    "sourceWidthScale": 2.1,
+    "muzzleExtraWidthScale": 1.6,
+    "leftManeExpansion": 0.075,
+    "mouthRadiusDepthLift": {
+      "amplitude": 0.12,
+      "radius": 0.19,
+      "sigma": 0.085
+    },
+    "backCasting": {
+      "source": "actual carved volume swept backward to D wall",
+      "sweepVector": [
+        0,
+        0,
+        -0.45
+      ],
+      "transverseTolerance": 0,
+      "postSweepXMap": {
+        "identityBelow": 0.82,
+        "asymptote": 0.849
+      }
+    },
+    "depthScale": 1.28,
+    "verticalKnots": [
+      [
+        0.043,
+        -0.47
+      ],
+      [
+        0.15,
+        -0.4
+      ],
+      [
+        0.195,
+        -0.25
+      ],
+      [
+        0.207,
+        -0.17
+      ],
+      [
+        0.219,
+        0.0
+      ],
+      [
+        0.228,
+        0.17
+      ],
+      [
+        0.25,
+        0.23
+      ],
+      [
+        0.3,
+        0.34
+      ],
+      [
+        0.36,
+        0.405
+      ],
+      [
+        0.436365,
+        0.48
+      ]
+    ],
+    "rightLocalXMap": {
+      "identityBelow": 0.76,
+      "asymptote": 0.85
+    },
+    "mountLocalZ": 2.422921962755196,
+    "rearUVWinlet": [
+      -0.32606413872761886,
+      0.0,
+      -0.2857270942778346
+    ],
+    "qualities": [
+      {
+        "quality": "high",
+        "topologyPreservingSliverCollapses": 5,
+        "vertices": 3067,
+        "triangles": 6138,
+        "positionBytes": 36804,
+        "indexBytes": 73656,
+        "packedBytes": 110460,
+        "sha256": "1ae5b9a6b626e4d4cf9cb77b9f9ccd5542015180bd1c890f3483fa09e8425397",
+        "watertight": true,
+        "boundsUVW": [
+          [
+            -0.38278865814208984,
+            -0.47715872526168823,
+            -0.2969006597995758
+          ],
+          [
+            0.20530404150485992,
+            0.4805631637573242,
+            0.1298414170742035
+          ]
+        ]
+      },
+      {
+        "quality": "low",
+        "topologyPreservingSliverCollapses": 5,
+        "vertices": 1795,
+        "triangles": 3590,
+        "positionBytes": 21540,
+        "indexBytes": 43080,
+        "packedBytes": 64620,
+        "sha256": "2ce79d8798c1e2df7a4c960fa94f36ef81f2e706ef2867948d3f4ee9248b8941",
+        "watertight": true,
+        "boundsUVW": [
+          [
+            -0.3827120065689087,
+            -0.47715872526168823,
+            -0.29719826579093933
+          ],
+          [
+            0.20641040802001953,
+            0.4804576337337494,
+            0.12989695370197296
+          ]
+        ]
+      }
+    ],
+    "generatedModuleBytes": 234478,
+    "versions": {
+      "trimesh": "5.1.1",
+      "numpy": "2.3.5",
+      "manifold3d": "3.5.4",
+      "fast-simplification": "0.2.0"
+    }
+  },
+  "binaryLayout": "Little-endian positions Float32 xyz followed by Uint32 triangle indices; positionBytes marks boundary. Canonical U/across, V/up, W/forward in metres; origin at fixed mouth.",
+  "runtime": "Synchronous Three factory embeds these same bytes as base64 in architecture-spring-lion-mesh.ts. Cached CPU templates are copied per build. Public binaries are inspectable provenance assets; no runtime fetch or extra texture.",
+  "generatedAt": "2026-10-21T11:35:05.057036+00:00",
+  "processingScriptSHA256": "7514c105ea7c797bc311125d0f72b215941dcc01134e3f8671909d570aa3327a"
+}

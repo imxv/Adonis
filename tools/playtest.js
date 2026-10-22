@@ -213,7 +213,7 @@ export function fireWith(id, frames = 12) {
   return s.run.weapons[s.run.held].def.id;
 }
 
-export async function start({ click = true, hero = 0 } = {}) {
+export async function start({ click = true, hero = 0, difficulty } = {}) {
   // Pick panels close at once instead of playing their exit animation, so stepped frames never wait on a timer.
   window.__fastUi = true;
   await wait(800);
@@ -225,6 +225,12 @@ export async function start({ click = true, hero = 0 } = {}) {
     await wait(100);
     // Then the hero: 0 is Adonis, 1 the knight.
     document.querySelectorAll('.overlay.heroes .pk-card')[hero]?.click();
+    await wait(100);
+    // Keep the preselected trial unless the caller explicitly requests another difficulty.
+    if (['easy', 'normal', 'hard'].includes(difficulty)) {
+      document.querySelector(`.difficulty-select [data-difficulty="${difficulty}"]`)?.click();
+    }
+    document.querySelector('.difficulty-select [data-action="confirm"]')?.click();
   }
   await wait(300);
   s = scene();

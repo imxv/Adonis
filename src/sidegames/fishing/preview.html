@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="color-scheme" content="dark" />
+  <title>苇影湖 · 像素钓鱼 v2</title>
+  <style>
+    html,body{margin:0;min-height:100%;background:#0c1c22;color:#ece7d6;font:15px/1.6 system-ui,sans-serif}#fishing-host{min-height:100dvh}.fishing-preview-entry{display:grid;place-content:center;min-height:100dvh;gap:20px;text-align:center;padding:24px;box-sizing:border-box}.fishing-preview-entry[hidden]{display:none}.fishing-preview-entry button{min-height:48px;padding:10px 24px;border:1px solid #d2c28f;background:#23433c;color:inherit;font:inherit;cursor:pointer}
+  </style>
+</head>
+<body>
+  <div id="fishing-host"></div>
+  <div class="fishing-preview-entry" id="preview-entry" hidden>
+    <h1>苇影湖</h1>
+    <p id="preview-status" role="status">钓鱼已退出，输入和动画已清理。</p>
+    <button type="button" id="preview-enter">重新进入钓点</button>
+  </div>
+  <script type="module" src="./preview.ts"></script>
+</body>
+</html>

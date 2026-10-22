@@ -6,6 +6,22 @@ import './mobileEntry.css';
 
 const entries = new WeakMap<LayerHost, { el: HTMLElement; cancel: () => void; focus: () => void }>();
 let entryId = 0;
+let activeDisplay: ReturnType<typeof requestMobileDisplay> | undefined;
+let pendingEntry: { cancel: () => void } | undefined;
+
+/** Discard only this host's unfinished rotation dialog, including its display request. */
+export function cancelMobileEntry(host: LayerHost): void {
+  entries.get(host)?.cancel();
+}
+
+/** Release the main-line entry's display lease when returning to another mode. */
+export function releaseMobileEntryDisplay(): void {
+  const display = activeDisplay;
+  activeDisplay = undefined;
+  pendingEntry?.cancel();
+  pendingEntry = undefined;
+  display?.cancel();
+}
 
 /** Call directly from the title's user gesture, before selection or loading delays. */
 export function beginMobileEntry(host: LayerHost, onReady: () => void): void {
@@ -15,6 +31,7 @@ export function beginMobileEntry(host: LayerHost, onReady: () => void): void {
     return;
   }
   existing?.cancel();
+  pendingEntry?.cancel();
   if (!isTouchBrowser()) {
     onReady();
     return;
@@ -22,6 +39,7 @@ export function beginMobileEntry(host: LayerHost, onReady: () => void): void {
 
   // Fullscreen needs this synchronous user-gesture chain; its promise never gates entry.
   const display = requestMobileDisplay();
+  activeDisplay = display;
   if (isLandscapeViewport()) {
     onReady();
     return;
@@ -66,8 +84,12 @@ export function beginMobileEntry(host: LayerHost, onReady: () => void): void {
     events.abort();
     cleanupObserver.disconnect();
     entries.delete(host);
+    if (pendingEntry === entry) pendingEntry = undefined;
     if (action === 'portrait') display.portrait();
-    else if (action === 'cancel') display.cancel();
+    else if (action === 'cancel') {
+      display.cancel();
+      if (activeDisplay === display) activeDisplay = undefined;
+    }
     host.close(layer);
     if (!detached && previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
     if (action !== 'cancel') onReady();
@@ -92,7 +114,9 @@ export function beginMobileEntry(host: LayerHost, onReady: () => void): void {
       if (!event.repeat) (document.activeElement === cancel ? cancel : portrait).click();
     }
   });
-  entries.set(host, { el: ov, cancel: () => finish('cancel'), focus });
+  const entry = { el: ov, cancel: () => finish('cancel'), focus };
+  entries.set(host, entry);
+  pendingEntry = entry;
   portrait.addEventListener('click', () => finish('portrait'), { signal: events.signal });
   cancel.addEventListener('click', () => finish('cancel'), { signal: events.signal });
   window.addEventListener('mobileviewportchange', () => {

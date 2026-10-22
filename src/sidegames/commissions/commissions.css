@@ -1,0 +1,77 @@
+.acom {
+  position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column;
+  min-width: 0; min-height: 0; overflow: hidden; background: #172b29;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  color: #f4e6bf; font: 400 14px/1.6 var(--ag-font); -webkit-tap-highlight-color: transparent;
+}
+.acom button { min-width: 44px; min-height: 44px; padding: 8px 12px; margin: 0; border: 2px solid #8e7950; border-radius: 0; box-shadow: inset 0 0 0 2px #24352c; background: #243b32; color: #f4e6bf; font: inherit; line-height: 1.4; cursor: pointer; touch-action: manipulation; }
+.acom button:hover:not(:disabled) { background: #375340; border-color: #d2bb7e; }
+.acom button:focus-visible, .acom-canvas:focus-visible { outline: 2px solid #bce5dd; outline-offset: -4px; }
+.acom button:disabled { color: #a4aa99; border-color: #566759; cursor: default; opacity: .8; }
+.acom button[aria-pressed='true'] { background: #574f32; border-color: #e0c77c; color: #fff2c8; }
+.acom-hud { flex: none; display: flex; gap: 12px; align-items: center; padding: 4px 10px; min-height: 52px; border-bottom: 2px solid #998353; background: #1d302a; }
+.acom h1 { flex: none; font: inherit; font-size: 16px; margin: 0; color: #edcf8b; }
+.acom-progress { flex: 1; min-width: 0; font-size: 12px; color: #c9d0b2; }
+.acom-hud button { flex: none; }
+.acom-hud button span { color: #b7bca7; font-size: 11px; }
+.acom-stage { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+.acom-canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; touch-action: none; cursor: crosshair; }
+.acom-notice { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 20px); margin: 0; padding: 5px 10px; border: 1px solid #7c7855; background: rgba(23,43,37,.92); color: #eee1bd; text-align: center; font-size: 12px; pointer-events: none; }
+.acom-notice[data-error='true'], .acom-dialogue-feedback[data-error='true'] { color: #ffd4a8; border-color: #ba875b; }
+.acom-talking .acom-notice { visibility: hidden; }
+.acom-toolbar { flex: none; display: flex; justify-content: center; gap: 10px; padding: 7px 10px; border-top: 2px solid #998353; background: #1d302a; }
+.acom-locations { display: flex; gap: 6px; }
+.acom-locations button { min-width: 112px; }
+.acom-interact { min-width: 200px !important; }
+.acom-conversation { position: absolute; inset: 0; display: none; align-items: flex-end; justify-content: center; padding: 12px; background: linear-gradient(transparent 50%,#10231b50); }
+.acom-talking .acom-conversation { display: flex; }
+.acom-dialogue { display: flex; flex-direction: column; min-height: 0; width: min(620px,100%); max-height: 52%; border: 3px solid #b9a06b; outline: 2px solid #182e25; background: #24392f; box-shadow: 5px 5px 0 #10241ccc; }
+.acom-dialogue > header { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 6px 4px 14px; border-bottom: 2px solid #786f4d; }
+.acom-dialogue > header > div { display: flex; align-items: baseline; gap: 14px; }
+.acom h2 { font: inherit; font-size: 16px; margin: 0; color: #edcf8b; }
+.acom-dialogue > header span { font-size: 12px; color: #c6ccaf; }
+.acom-dialogue > header button { padding: 0 8px; font-size: 24px; line-height: 1; }
+.acom-dialogue-body { padding: 12px 16px; min-height: 0; overflow: auto; overscroll-behavior: contain; touch-action: pan-y; }
+.acom-dialogue-body p { margin: 0 0 10px; overflow-wrap: anywhere; }
+.acom-speech { color: #e9d8aa; font-size: 14px; }
+.acom-topics { display: flex; gap: 8px; margin-bottom: 12px; }
+.acom-topics button { flex: 1; padding-inline: 8px; }
+.acom-request-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.acom h3 { margin: 0 0 8px; color: #e4c57e; font: inherit; font-size: 16px; }
+.acom-request-heading > span { font-size: 12px; color: #c6ccaf; }
+.acom h4 { margin: 12px 0 4px; color: #d1bd89; font: inherit; font-size: 12px; }
+.acom-items, .acom-rewards { list-style: none; padding: 0; margin: 0 0 12px; }
+.acom-items li, .acom-rewards li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px dotted #66704e; }
+.acom-items li > div, .acom-rewards li > div { min-width: 0; }
+.acom-items small, .acom-rewards small { display: block; color: #b3bfa8; font-size: 12px; line-height: 1.6; }
+.acom-items li > span, .acom-rewards li > span { flex: none; max-width: 40%; color: #c6ccaf; font-size: 12px; text-align: right; }
+.acom-items li[data-enough='false'] > span { color: #f0bda1; }
+.acom-items li[data-enough='true'] > span { color: #bfd69d; }
+.acom .acom-deliver { width: 100%; background: #b9a36b; color: #1c2e28; border-color: #ead3a0; box-shadow: inset 0 0 0 2px #9b8759; }
+.acom .acom-deliver:disabled { color: #c0c5ae; background: #344338; border-color: #667357; box-shadow: none; }
+.acom-rules { margin-top: 8px !important; color: #b9c3a8; font-size: 12px; }
+.acom-dialogue-feedback { flex: none; padding: 7px 14px; margin: 0; border-top: 1px solid #776e4c; color: #c6ccaf; font-size: 12px; max-height: 28%; overflow: auto; touch-action: pan-y; }
+@media (max-width: 620px) {
+  .acom-hud { padding-inline: 8px; gap: 8px; }
+  .acom h1 { font-size: 15px; }
+  .acom-hud button span { display: none; }
+  .acom-toolbar { gap: 5px; flex-direction: column; padding: 6px 8px; }
+  .acom-locations button { flex: 1; min-width: 0; }
+  .acom-interact { min-width: 0 !important; }
+  .acom-conversation { padding: 8px; }
+  .acom-dialogue { max-height: 54%; }
+  .acom-dialogue-body { padding: 10px 12px; }
+  .acom-dialogue > header > div { gap: 10px; }
+}
+@media (max-height: 520px) {
+  .acom-hud { min-height: 44px; padding-block: 0; }
+  .acom-toolbar { padding-block: 4px; gap: 8px; }
+  .acom-locations button { min-width: 90px; }
+  .acom-interact { min-width: 200px !important; }
+  .acom-notice { top: 5px; padding-block: 3px; }
+  .acom-conversation { padding: 8px; }
+  .acom-dialogue { max-height: 100%; }
+  .acom-dialogue-feedback { padding-block: 5px; }
+}
+@media (max-height: 520px) and (min-width: 621px) { .acom-toolbar { flex-direction: row; } }
+@media (forced-colors: active) { .acom button, .acom-dialogue { border-color: CanvasText; } }

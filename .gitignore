@@ -1,4 +1,7 @@
-node_modules/
+node_modules
 dist/
 .DS_Store
 *.log
+output/
+src/world3d/evidence/
+src/sidegames/fishing/evidence/

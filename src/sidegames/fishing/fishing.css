@@ -1,0 +1,134 @@
+/* Game HUD around a real pixel scene. Inventory appears only after interaction. */
+.afish { --afish-power:0%; --afish-tension:0%; --afish-progress:0%; --afish-safe-left:22%; --afish-safe-width:50%; position:absolute; inset:0; display:flex; flex-direction:column; min-width:0; min-height:0; overflow:hidden; padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); background:#14272a; color:#f4e6bf; font:400 14px/1.5 var(--ag-font); color-scheme:dark; -webkit-tap-highlight-color:transparent; }
+.afish *, .afish *::before, .afish *::after { box-sizing:border-box; }
+.afish [hidden] { display:none !important; }
+.afish button { min-width:44px; min-height:44px; padding:8px 12px; margin:0; border:2px solid #8e7950; border-radius:0; box-shadow:inset 0 0 0 2px #20332e; background:#263e35; color:#f4e6bf; font:inherit; line-height:1.35; cursor:pointer; touch-action:manipulation; -webkit-user-select:none; user-select:none; }
+.afish button:hover:not(:disabled) { background:#36543f; border-color:#d2bb7e; }
+.afish button:focus-visible { outline:2px solid #bce5dd; outline-offset:-5px; }
+.afish button:disabled { color:#9fae9c; border-color:#526656; background:#243830; cursor:default; }
+.afish-hud { flex:none; display:flex; align-items:center; justify-content:space-between; gap:14px; min-height:58px; padding:5px 12px; border-bottom:2px solid #a28a59; background:#1b302d; }
+.afish-place { display:flex; align-items:center; gap:15px; min-width:0; }
+.afish-place h1 { margin:0; color:#edcf8b; font:inherit; font-size:18px; white-space:nowrap; }
+.afish-place>span { color:#c9d0b2; font-size:12px; white-space:nowrap; }
+.afish-clock { display:inline-block; margin-left:10px; color:#9dbeb6; font-variant-numeric:tabular-nums; }
+.afish-hud-actions { display:flex; align-items:center; gap:8px; flex:none; }
+.afish-hud-actions button { display:flex; align-items:center; justify-content:center; gap:8px; padding-inline:12px; font-size:13px; }
+.afish-basket-button strong { color:#e7c979; font:inherit; }
+.afish-basket-icon { position:relative; display:inline-block; width:16px; height:12px; margin:5px 2px 0; border:2px solid #c7af72; background:repeating-linear-gradient(90deg,transparent 0 3px,#c7af7259 3px 5px); flex:none; }
+.afish-basket-icon::before { content:''; position:absolute; left:2px; top:-8px; width:8px; height:6px; border:2px solid #c7af72; border-bottom:0; }
+.afish-desktop-key { margin-left:5px; color:#a9b69c; font-size:10px; }
+.afish-stage { position:relative; isolation:isolate; flex:1; min-height:0; overflow:hidden; background:#173d4c; }
+.afish-canvas { display:block; width:100%; height:100%; image-rendering:pixelated; touch-action:none; }
+.afish-scene-cue { position:absolute; z-index:1; top:12px; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:8px; width:max-content; max-width:calc(100% - 24px); margin:0; padding:7px 12px; border:2px solid #8a8158; box-shadow:2px 2px 0 #102925; background:#172d29ed; color:#f0e2b8; text-align:center; font-size:13px; line-height:1.5; pointer-events:none; }
+.afish-cue-mark { flex:none; color:#e0c477; font-family:var(--ag-font),monospace; font-size:15px; }
+.afish-scene-label { position:absolute; bottom:9px; left:12px; padding:3px 6px; color:#cad3b5; background:#122a27bf; font-size:10px; line-height:1.5; pointer-events:none; }
+.afish-command { flex:none; display:grid; grid-template-columns:minmax(0,1fr) 220px; column-gap:24px; row-gap:8px; align-items:center; padding:11px 18px 9px; border-top:2px solid #a28a59; background:#1b302d; }
+.afish-information { min-width:0; max-height:190px; overflow:auto; overscroll-behavior:contain; touch-action:pan-y; scrollbar-color:#8a8158 #172b27; }
+.afish-title-row { display:flex; align-items:baseline; gap:12px; margin-bottom:4px; }
+.afish-step { flex:none; color:#c2ac75; font-size:11px; }
+.afish-command h2 { margin:0; color:#f3e6bf; font:inherit; font-size:16px; line-height:1.5; }
+.afish-instruction { margin:0 0 8px; color:#b7c4ad; font-size:12px; line-height:1.5; }
+.afish-meters { max-width:650px; padding-right:3px; }
+.afish-meter-label { display:flex; align-items:center; gap:10px; margin-bottom:5px; color:#d7dbb9; font-size:11px; }
+.afish-meter-label strong { color:#ebcc87; font:inherit; font-variant-numeric:tabular-nums; }
+.afish-meter-note { margin-left:auto; color:#8fa998; font-size:10px; }
+.afish-power-track { position:relative; height:10px; padding:1px; border:1px solid #6e7853; background:#101f23; }
+.afish-power-fill { width:var(--afish-power); height:100%; background:#b8c77c; }
+.afish-power-target { position:absolute; top:0; bottom:0; left:50%; width:32%; border-inline:2px solid #f0e0a1; background:#f3e3a11c; }
+.afish-tension-track { position:relative; height:13px; margin:0 3px; border:1px solid #897b54; background:#725141; }
+.afish-safe-zone { position:absolute; inset-block:0; left:var(--afish-safe-left); width:var(--afish-safe-width); border-inline:1px solid #d2d9a3; background:#7d9d68; }
+.afish-tension-needle { position:absolute; top:-4px; bottom:-4px; width:4px; left:clamp(2px,var(--afish-tension),calc(100% - 2px)); transform:translateX(-50%); background:#fff0bc; box-shadow:0 0 0 1px #263e35; }
+.afish-progress-row { display:flex; align-items:center; gap:10px; margin-top:7px; color:#bbcab0; font-size:10px; }
+.afish-progress-row>strong { min-width:29px; font:inherit; color:#aad7cd; text-align:right; font-variant-numeric:tabular-nums; }
+.afish-progress-track { flex:1; min-width:0; height:6px; border:1px solid #4e7266; background:#10272a; }
+.afish-progress-fill { width:var(--afish-progress); height:100%; background:#82b7b0; }
+.afish-controls { align-self:center; min-width:0; text-align:center; }
+.afish .afish-primary,.afish .afish-retry { width:100%; min-height:52px; padding:10px 10px; border-color:#ead3a0; background:#b9a36b; box-shadow:inset 0 0 0 2px #907b4e,3px 3px 0 #101f23; color:#1c2e28; font-size:16px; }
+.afish .afish-primary:hover:not(:disabled),.afish .afish-retry:hover:not(:disabled) { background:#d0b87b; border-color:#fff0bd; }
+.afish .afish-primary:disabled,.afish .afish-retry:disabled { background:#52614a; color:#b9c2a7; border-color:#798169; box-shadow:inset 0 0 0 2px #3a4b3d; }
+.afish .afish-primary:active:not(:disabled),.afish .afish-retry:active:not(:disabled),.afish[data-pressed=true] .afish-primary,.afish[data-held=true] .afish-primary { background:#ceb679; box-shadow:inset 0 0 0 2px #7d6b40,1px 1px 0 #101f23; }
+.afish-primary-hint { margin:7px 0 0; color:#c6c9a8; font-size:11px; line-height:1.4; }
+.afish-keyhint { margin:4px 0 0; color:#839c8d; font-size:10px; line-height:1.4; }
+.afish-settlement { max-height:75px; overflow:auto; overscroll-behavior:contain; touch-action:pan-y; margin:7px 0 0; padding:6px 9px; border-left:2px solid #b4c381; background:#233d32; color:#dbdcb4; font-size:12px; line-height:1.6; }
+.afish-status { grid-column:1/-1; max-height:36px; overflow:auto; overscroll-behavior:contain; touch-action:pan-y; margin:0; color:#b8c3a7; font-size:11px; line-height:1.5; overflow-wrap:anywhere; }
+.afish[data-phase=error] .afish-status,.afish[data-phase=error] .afish-settlement { color:#ffd4a8; border-color:#ba875b; }
+.afish[data-phase=bite] .afish-scene-cue { color:#fff0be; border-color:#f0cb75; background:#694b2bed; }
+.afish[data-phase=bite] .afish-cue-mark { color:#fff0be; }
+.afish[data-phase=bite] .afish-primary { border-color:#ffd39b; background:#c28b50; color:#241f20; }
+.afish[data-surging=true] .afish-scene-cue { border-color:#d49c6c; color:#ffdbac; }
+.afish[data-tension-zone=high] .afish-tension-needle { background:#f2ae8b; }
+.afish[data-phase=success] .afish-scene-cue { border-color:#b4c381; color:#e1e8b5; }
+.afish-panels { position:absolute; z-index:10; inset:0; display:flex; align-items:center; justify-content:center; padding:max(14px,env(safe-area-inset-top)) max(14px,env(safe-area-inset-right)) max(14px,env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left)); background:#0c191cc7; }
+.afish-panel { width:min(450px,100%); max-height:100%; min-height:0; display:flex; flex-direction:column; border:3px solid #c0a573; outline:2px solid #172925; background:#23392f; box-shadow:6px 6px 0 #0c191ccc; }
+.afish-panel>header { flex:none; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:4px 6px 4px 15px; border-bottom:2px solid #786f4d; }
+.afish-panel h2 { margin:0; color:#edcf8b; font:inherit; font-size:16px; }
+.afish-panel>header button { font-size:23px; padding:0 8px; }
+.afish-panel-body { min-height:0; overflow:auto; overscroll-behavior:contain; touch-action:pan-y; padding:14px 16px; }
+.afish-panel-lead { margin:0 0 14px; color:#ded9b4; font-size:13px; }
+.afish-fish-list { padding:0; margin:0; list-style:none; }
+.afish-fish-list li { display:grid; grid-template-columns:28px minmax(0,1fr) auto; align-items:center; column-gap:10px; row-gap:3px; padding:12px 0; border-top:1px dotted #6c7651; }
+.afish-fish-list li>strong { color:#e1ce92; font:inherit; }
+.afish-fish-count { color:#c7d4b1; font-size:16px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.afish-fish-list small { grid-column:2/-1; color:#a5b99f; font-size:11px; line-height:1.5; }
+.afish-fish-list li[data-caught=true]>strong::after { content:' 入篓'; color:#b9d6a5; font-size:10px; }
+.afish-fish-pixel { position:relative; display:inline-block; width:18px; height:8px; margin-left:7px; border-block:2px solid #7f9f83; background:var(--fish-color,#b4cda0); box-shadow:2px 0 0 -1px var(--fish-color,#b4cda0); }
+.afish-fish-pixel::before { content:''; position:absolute; left:-6px; top:-2px; width:4px; height:8px; background:var(--fish-color,#b4cda0); }
+.afish-fish-pixel::after { content:''; position:absolute; right:2px; top:0; width:2px; height:2px; background:#20342d; }
+.afish-fish-list .afish-empty-basket { display:block; color:#a5b99f; font-size:12px; }
+.afish-panel-note { margin:15px 0 0; color:#a7b79e; font-size:11px; line-height:1.7; }
+.afish-panel-status { flex:none; max-height:20%; overflow:auto; overscroll-behavior:contain; touch-action:pan-y; padding:8px 14px; margin:0; border-top:1px solid #776e4c; color:#e5c393; font-size:11px; line-height:1.5; }
+.afish-panel>footer { flex:none; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 12px; border-top:1px solid #776e4c; }
+.afish-panel>footer>span { color:#9cac97; font-size:11px; }
+.afish-sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); border:0; white-space:nowrap; }
+@media (max-width:650px) {
+  .afish-hud { min-height:58px; gap:6px; padding:5px 8px; }
+  .afish-place { display:block; }
+  .afish-place h1 { font-size:15px; line-height:1.4; }
+  .afish-place>span { font-size:10px; }
+  .afish-clock { margin-left:5px; }
+  .afish-hud-actions { gap:5px; }
+  .afish-hud-actions button { padding-inline:8px; gap:6px; font-size:12px; }
+  .afish-desktop-key { display:none; }
+  .afish-scene-cue { top:10px; padding:6px 8px; font-size:12px; max-width:calc(100% - 16px); }
+  .afish-scene-label { bottom:7px; left:8px; font-size:9px; }
+  .afish-command { grid-template-columns:minmax(0,1fr) 128px; gap:8px 12px; padding:10px 9px 8px; }
+  .afish-title-row { display:block; margin-bottom:4px; }
+  .afish-step { display:block; font-size:10px; margin-bottom:3px; }
+  .afish-command h2 { font-size:14px; line-height:1.4; }
+  .afish-instruction { font-size:11px; margin-bottom:7px; }
+  .afish .afish-primary,.afish .afish-retry { min-height:56px; padding:9px 5px; font-size:14px; }
+  .afish-primary-hint { font-size:10px; line-height:1.5; }
+  .afish-keyhint { display:none; }
+  .afish-meter-label { gap:7px; font-size:10px; }
+  .afish-meter-note { display:none; }
+  .afish-status { font-size:10px; max-height:32px; }
+  .afish-settlement { font-size:11px; max-height:83px; padding:5px 7px; }
+  .afish-panels { padding:10px; }
+  .afish-panel-body { padding:12px; }
+}
+@media (max-height:520px) and (min-width:651px) {
+  .afish-hud { min-height:50px; padding-block:1px; }
+  .afish-place h1 { font-size:16px; }
+  .afish-scene-cue { top:6px; padding:4px 9px; font-size:12px; }
+  .afish-scene-label { display:none; }
+  .afish-command { padding:7px 12px 6px; grid-template-columns:minmax(0,1fr) 190px; gap:5px 18px; }
+  .afish-information { max-height:132px; }
+  .afish-title-row { margin-bottom:2px; }
+  .afish-command h2 { font-size:14px; }
+  .afish-instruction { margin-bottom:5px; font-size:11px; }
+  .afish-meter-label { margin-bottom:3px; font-size:10px; }
+  .afish-tension-track { height:10px; }
+  .afish-progress-row { margin-top:5px; }
+  .afish .afish-primary,.afish .afish-retry { min-height:46px; font-size:14px; }
+  .afish-primary-hint { font-size:10px; margin-top:5px; }
+  .afish-keyhint { display:none; }
+  .afish-status { max-height:30px; font-size:10px; }
+  .afish-settlement { max-height:56px; font-size:11px; }
+  .afish-panels { padding:8px; }
+  .afish-panel { width:min(520px,100%); }
+  .afish-panel-body { padding:9px 14px; }
+  .afish-panel-lead { margin-bottom:7px; }
+  .afish-fish-list li { padding-block:8px; }
+}
+@media (prefers-reduced-motion:reduce) { .afish *, .afish *::before, .afish *::after { animation:none !important; transition:none !important; } }
+@media (forced-colors:active) { .afish button,.afish-panel,.afish-scene-cue { border-color:CanvasText; } .afish-tension-needle { background:CanvasText; } .afish-safe-zone { border:2px solid Highlight; } }

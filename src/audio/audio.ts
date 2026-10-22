@@ -13,6 +13,25 @@ class AudioEngine {
   private initializing?: Promise<void>;
   muted = false;
   private silentDepth = 0;
+  private readonly modeSuspensions = new Set<symbol>();
+
+  /**
+   * A mode owns its own lease. Releasing an old mode cannot unmute a newer one.
+   * `keepMusic` only silences game sounds, so the hall can keep the home theme playing.
+   */
+  suspendForMode(keepMusic = false): () => void {
+    const token = Symbol('audio-mode');
+    this.modeSuspensions.add(token);
+    if (!keepMusic) {
+      Tone.getTransport().pause();
+      Tone.getDestination().mute = true;
+    }
+    return () => {
+      if (!this.modeSuspensions.delete(token) || this.modeSuspensions.size) return;
+      Tone.getDestination().mute = this.muted;
+      if (this.loops.length) Tone.getTransport().start();
+    };
+  }
 
   /** Run an isolated training scene without scheduling sounds or consuming sound throttles. */
   silently<T>(run: () => T): T {
@@ -71,10 +90,11 @@ class AudioEngine {
   setVolumes(music: number, sfx: number) {
     this.vol = { music: (music / 10) * 0.6, sfx: (sfx / 10) * 1.125 };
     if (!this.music || !this.sfx) return;
-    this.safe(() => {
+    // Settings must update the buses even while an external mode suppresses SFX.
+    try {
       this.music.gain.rampTo(this.vol.music, 0.08);
       this.sfx.gain.rampTo(this.vol.sfx, 0.08);
-    });
+    } catch { /* A closing audio context must not interrupt the settings page. */ }
   }
 
   init(): Promise<void> {
@@ -180,7 +200,7 @@ class AudioEngine {
   }
 
   private gate(key: string, ms: number): boolean {
-    if (this.silentDepth) return false;
+    if (this.silentDepth || this.modeSuspensions.size) return false;
     const now = performance.now();
     if ((this.last[key] ?? 0) + ms > now) return false;
     this.last[key] = now;
@@ -197,7 +217,7 @@ class AudioEngine {
 
   setMuted(m: boolean) {
     this.muted = m;
-    Tone.getDestination().mute = m;
+    Tone.getDestination().mute = m || this.modeSuspensions.size > 0;
   }
 
   // ---------- SFX ----------
@@ -212,7 +232,7 @@ class AudioEngine {
 
   /** Audio must never break a game frame. */
   private safe(fn: () => void) {
-    if (!this.ready || this.silentDepth) return;
+    if (!this.ready || this.silentDepth || this.modeSuspensions.size) return;
     try {
       fn();
     } catch {
@@ -589,7 +609,7 @@ class AudioEngine {
       if (step % 8 === 0) this.bar++;
     }, '8n').start(0);
     this.loops.push(loop);
-    transport.start();
+    if (!this.modeSuspensions.size) transport.start();
   }
 
   /**
@@ -894,7 +914,9 @@ class AudioEngine {
     this.intensity = level;
   }
 
-  stopMusic() {
+  /** Final scene teardown also revokes a style waiting for asynchronous audio initialization. */
+  stopMusic(clearStyle = false) {
+    if (clearStyle) this.kit = undefined;
     const transport = Tone.getTransport();
     this.loops.forEach((l) => l.dispose());
     this.loops = [];

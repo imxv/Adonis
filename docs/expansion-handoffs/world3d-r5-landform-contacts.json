@@ -1,0 +1,1195 @@
+{
+  "status": "derived runtime coordinate readback; C6f finite local engineering and medium native branch return complete; later D-only soil candidate integrated with frozen water/route contacts; art unaccepted",
+  "fromRuntimeLayoutSha256": "97068a1529cbcf410392577a6dcf15553f9e6c9f72e7e63b8c8dcc0a66ec9b0a",
+  "coordinateSystem": "world metres, Y up, north -Z; all contours are XZ",
+  "frozen": [
+    "three cameras",
+    "sanctuary.main position/size/column/door",
+    "grove.bridge origin/span/2.4m total width/.8m safe half-width",
+    "cliff.cascade fc877 and transform",
+    "main cascade tiers/ledge/water.pool",
+    "discovery and valve IDs/targets"
+  ],
+  "flights": [
+    {
+      "id": "sanctuary.steps.lower",
+      "kind": "stairs",
+      "position": [
+        10.9,
+        14.2,
+        -18.2
+      ],
+      "end": [
+        19.5,
+        17.9,
+        -20.3
+      ],
+      "yaw": -1.3312970608847374,
+      "size": [
+        3.2,
+        3.6999999999999993,
+        8.852683209061533
+      ],
+      "levels": 21,
+      "risePerStep": 0.17619047619047615,
+      "runPerStep": 0.42155634328864444
+    },
+    {
+      "id": "sanctuary.steps.upper",
+      "kind": "stairs",
+      "position": [
+        20.5,
+        17.9,
+        -23.8
+      ],
+      "end": [
+        15,
+        22,
+        -28
+      ],
+      "yaw": 0.9186249150378268,
+      "size": [
+        3.2,
+        4.100000000000001,
+        6.920260110718382
+      ],
+      "levels": 23,
+      "risePerStep": 0.17826086956521744,
+      "runPerStep": 0.3008808743790601
+    }
+  ],
+  "landing": {
+    "from": [
+      19.5,
+      17.9,
+      -20.3
+    ],
+    "to": [
+      20.5,
+      17.9,
+      -23.8
+    ],
+    "width": 3.2,
+    "level": 17.9,
+    "outlineXZ": [
+      [
+        19.12045405662311,
+        -21.854331006210117
+      ],
+      [
+        19.528938234620433,
+        -22.52837149771723
+      ],
+      [
+        21.471061765379567,
+        -25.07162850228277
+      ],
+      [
+        19.87954594337689,
+        -18.745668993789884
+      ]
+    ],
+    "minimumBodyRadius": 0.28
+  },
+  "bridgeEastCauseway": {
+    "axis": [
+      [
+        8.1,
+        14.2,
+        -16
+      ],
+      [
+        10.9,
+        14.2,
+        -18.2
+      ]
+    ],
+    "groundCrestY": 14.06,
+    "crestWidth": 2.8,
+    "footWidthMax": 9,
+    "excludeBridgeSpan": {
+      "center": [
+        4.5,
+        14.6,
+        -16
+      ],
+      "localAbsXBelow": 3.6,
+      "halfWidth": 1.2
+    }
+  },
+  "springBranch": {
+    "revision": "r5-spring-route-fix-02",
+    "width": 0.76,
+    "centerHalfWidth": 0.08,
+    "additionalSupportClearance": 0.16,
+    "sameStepLocalSideExit": [
+      [
+        18.706521739130434,
+        19.23695652173913,
+        -25.169565217391305
+      ],
+      [
+        20.163114387199787,
+        19.23695652173913,
+        -27.07700797081546
+      ]
+    ],
+    "remaining": [
+      [
+        20.8,
+        19.23695652173913,
+        -27.07700797081546
+      ],
+      [
+        23,
+        18,
+        -25
+      ]
+    ],
+    "note": "same-step local +X exit, short level outer turn, then shrine rear; allowed centres stay within .08m and C clears this plus .28m body radius; the former [20,18.81,-25] turn re-entered the upper flight, landing and A wall"
+  },
+  "grovePool": {
+    "level": 11.7,
+    "outlineXZ": [
+      [
+        2,
+        -14.6
+      ],
+      [
+        4,
+        -12
+      ],
+      [
+        6.8,
+        -9
+      ],
+      [
+        12.7,
+        -9.5
+      ],
+      [
+        16,
+        -11.8
+      ],
+      [
+        16.6,
+        -15.3
+      ],
+      [
+        14,
+        -17.2
+      ],
+      [
+        11,
+        -16.5
+      ],
+      [
+        10,
+        -14.6
+      ],
+      [
+        7.7,
+        -14.4
+      ],
+      [
+        6.6,
+        -16.2
+      ],
+      [
+        5.7,
+        -18.2
+      ],
+      [
+        3.8,
+        -18
+      ]
+    ],
+    "bedYRange": [
+      10.5,
+      11.3
+    ],
+    "outerFootTargetXZ": {
+      "x": [
+        -0.5,
+        19
+      ],
+      "z": [
+        -23.5,
+        3.5
+      ]
+    },
+    "downhillBlendWidthM": [
+      8,
+      14
+    ],
+    "notes": [
+      "open a real dry notch at bridge east and north bank, not terrain through water",
+      "foot shape is a rounded irregular slope/ridge, not a vertical extruded outline",
+      "proposed outline still needs D actual embankment surface and B mask integration"
+    ]
+  },
+  "sanctuaryFrontContours": [
+    {
+      "y": 20.9,
+      "outlineXZ": [
+        [
+          3.8,
+          -34
+        ],
+        [
+          3.8,
+          -29
+        ],
+        [
+          5,
+          -27.3
+        ],
+        [
+          11.3,
+          -27.2
+        ],
+        [
+          15,
+          -27.4
+        ],
+        [
+          20.9,
+          -27
+        ],
+        [
+          26.2,
+          -28.6
+        ],
+        [
+          26.5,
+          -34.8
+        ],
+        [
+          24,
+          -37
+        ],
+        [
+          7,
+          -37
+        ]
+      ],
+      "constraint": "support A lower base around Y20.98; do not expose a rectangular platform edge"
+    },
+    {
+      "y": 17.7,
+      "outlineXZ": [
+        [
+          1.8,
+          -35.6
+        ],
+        [
+          2.4,
+          -28.5
+        ],
+        [
+          6.7,
+          -25.2
+        ],
+        [
+          10.5,
+          -23
+        ],
+        [
+          14.1,
+          -22
+        ],
+        [
+          19.4,
+          -21
+        ],
+        [
+          24.7,
+          -24
+        ],
+        [
+          28,
+          -30
+        ],
+        [
+          27.8,
+          -35.8
+        ],
+        [
+          22,
+          -38
+        ],
+        [
+          7,
+          -38
+        ]
+      ],
+      "constraint": "broken natural ledges and steps; no uniform horizontal band around body"
+    },
+    {
+      "y": 14,
+      "outlineXZ": [
+        [
+          -1.5,
+          -32
+        ],
+        [
+          1,
+          -25
+        ],
+        [
+          6,
+          -20.2
+        ],
+        [
+          9.5,
+          -17.4
+        ],
+        [
+          14.1,
+          -16.4
+        ],
+        [
+          18.6,
+          -18.8
+        ],
+        [
+          26.8,
+          -22
+        ],
+        [
+          29,
+          -30
+        ],
+        [
+          28,
+          -36
+        ]
+      ],
+      "constraint": "irregular lower toe; keep actual step/landing ground up to tread-.14 where needed"
+    }
+  ],
+  "owners": {
+    "D": [
+      "layout and version",
+      "soil caps/actual seabed and walk support",
+      "spring carrier foundation/basin/rill/lip",
+      "integration and exact common lighting"
+    ],
+    "C": [
+      "new independent sanctuary-front natural rock body",
+      "basin/shore natural rock bearing and cliff side/back faces",
+      "replace or remove far box cliff placeholders",
+      "geometry and NatureMaterials/PBR ownership inside nature options.landforms OwnedSet rebuild",
+      "clear fix-02 .36m swept body using minimum linear foot minus (.14m base + .16m additional reserve), .30m total vertical cap; finite C6f actual-D contact evidence supplied separately; C OwnedSet/PBR ownership unchanged"
+    ],
+    "A": [
+      "two-flight tread/landing/low wall assets from canonical D flights and landing",
+      "compact fountain facade and fixed spout from REFERENCE_SPRING_SHRINE; source added on disk, not loaded in current cached browser"
+    ],
+    "B": [
+      "two controlled sacred drops/narrow rill, remove old floating full-width bed",
+      "preserve main cascade default frozen geometry/pass budgets"
+    ]
+  },
+  "authority": "src/world3d/reference/landform-layout.ts",
+  "adjustment": "0.8m landing proposal caused .44/.624m floor jumps in real full-width hull. Lower end and upper start moved before asset freeze to create 3.64m landing; all other shared points unchanged.",
+  "derivedFromSourceSha256": "8112d6b922649e6460a45237315f5c9523f28af6b461334d5958060eb705325a",
+  "layoutSourceSha256": "97068a1529cbcf410392577a6dcf15553f9e6c9f72e7e63b8c8dcc0a66ec9b0a",
+  "shoreApproach": {
+    "reason": "Old [2,8,3] shared the sea boundary XZ, and grove approach was <1m inland. A narrow walk overlay alone would re-create 8-12m soil walls. Coastline now wraps the broad actual foot; low natural outlet crosses one reused frozen bridge. Main cascade/pool/grove bridge unchanged.",
+    "seaOutline": [
+      [
+        -180,
+        0,
+        100
+      ],
+      [
+        8,
+        0,
+        100
+      ],
+      [
+        8,
+        0,
+        44
+      ],
+      [
+        11,
+        0,
+        31
+      ],
+      [
+        10,
+        0,
+        18
+      ],
+      [
+        -8,
+        0,
+        17
+      ],
+      [
+        -22,
+        0,
+        8
+      ],
+      [
+        -30,
+        0,
+        -1
+      ],
+      [
+        -31,
+        0,
+        -12
+      ],
+      [
+        -28,
+        0,
+        -30
+      ],
+      [
+        -24,
+        0,
+        -45
+      ],
+      [
+        -34,
+        0,
+        -67
+      ],
+      [
+        -180,
+        0,
+        -100
+      ]
+    ],
+    "outlet": {
+      "id": "water.outlet",
+      "kind": "stream",
+      "controlledBySpring": false,
+      "width": 2.4,
+      "points": [
+        [
+          17.8,
+          0.18,
+          16.5
+        ],
+        [
+          13,
+          0.1,
+          18
+        ],
+        [
+          8.8,
+          0,
+          19.6
+        ]
+      ]
+    },
+    "bridge": {
+      "id": "shore.outlet-bridge",
+      "kind": "bridge",
+      "position": [
+        13,
+        2.6,
+        18
+      ],
+      "yaw": 1.5707963267948966,
+      "size": [
+        7,
+        2.5,
+        2.4
+      ],
+      "variant": 1
+    },
+    "route": [
+      [
+        11,
+        1.5,
+        43
+      ],
+      [
+        17,
+        2,
+        28
+      ],
+      [
+        13,
+        2.2,
+        21.6
+      ],
+      [
+        13,
+        2.6,
+        18
+      ],
+      [
+        13,
+        2.2,
+        14.4
+      ],
+      [
+        10,
+        4.5,
+        8
+      ],
+      [
+        2,
+        8,
+        3
+      ],
+      [
+        -5,
+        12,
+        0
+      ],
+      [
+        -4,
+        13.1,
+        -9
+      ],
+      [
+        0.9,
+        14.2,
+        -16
+      ],
+      [
+        4.5,
+        14.6,
+        -16
+      ],
+      [
+        8.1,
+        14.2,
+        -16
+      ]
+    ],
+    "channelBedY": -0.4,
+    "outletMouthContacts": {
+      "poolMouth": [
+        17.8,
+        0.18,
+        16.5
+      ],
+      "seaMouth": [
+        8.8,
+        0,
+        19.6
+      ],
+      "width": 2.4,
+      "requiredFullWidthOverlapM": 0.3,
+      "reason": "r5 first candidate touched main pool only at one corner and sea at half width; ends now sit inside actual frozen pool/new sea with full width and overlap, water levels unchanged"
+    }
+  },
+  "revision": "v3-reference-r5-grounded-terraces",
+  "sacredWater": {
+    "source": [
+      24.6,
+      20.3,
+      -22.8
+    ],
+    "sourceReach": {
+      "id": "water.sacred-spring",
+      "kind": "stream",
+      "controlledBySpring": true,
+      "width": 0.3,
+      "points": [
+        [
+          24.6,
+          20.3,
+          -22.8
+        ],
+        [
+          24.6,
+          20.3,
+          -22.72
+        ]
+      ]
+    },
+    "upperDrop": {
+      "kind": "waterfall",
+      "controlledBySpring": true,
+      "width": 0.3,
+      "top": [
+        24.6,
+        20.3,
+        -22.8
+      ],
+      "bottom": [
+        24.6,
+        17.02,
+        -21.2
+      ]
+    },
+    "rill": {
+      "kind": "stream",
+      "controlledBySpring": true,
+      "width": 0.4,
+      "points": [
+        [
+          24.6,
+          17.02,
+          -21.2
+        ],
+        [
+          23,
+          16.8,
+          -20.8
+        ],
+        [
+          22,
+          16.75,
+          -20
+        ],
+        [
+          21.5,
+          16.6,
+          -20
+        ],
+        [
+          21,
+          15.48,
+          -20
+        ],
+        [
+          19.7,
+          14.82,
+          -18
+        ],
+        [
+          18.7,
+          14.56,
+          -16.5
+        ],
+        [
+          17.8,
+          14.45,
+          -15.9
+        ]
+      ]
+    },
+    "lowerDrop": {
+      "kind": "waterfall",
+      "controlledBySpring": true,
+      "width": 0.3,
+      "top": [
+        17.8,
+        14.45,
+        -15.9
+      ],
+      "bottom": [
+        16.2,
+        11.72,
+        -15.2
+      ]
+    },
+    "carrierContacts": {
+      "rearDryContact": [
+        23,
+        17.86,
+        -25
+      ],
+      "frontRockContact": [
+        24.6,
+        16.48,
+        -21.2
+      ],
+      "foundationDeckY": 18,
+      "catchBasinWaterY": 17.02,
+      "spillLipLengthM": 1.08,
+      "note": "short real arch/deck/abutments; no tall wall to lower ground. Well facade above Y18 is not implemented."
+    },
+    "validationScope": "candidate static envelope on frozen C, not B final GPU/foam envelope; new D terrain/steps need a new finite check",
+    "contacts": {
+      "rearDryContact": [
+        23,
+        17.86,
+        -25
+      ],
+      "frontRockContact": [
+        24.6,
+        16.48,
+        -21.2
+      ],
+      "foundationDeckY": 18,
+      "catchBasinWaterY": 17.02,
+      "spillLipLengthM": 1.08,
+      "note": "short real arch/deck/abutments; no tall wall to lower ground. Well facade above Y18 is not implemented."
+    },
+    "basin": {
+      "id": "water.sacred-basin",
+      "kind": "pool",
+      "controlledBySpring": true,
+      "center": [
+        24.6,
+        17.02,
+        -21.2
+      ],
+      "innerDiameter": 1.05,
+      "outline": [
+        [
+          25.105,
+          17.02,
+          -21.2
+        ],
+        [
+          25.037342828911143,
+          17.02,
+          -20.947499999999998
+        ],
+        [
+          24.852500000000003,
+          17.02,
+          -20.762657171088858
+        ],
+        [
+          24.6,
+          17.02,
+          -20.695
+        ],
+        [
+          24.3475,
+          17.02,
+          -20.762657171088858
+        ],
+        [
+          24.16265717108886,
+          17.02,
+          -20.947499999999998
+        ],
+        [
+          24.095000000000002,
+          17.02,
+          -21.2
+        ],
+        [
+          24.16265717108886,
+          17.02,
+          -21.4525
+        ],
+        [
+          24.3475,
+          17.02,
+          -21.63734282891114
+        ],
+        [
+          24.6,
+          17.02,
+          -21.705
+        ],
+        [
+          24.852500000000003,
+          17.02,
+          -21.63734282891114
+        ],
+        [
+          25.037342828911143,
+          17.02,
+          -21.4525
+        ]
+      ]
+    }
+  },
+  "springShrine": {
+    "placement": {
+      "id": "grove.spring",
+      "kind": "spring-shrine",
+      "position": [
+        23,
+        18,
+        -25
+      ],
+      "yaw": 0.39922076957525304,
+      "size": [
+        1.72,
+        2.8,
+        3.473110997362451
+      ],
+      "variant": 0
+    },
+    "frame": {
+      "origin": [
+        23,
+        18,
+        -25
+      ],
+      "front": [
+        24.35,
+        18,
+        -21.8
+      ],
+      "yaw": 0.39922076957525304,
+      "width": 1.72,
+      "length": 3.473110997362451,
+      "deckY": 18,
+      "localRange": {
+        "x": [
+          -0.86,
+          0.86
+        ],
+        "z": [
+          0,
+          3.473110997362451
+        ]
+      },
+      "supportPolygon": [
+        [
+          22.207626821575836,
+          18,
+          -24.665717565352306
+        ],
+        [
+          23.792373178424164,
+          18,
+          -25.334282434647694
+        ],
+        [
+          25.142373178424165,
+          18,
+          -22.134282434647695
+        ],
+        [
+          23.557626821575838,
+          18,
+          -21.465717565352307
+        ]
+      ]
+    },
+    "spout": {
+      "world": [
+        24.6,
+        20.3,
+        -22.8
+      ],
+      "local": [
+        0.6190415456438776,
+        2.3000000000000007,
+        2.648921962755196
+      ],
+      "worldDirection": [
+        0,
+        0,
+        1
+      ],
+      "localDirection": [
+        -0.3887005054042955,
+        0,
+        0.9213641609583288
+      ],
+      "mouthWidth": 0.3,
+      "localWidthDirection": [
+        0.9213641609583288,
+        0,
+        0.3887005054042955
+      ]
+    },
+    "access": {
+      "rearClearLength": 1.05,
+      "facadeLocalZRange": [
+        1.05,
+        3.473110997362451
+      ],
+      "rearArrivalWorld": [
+        23,
+        18,
+        -25
+      ],
+      "minimumBodyRadius": 0.28,
+      "note": "Keep at least the rear 1.05m free of facade/props so the existing valve and discovery path arrive from the dry side."
+    },
+    "constraints": [
+      "A uses this actual short carrier frame, never the old 6x6x4 placeholder.",
+      "Do not enlarge or move D bearing, fixed source, basin, rill or any main cascade point.",
+      "Spout is world +Z, not carrier local +Z; it sits only .24096m from local right edge.",
+      "A publishes grove.spring.spout in world metres for D matching."
+    ]
+  },
+  "offsets": {
+    "visibleStoneAboveFootFloor": 0.018,
+    "cBearingBelowFootFloor": 0.14
+  },
+  "derivedChecks": {
+    "scope": "Finite exported-data checks only; not actual mesh body clearance, B GPU envelope, browser route or art acceptance",
+    "pondNoSelfCrossings": true,
+    "pondCrossings": [],
+    "lowerDropInRuntimePool": true,
+    "bridgeCrownWaterUnder": true,
+    "bridgeEastHasDryNotch": true,
+    "totalSteps": 44,
+    "sourceAnchorPreserved": true,
+    "shrineSpoutLocalWorldRoundTripErrorM": 3.552713678800501e-15
+  },
+  "layoutAuthority": "src/world3d/reference/layout.ts",
+  "integrationAuthority": "src/world3d/reference/composition.ts",
+  "integrationSourceSha256": "873c98997a9cf47addafdb951939b8c93641d8d3e7fc93f4fe61216120669143",
+  "integrationSnapshot": {
+    "evidence": "src/world3d/evidence/reference-v3/r5/cold-frames.json#grove",
+    "capturedAt": "2026-10-21T09:47:15.377Z",
+    "sourceManifest": "src/world3d/evidence/reference-v3/r5/cold-source-before.json",
+    "diagnostics": {
+      "layoutRevision": "v3-reference-r5-grounded-terraces",
+      "authoredStairs": "true",
+      "visibleLandforms": "created",
+      "cascadeRegistration": "matched",
+      "cascadeSupport": "created",
+      "springCarrier": "created",
+      "springSpout": "unimplemented"
+    },
+    "scope": "Historical e671 grove cold start, before fix-01 and fix-02. Current four-point .76m/.08m branch and A facade disk changes are not loaded in that cached browser evidence. No route, GPU water envelope or art acceptance is implied.",
+    "loadedLandformSha256": "e6714720f5c68e6e9ea34b66ac6120d696063fe4e72fcafe23b703e25f827cf3"
+  },
+  "snapshotAt": "2026-10-21T11:28:26.576697+00:00",
+  "currentIntegrationState": {
+    "recordedAt": "2026-10-21T11:28:26.576697+00:00",
+    "branchRevision": "r5-spring-route-fix-02",
+    "routeFixEvidence": "docs/expansion-handoffs/world3d-r5-spring-route-fix.md",
+    "routeFixEvidenceSha256": "0bd085260ec127dd26b3a35e12486db4c5a4d1e1c2b365a003bdc3f346951781",
+    "canonicalBranch": "D fix-02 data updated: same-step local +X exit, short level outer turn at [20.8,19.23695652173913,-27.07700797081546], then shrine rear; west valve remains unchanged",
+    "visibleWidthM": 0.76,
+    "allowedCenterHalfWidthM": 0.08,
+    "bodyRadiusM": 0.28,
+    "cSweptBodyRadiusM": 0.36000000000000004,
+    "cLocalExitClearance": "Exact C6f/A533/Bff fixed snapshot: low/high15 allowed centres, 255 support probes each, minimum actual gap .292588265m. This finite local check and medium native outward/return are complete; no continuous full-domain proof is asserted.",
+    "strictBranchDomain": "Original 0055/62e D fixtures and 8112/05f unchanged-logic proof retained. Same fixed C6f snapshot native step8 -> shrine rear -> return completed; see fix-02/native-walk.json. Subsequent D soil patch z[-6,10] does not overlap this branch.",
+    "aFountainFacade": "Loaded A533997fd optical candidate in fixed C6f snapshot, springSpout matched at [24.6,20.3,-22.8]; not final art acceptance.",
+    "currentBrowserAdoptedBranch": true,
+    "currentBrowserAdoptedFacade": true,
+    "routeAccepted": false,
+    "artAccepted": false,
+    "dFiniteFixture": {
+      "fixture": {
+        "path": "src/world3d/evidence/reference-v3/r5/spring-final-domain-check.json",
+        "sha256": "f0d51ab9dad791db2d7faa9632436ed703ed0115546358cc41e64d68ac34cdef",
+        "pass": true,
+        "sourcesStable": true,
+        "finishedAt": "2026-10-21T10:11:10.028Z",
+        "scope": "Finite D walk-height/allowed-player-centre and actual index movement block fixture. No UI unit tests, no browser/GL or solid-body mesh clearance claim. A/C actual mesh clearance is independently owned."
+      },
+      "review": {
+        "path": "src/world3d/evidence/reference-v3/r5/spring-final-domain-review.json",
+        "sha256": "1f48bfc19de0a4a18b73dc0c56945611965c107662008fba4073aefff1fbf654",
+        "pass": true,
+        "passBasis": "source hashes match final fixture, stable sources, finite seam bounds and zero allowed strict-interior facade probes; no pass property is invented on the raw review file",
+        "sourcesStable": true,
+        "scope": "Single finite numerical follow-up on nearest-floor/rear-platform seams using already bundled exact D snapshot; no A/C/B reconstruction, no GL or UI tests."
+      },
+      "metrics": {
+        "allowedSamples": 1240,
+        "turnDiscSamples": 516,
+        "maxAdjacentFloorDeltaM": 0.01140872562789852,
+        "maxBranchFloorErrorM": 0,
+        "bodyPerimeterPoints": 19840,
+        "outwardControllerRuns": 224,
+        "outwardControllerEscapes": 0,
+        "controllerVariants": 6,
+        "controllerStalls": 0,
+        "maxControllerFrameFloorChangeM": 0.12040621309838428,
+        "minimumDifferenceFromNearestLinearCanonicalM": -0.05013069298310313,
+        "maximumDifferenceFromNearestLinearCanonicalM": 0.014232752854457686,
+        "maxRearEntryNeighbourDeltaM": 4.600366274587486e-07,
+        "reviewNearestSegmentBisectorJumpM": 8.550100361048862e-08,
+        "reviewRearBoundaryJumpM": 4.600366665385991e-08,
+        "reviewStrictFacadeProbes": 17100,
+        "reviewStrictFacadeAllowed": 0
+      },
+      "scope": "Finite D controller, allowed-centre domain and numerical height seams only. No A/C solid-body mesh, GL/browser, route acceptance or art acceptance.",
+      "archiveManifest": "src/world3d/evidence/reference-v3/r5/spring-domain-scripts/archive-manifest.json",
+      "validatedSourceHashes": {
+        "src/world3d/reference/landform-layout.ts": "0055de3cbc312c3a530e31c64e0c97e4158946c418750b91d9e1c67b8f07ae2e",
+        "src/world3d/reference/composition.ts": "62eba5d7ea5cff175a56dd250c81b5dbb107a799d4f8c291a5a4fcba4d634a58",
+        "src/world3d/reference/layout.ts": "97068a1529cbcf410392577a6dcf15553f9e6c9f72e7e63b8c8dcc0a66ec9b0a",
+        "src/world3d/index.ts": "2b12824848fe80b71c37b4ca45dae5b879bff60d9c1fc9ecf51bf5dc37d28610"
+      },
+      "sourceVersionBoundary": "Original fix-02 finite fixture/review at 0055/62e; reports and their hashes are unchanged. Preservation for the same D logic is documented by the separate support-margin targeted comparison, not by relabelling or rerunning these reports.",
+      "unchangedLogicProof": {
+        "path": "src/world3d/evidence/reference-v3/r5/support-margin/targeted-check-results.json",
+        "sha256": "c0f96ee9a05ec7c12ff9d6410dfe978713327b87403659fc17c1925680a19eff",
+        "sourceHashes": {
+          "src/world3d/reference/landform-layout.ts": "8112d6b922649e6460a45237315f5c9523f28af6b461334d5958060eb705325a",
+          "src/world3d/reference/composition.ts": "05f56a21d6ce46e538513306d7a96c4fec458c3dcdbf1741a1c9983d955192f5",
+          "src/world3d/reference/layout.ts": "97068a1529cbcf410392577a6dcf15553f9e6c9f72e7e63b8c8dcc0a66ec9b0a",
+          "src/world3d/index.ts": "2b12824848fe80b71c37b4ca45dae5b879bff60d9c1fc9ecf51bf5dc37d28610"
+        },
+        "sourceStable": true,
+        "criticalReadbackCount": 30,
+        "status": "Owner targeted check passed: only the added field/comment and direct C input differ; D height/terrain/canWalk readbacks are unchanged. Typecheck passed separately; this documentation task did not rerun fixtures or UI tests."
+      }
+    },
+    "aOnDiskAssetHashes": {
+      "src/world3d/reference/architecture-spring-shrine.ts": "0e9efe82d625ad5d4f59aed0f0786cc51340b8ac2046d178f83e03f8a1c8dcc7",
+      "src/world3d/reference/architecture-spring-layout.ts": "6f5ea5b31308bf8e344ec3ae373428f5877583609dfe5269a6972b906f6e1b1b",
+      "src/world3d/reference/architecture.ts": "d81d4ad7cda0ffaeff916ca3ca1f8c1ae10409393faf844ed992c915106e36c8"
+    },
+    "snapshotRevision": "r5-spring-additional-support-01",
+    "additionalSupportClearanceM": 0.16,
+    "effectiveCLinearCapClearanceM": 0.3,
+    "currentBrowserAdoptedAdditionalSupport": false,
+    "routeLocalEngineeringAccepted": true,
+    "currentDSoilIntegrationSha256": "873c98997a9cf47addafdb951939b8c93641d8d3e7fc93f4fe61216120669143",
+    "currentDSoilEvidence": "docs/expansion-handoffs/world3d-r5-left-bank-shape-result.md"
+  },
+  "springBranchLandformInput": {
+    "points": [
+      [
+        18.706521739130434,
+        19.23695652173913,
+        -25.169565217391305
+      ],
+      [
+        20.163114387199787,
+        19.23695652173913,
+        -27.07700797081546
+      ],
+      [
+        20.8,
+        19.23695652173913,
+        -27.07700797081546
+      ],
+      [
+        23,
+        18,
+        -25
+      ]
+    ],
+    "bodyRadius": 0.28,
+    "supportClearance": 0.14,
+    "centerHalfWidth": 0.08,
+    "additionalSupportClearance": 0.16
+  },
+  "dFiniteEvidence": {
+    "fixture": {
+      "path": "src/world3d/evidence/reference-v3/r5/spring-final-domain-check.json",
+      "sha256": "f0d51ab9dad791db2d7faa9632436ed703ed0115546358cc41e64d68ac34cdef",
+      "pass": true,
+      "sourcesStable": true,
+      "finishedAt": "2026-10-21T10:11:10.028Z",
+      "scope": "Finite D walk-height/allowed-player-centre and actual index movement block fixture. No UI unit tests, no browser/GL or solid-body mesh clearance claim. A/C actual mesh clearance is independently owned."
+    },
+    "review": {
+      "path": "src/world3d/evidence/reference-v3/r5/spring-final-domain-review.json",
+      "sha256": "1f48bfc19de0a4a18b73dc0c56945611965c107662008fba4073aefff1fbf654",
+      "pass": true,
+      "passBasis": "source hashes match final fixture, stable sources, finite seam bounds and zero allowed strict-interior facade probes; no pass property is invented on the raw review file",
+      "sourcesStable": true,
+      "scope": "Single finite numerical follow-up on nearest-floor/rear-platform seams using already bundled exact D snapshot; no A/C/B reconstruction, no GL or UI tests."
+    },
+    "metrics": {
+      "allowedSamples": 1240,
+      "turnDiscSamples": 516,
+      "maxAdjacentFloorDeltaM": 0.01140872562789852,
+      "maxBranchFloorErrorM": 0,
+      "bodyPerimeterPoints": 19840,
+      "outwardControllerRuns": 224,
+      "outwardControllerEscapes": 0,
+      "controllerVariants": 6,
+      "controllerStalls": 0,
+      "maxControllerFrameFloorChangeM": 0.12040621309838428,
+      "minimumDifferenceFromNearestLinearCanonicalM": -0.05013069298310313,
+      "maximumDifferenceFromNearestLinearCanonicalM": 0.014232752854457686,
+      "maxRearEntryNeighbourDeltaM": 4.600366274587486e-07,
+      "reviewNearestSegmentBisectorJumpM": 8.550100361048862e-08,
+      "reviewRearBoundaryJumpM": 4.600366665385991e-08,
+      "reviewStrictFacadeProbes": 17100,
+      "reviewStrictFacadeAllowed": 0
+    },
+    "scope": "Finite D controller, allowed-centre domain and numerical height seams only. No A/C solid-body mesh, GL/browser, route acceptance or art acceptance.",
+    "archiveManifest": "src/world3d/evidence/reference-v3/r5/spring-domain-scripts/archive-manifest.json",
+    "validatedSourceHashes": {
+      "src/world3d/reference/landform-layout.ts": "0055de3cbc312c3a530e31c64e0c97e4158946c418750b91d9e1c67b8f07ae2e",
+      "src/world3d/reference/composition.ts": "62eba5d7ea5cff175a56dd250c81b5dbb107a799d4f8c291a5a4fcba4d634a58",
+      "src/world3d/reference/layout.ts": "97068a1529cbcf410392577a6dcf15553f9e6c9f72e7e63b8c8dcc0a66ec9b0a",
+      "src/world3d/index.ts": "2b12824848fe80b71c37b4ca45dae5b879bff60d9c1fc9ecf51bf5dc37d28610"
+    },
+    "sourceVersionBoundary": "Original fix-02 finite fixture/review at 0055/62e; reports and their hashes are unchanged. Preservation for the same D logic is documented by the separate support-margin targeted comparison, not by relabelling or rerunning these reports.",
+    "unchangedLogicProof": {
+      "path": "src/world3d/evidence/reference-v3/r5/support-margin/targeted-check-results.json",
+      "sha256": "c0f96ee9a05ec7c12ff9d6410dfe978713327b87403659fc17c1925680a19eff",
+      "sourceHashes": {
+        "src/world3d/reference/landform-layout.ts": "8112d6b922649e6460a45237315f5c9523f28af6b461334d5958060eb705325a",
+        "src/world3d/reference/composition.ts": "05f56a21d6ce46e538513306d7a96c4fec458c3dcdbf1741a1c9983d955192f5",
+        "src/world3d/reference/layout.ts": "97068a1529cbcf410392577a6dcf15553f9e6c9f72e7e63b8c8dcc0a66ec9b0a",
+        "src/world3d/index.ts": "2b12824848fe80b71c37b4ca45dae5b879bff60d9c1fc9ecf51bf5dc37d28610"
+      },
+      "sourceStable": true,
+      "criticalReadbackCount": 30,
+      "status": "Owner targeted check passed: only the added field/comment and direct C input differ; D height/terrain/canWalk readbacks are unchanged. Typecheck passed separately; this documentation task did not rerun fixtures or UI tests."
+    }
+  },
+  "cClearingContract": {
+    "payloadPath": "landforms.springBranch",
+    "totalSweptRadiusM": 0.36,
+    "radiusConstruction": "bodyRadius .28 + allowed centre half-width .08",
+    "supportRule": "Within the existing .36m horizontal cutter coverage, consider all allowed player centres whose .28m body disk covers each rock XZ. Cap the rock top to their minimum linear canonical foot height minus supportClearance .14m and additionalSupportClearance .16m (effective .30m). Do not use only the nearest centreline foot height.",
+    "actualDFloor": "D actual floor/domain/controller are unchanged. The old finite [-.05013069298310313,+.014232752854457686]m nearest-linear difference remains finite historical evidence. The added .16m uses the separate analytical tube/rear-rectangle bound; D feet are not raised.",
+    "verificationPending": "C6f owner evidence is supplied separately; local actual-D 15-centre two-LOD contact checks and same-version medium browser outward/return are now complete. Continuous full-domain proof is not asserted. Next C/A/B candidates need their own integration; art remains unaccepted.",
+    "materialOwnership": "C internal OwnedSet and NatureMaterials/PBR remain the owners; D passes canonical contacts only",
+    "additionalSupportClearanceM": 0.16,
+    "effectiveCLinearCapClearanceM": 0.3
+  },
+  "snapshotRevision": "r5-spring-additional-support-01",
+  "additionalSupportRevision": {
+    "revision": "r5-spring-additional-support-01",
+    "additionalSupportClearanceM": 0.16,
+    "baseSupportClearanceM": 0.14,
+    "effectiveCLinearCapClearanceM": 0.3,
+    "horizontalSweptRadiusM": 0.36,
+    "unchangedSourceLogic": {
+      "sourceHashes": {
+        "src/world3d/index.ts": "2b12824848fe80b71c37b4ca45dae5b879bff60d9c1fc9ecf51bf5dc37d28610",
+        "src/world3d/reference/composition.ts": "62eba5d7ea5cff175a56dd250c81b5dbb107a799d4f8c291a5a4fcba4d634a58",
+        "src/world3d/reference/landform-layout.ts": "0055de3cbc312c3a530e31c64e0c97e4158946c418750b91d9e1c67b8f07ae2e",
+        "src/world3d/reference/layout.ts": "97068a1529cbcf410392577a6dcf15553f9e6c9f72e7e63b8c8dcc0a66ec9b0a",
+        "src/world3d/reference/spring-carrier.ts": "33144d03e9d3d32f97716aa1a25d8f61e21436809b80d9bb1fa7bbe78c8586da",
+        "src/world3d/painterly.ts": "28681a1f21585d15a2271b78d21e50cfea6fbd65561585c7276e2f554d58c3e6",
+        "src/world3d/reference/route-surfaces.ts": "46b234d6436e2d94208111ac083085b9aa390409bd26a34c4e3949a9bd5d1a49",
+        "src/world3d/reference/cascade-support.ts": "9f01cb08236b501bb532fbee8550326255b238941c03894bf796a3c188d2763d",
+        "src/world3d/reference/landform-profile.ts": "e7a774a013a7b2fb4e61eeb9b44773a1c57894f85df5243c856a957eac76e45c"
+      },
+      "scope": "The original fix-02 finite domain/controller/height evidence retains its 62e/0055 source freeze. The added authority field/comment and C argument do not change D actual floor/domain/controller, four points, visible width, frame, water or stairs; see the separate targeted comparison."
+    },
+    "basis": {
+      "path": "src/world3d/evidence/reference-v3/r5/support-margin/independent-bound-review.json",
+      "sha256": "836987489c82ab81f885610cc6a5b97459fd6473b22d14645741fe6106aca907",
+      "branchTubeTightDeficitBoundM": 0.050146995843147135,
+      "branchTubeLooserDeficitBoundM": 0.051639009795229014,
+      "rearRectangleDeficitBoundM": 0.12552210372643607,
+      "reserveAboveRearBoundM": 0.03447789627356393,
+      "scope": "Analytical comparison of recorded actual D centre-foot F versus nearest canonical line G over the .08m centre tube and carrier-local allowed rear-centre rectangle x=[-.58,.58], z=[-.08,.77]. The rear bound concerns allowed player centres only, not all rear-body/rock points and not actual C mesh support. Original finite [-.05013069,+.01423275]m observations remain finite and are not an all-domain bound."
+    },
+    "targetedUnchangedCheck": {
+      "path": "src/world3d/evidence/reference-v3/r5/support-margin/targeted-check-results.json",
+      "sha256": "c0f96ee9a05ec7c12ff9d6410dfe978713327b87403659fc17c1925680a19eff",
+      "sourceHashes": {
+        "src/world3d/reference/landform-layout.ts": "8112d6b922649e6460a45237315f5c9523f28af6b461334d5958060eb705325a",
+        "src/world3d/reference/composition.ts": "05f56a21d6ce46e538513306d7a96c4fec458c3dcdbf1741a1c9983d955192f5",
+        "src/world3d/reference/layout.ts": "97068a1529cbcf410392577a6dcf15553f9e6c9f72e7e63b8c8dcc0a66ec9b0a",
+        "src/world3d/index.ts": "2b12824848fe80b71c37b4ca45dae5b879bff60d9c1fc9ecf51bf5dc37d28610"
+      },
+      "sourceStable": true,
+      "criticalReadbackCount": 30,
+      "status": "Owner targeted check passed: only the added field/comment and direct C input differ; D height/terrain/canWalk readbacks are unchanged. Typecheck passed separately; this documentation task did not rerun fixtures or UI tests."
+    },
+    "limits": [
+      "The .16m is C-only vertical reserve; .14+.16=.30m is the canonical linear cap offset, not an actual C mesh clearance measurement.",
+      "Horizontal cutter coverage remains .36m. The allowed rear centre rectangle plus .28m body disks extends outside this capsule; untouched C triangles outside cutter coverage still need actual C body/support checks.",
+      "Historical additional-support checkpoint (before final C6f integration): Final C topology/support/body verification, same-version cold browser route and art acceptance remain pending. No A/B water or full-controller matrix rerun is inferred."
+    ],
+    "archiveManifest": {
+      "path": "src/world3d/evidence/reference-v3/r5/support-margin/archive-manifest.json",
+      "sha256": "e1dea4a8874fda337c9cbdb13997d801cb177e6e49fcf3dc6cab4ff3489911ec"
+    }
+  },
+  "latestIntegrationSnapshot": {
+    "recordedAt": "2026-10-21T11:28:26.576697+00:00",
+    "branchSnapshot": "src/world3d/evidence/reference-v3/r5/fix-02/cold-source-before.json",
+    "nativeBranch": "src/world3d/evidence/reference-v3/r5/fix-02/native-walk.json",
+    "soilSourceManifest": "src/world3d/evidence/reference-v3/r5/left-bank-shape/final-source-manifest.json",
+    "soilRuntime": "src/world3d/evidence/reference-v3/r5/left-bank-shape/final-runtime.json",
+    "canonicalCoordinatesReadback": "src/world3d/evidence/reference-v3/r5/left-bank-shape/final-coordinate-readback.json",
+    "waterPhysicalFieldsUnchanged": 26,
+    "artAccepted": false,
+    "published": false,
+    "scope": "Only current fixed C6f/A533/Bff snapshot. Historical integrationSnapshot remains unchanged."
+  }
+}

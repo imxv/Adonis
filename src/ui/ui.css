@@ -1832,6 +1832,28 @@ canvas.bt {
   pointer-events: none;
 }
 
+/* Seven title actions share a fixed-height desktop frame. Reserve two caption
+   lines and a separate control hint instead of letting flex shrink their boxes. */
+body:not(.touch-device) .title { padding-top: 12px; }
+body:not(.touch-device) .title .tl-left {
+  display: grid;
+  grid-template-rows: 32px 18px minmax(0, 1fr) 36px 18px;
+  row-gap: 2px;
+  min-height: 0;
+}
+body:not(.touch-device) .title .logo,
+body:not(.touch-device) .title .sub,
+body:not(.touch-device) .title .pt-caption,
+body:not(.touch-device) .title .hint { margin: 0; }
+body:not(.touch-device) .title .menu {
+  min-height: 0;
+  align-self: stretch;
+  justify-self: start;
+  overflow-y: auto;
+  gap: 1px;
+}
+body:not(.touch-device) .title .menu .item { flex-shrink: 0; padding-top: 0; padding-bottom: 0; }
+
 /* The marble David: moonlight runs across him every few seconds, and at once when the mouse finds him. */
 .pt-david {
   left: 168px;

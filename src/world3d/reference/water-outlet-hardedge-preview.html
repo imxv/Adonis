@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>出口硬边归因 · 独立GL诊断</title>
+    <style>
+      :root { color-scheme: dark; font: 13px/1.45 system-ui, sans-serif; color: #edf2f4; background: #243d4b; }
+      * { box-sizing: border-box; }
+      html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+      canvas { position: fixed; inset: 0; display: block; width: 100vw; height: 100dvh; }
+      button, select, input { min-height: 36px; border: 1px solid #718591; border-radius: 4px; padding: 6px 9px; font: inherit; color: inherit; background: #263e4c; }
+      button { cursor: pointer; }
+      button:hover { background: #365565; }
+      button:disabled { cursor: wait; opacity: .55; }
+      :focus-visible { outline: 2px solid #9fd9fa; outline-offset: 3px; }
+      button[aria-pressed="true"] { border-color: #9fd9fa; background: #3c6072; }
+      .panel { position: fixed; z-index: 2; padding: 12px; border: 1px solid #728c9b80; border-radius: 6px; background: #152833ed; box-shadow: 0 3px 16px #09172033; }
+      #controls { top: max(12px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left)); width: min(570px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow: auto; }
+      h1 { margin: 0; font-size: 15px; font-weight: 600; }
+      .scene-note { margin: 3px 0 10px; color: #b8cad4; font-size: 12px; }
+      .control-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 7px; }
+      label { display: inline-flex; align-items: center; gap: 6px; }
+      #time { width: 84px; }
+      #probe-x, #probe-y { width: 76px; }
+      input[type="checkbox"] { min-height: auto; width: 17px; height: 17px; accent-color: #9fd9fa; }
+      #probe-details { margin-top: 8px; border-top: 1px solid #728c9b55; padding-top: 7px; }
+      #stats-panel { right: max(12px, env(safe-area-inset-right)); bottom: max(12px, env(safe-area-inset-bottom)); width: min(410px, calc(100vw - 24px)); max-height: 40dvh; overflow: auto; padding: 10px; }
+      h2 { margin: 0 0 5px; font-size: 12px; color: #b8cad4; }
+      pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 11px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace; }
+      #source-details { margin-top: 8px; border-top: 1px solid #728c9b55; padding-top: 7px; }
+      summary { cursor: pointer; color: #b8cad4; }
+      #source-metadata { margin-top: 7px; }
+      #errors { left: max(12px, env(safe-area-inset-left)); bottom: max(12px, env(safe-area-inset-bottom)); width: min(530px, calc(100vw - 24px)); max-height: 25dvh; overflow: auto; border-color: #db967e; background: #482c28f5; z-index: 4; }
+      #errors h2 { color: #ffe1d7; }
+      #errors:has(#error-log:empty) { display: none; }
+      #show-panels { position: fixed; z-index: 3; top: max(10px, env(safe-area-inset-top)); left: max(10px, env(safe-area-inset-left)); display: none; background: #152833ed; }
+      body.clean #controls, body.clean #stats-panel { display: none; }
+      body.clean #show-panels { display: block; }
+      @media (max-width: 600px) {
+        #controls { padding: 9px; max-height: 39dvh; }
+        h1 { font-size: 13px; }
+        .scene-note { margin-bottom: 6px; font-size: 11px; }
+        .control-row { gap: 5px; margin-top: 5px; }
+        button, select, input { min-height: 34px; padding: 5px 7px; font-size: 12px; }
+        #stats-panel { max-height: 29dvh; width: min(340px, calc(100vw - 24px)); }
+        #errors { max-height: 25dvh; }
+      }
+    </style>
+  </head>
+  <body>
+    <section id="controls" class="panel" aria-label="独立样片控制">
+      <h1>出口硬边归因 · 独立GL诊断</h1>
+      <p class="scene-note">复用原 r1 冻结 D/A 小场景。不是正式 e671 现场；隔离与探针仅作归因。</p>
+      <div class="control-row" role="group" aria-label="固定相机">
+        <button type="button" data-view="near">潭口近景</button>
+        <button type="button" data-view="bridge">桥下水道</button>
+        <button type="button" data-view="sea">海口接缝</button>
+      </div>
+      <div class="control-row">
+        <label for="variant">版本
+          <select id="variant" aria-label="水道版本">
+            <option value="baseline">基线冻结82b</option>
+            <option value="current" selected>当前生产</option>
+          </select>
+        </label>
+        <label for="quality">质量
+          <select id="quality">
+            <option value="low">低档</option>
+            <option value="medium" selected>中档</option>
+          </select>
+        </label>
+        <button type="button" id="pause">播放动态</button>
+        <label for="time">时间 / 秒 <input id="time" type="number" min="0" step="0.1" value="2.4" inputmode="decimal"></label>
+        <button type="button" id="freeze">定格</button>
+      </div>
+      <div class="control-row">
+        <label><input id="show-outlet" type="checkbox" checked>出口水面</label>
+        <label><input id="show-bed" type="checkbox" checked>自然床</label>
+        <label><input id="show-soil" type="checkbox" checked>D 土面</label>
+        <label><input id="show-sea" type="checkbox" checked>海面</label>
+        <label><input id="show-shore" type="checkbox" checked>湿岸带</label>
+        <small>五层默认全开；仅诊断可见性。</small>
+      </div>
+      <div class="control-row">
+        <button type="button" id="run-sample">定时2.4秒 · 转头±4°录制4秒</button>
+        <button type="button" id="reset-pose">复位原固定机位</button>
+      </div>
+      <div class="control-row">
+        <label for="probe-x">CSS x <input id="probe-x" type="number" min="0" step="1" value="640"></label>
+        <label for="probe-y">CSS y <input id="probe-y" type="number" min="0" step="1" value="360"></label>
+        <button type="button" id="probe-point">复位机位并探测点</button>
+      </div>
+      <div class="control-row">
+        <button type="button" id="download-data">下载数据</button>
+        <button type="button" id="download-video" disabled>下载4秒视频</button>
+        <button type="button" id="download-frame">下载当前帧</button>
+        <button type="button" id="clean" aria-keyshortcuts="Escape">隐藏面板</button>
+      </div>
+    </section>
+    <section id="stats-panel" class="panel" aria-label="样片状态与来源">
+      <h2>样片状态</h2>
+      <pre id="status" aria-label="JSON 状态数据">{"state":"loading"}</pre>
+      <details id="source-details">
+        <summary>冻结来源与场景说明</summary>
+        <pre id="source-metadata"></pre>
+      </details>
+      <details id="probe-details" open>
+        <summary>射线命中：基础三角面／不评估透明混合</summary>
+        <pre id="probe-result">{"state":"no probe yet"}</pre>
+      </details>
+    </section>
+    <section id="errors" class="panel" role="alert" aria-label="编译与资源错误">
+      <h2>编译 / 资源错误</h2>
+      <pre id="error-log"></pre>
+    </section>
+    <button type="button" id="show-panels" aria-keyshortcuts="Escape">显示面板 · Esc</button>
+    <script>
+      (() => {
+        const clean = document.getElementById('clean');
+        const showPanels = document.getElementById('show-panels');
+        const restorePanels = () => {
+          document.body.classList.remove('clean');
+          clean.focus({ preventScroll: true });
+        };
+        clean.addEventListener('click', () => {
+          document.body.classList.add('clean');
+          showPanels.focus({ preventScroll: true });
+        });
+        showPanels.addEventListener('click', restorePanels);
+        window.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape' && document.body.classList.contains('clean')) restorePanels();
+        });
+        const log = document.getElementById('error-log');
+        const appendError = (message) => {
+          log.textContent += `${log.textContent ? '\n\n' : ''}${message}`;
+        };
+        window.addEventListener('error', (event) => {
+          if (event.target instanceof HTMLScriptElement) {
+            appendError(`模块资源加载失败：${event.target.src}`);
+          } else if (event.message) {
+            appendError(event.error?.stack || `${event.message}\n${event.filename || ''}:${event.lineno || 0}`);
+          }
+        }, true);
+        window.addEventListener('unhandledrejection', (event) => {
+          appendError(event.reason?.stack || String(event.reason));
+        });
+      })();
+    </script>
+    <script type="module" src="./water-outlet-hardedge-preview.ts"></script>
+  </body>
+</html>

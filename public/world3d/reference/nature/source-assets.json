@@ -1,0 +1,90 @@
+{
+  "retrieved": "2026-10-21",
+  "license": "CC0-1.0",
+  "sources": [
+    {
+      "asset": "bark_brown_02",
+      "author": "Rob Tuytel",
+      "license": "CC0-1.0",
+      "page": "https://polyhaven.com/a/bark_brown_02",
+      "license_url": "https://polyhaven.com/license",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/bark_brown_02/bark_brown_02_rough_1k.jpg",
+      "sha256": "68125592de36e15bae7aa6db85c4d135aeb7e5653199ba226483a70f6d69837d",
+      "size": [
+        1024,
+        1024
+      ],
+      "bytes": 337946
+    },
+    {
+      "asset": "bark_brown_02",
+      "author": "Rob Tuytel",
+      "license": "CC0-1.0",
+      "page": "https://polyhaven.com/a/bark_brown_02",
+      "license_url": "https://polyhaven.com/license",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/bark_brown_02/bark_brown_02_nor_gl_1k.png",
+      "sha256": "45c632c61b642759ee935a4300b71aa1e6097d2b2d8aae42376c4661ecc518eb",
+      "size": [
+        1024,
+        1024
+      ],
+      "bytes": 2436328
+    },
+    {
+      "asset": "rock_06",
+      "author": "Rob Tuytel",
+      "license": "CC0-1.0",
+      "page": "https://polyhaven.com/a/rock_06",
+      "license_url": "https://polyhaven.com/license",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rock_06/rock_06_diff_2k.jpg",
+      "sha256": "cd0e306ee8fb9ddc11f8d7c4dc709fa09caf91ebdd7941ab79196654f1789481",
+      "size": [
+        2048,
+        2048
+      ],
+      "bytes": 3266219
+    },
+    {
+      "asset": "bark_brown_02",
+      "author": "Rob Tuytel",
+      "license": "CC0-1.0",
+      "page": "https://polyhaven.com/a/bark_brown_02",
+      "license_url": "https://polyhaven.com/license",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/bark_brown_02/bark_brown_02_diff_2k.jpg",
+      "sha256": "285051e34826ace29f4ab438ad35cc1201b2aae0a6157a5f3c0bf6667bbc539e",
+      "size": [
+        2048,
+        2048
+      ],
+      "bytes": 2356592
+    },
+    {
+      "asset": "rock_06",
+      "author": "Rob Tuytel",
+      "license": "CC0-1.0",
+      "page": "https://polyhaven.com/a/rock_06",
+      "license_url": "https://polyhaven.com/license",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rock_06/rock_06_rough_1k.jpg",
+      "sha256": "7ff234224bb9ad113951279a06890c017215804e49653bd085f8eb511bb7630c",
+      "size": [
+        1024,
+        1024
+      ],
+      "bytes": 216165
+    },
+    {
+      "asset": "rock_06",
+      "author": "Rob Tuytel",
+      "license": "CC0-1.0",
+      "page": "https://polyhaven.com/a/rock_06",
+      "license_url": "https://polyhaven.com/license",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rock_06/rock_06_nor_gl_1k.png",
+      "sha256": "776565ed4a2efca8f9d7d0f25a37dfc81b3e6d3ae74de6ffd675d627cec26d5e",
+      "size": [
+        1024,
+        1024
+      ],
+      "bytes": 1830490
+    }
+  ]
+}
