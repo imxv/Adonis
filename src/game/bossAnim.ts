@@ -39,7 +39,7 @@ const ACCENT: Record<string, string> = {
 export const bossAccent = (kitId: string, kind: 'guardian' | 'boar') => (kind === 'boar' ? E.red : (ACCENT[kitId] ?? E.yellow));
 
 /** How far above the floor a boss breaks out of its summon, to drop (or float down) the rest of the way. */
-export const bossDrop = (kitId: string, kind: 'guardian' | 'boar') => (kind === 'guardian' && FLOATING.has(kitId) ? 22 : 40);
+export const bossDrop = (kitId: string, kind: 'guardian' | 'boar') => (kind === 'guardian' && FLOATING.has(kitId) ? 12 : 18);
 
 /** The name a move is called out with as it is gathered. */
 const MOVE_NAME: Record<string, string> = {

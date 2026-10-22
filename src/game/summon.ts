@@ -86,7 +86,7 @@ export function queueSpawn(s: GameScene, kind: EnemyKind, x: number, y: number, 
   // Its silhouette loads in where its entrance starts: up in the air for what drops or dives in, off to one side
   // for what rolls in.
   const side = Math.random() < 0.5 ? -1 : 1;
-  const [ox, oy] = style === 'slam' ? [0, -90] : style === 'swoop' ? [30 * side, -70] : style === 'roll' ? [42 * side, 0] : [0, 0];
+  const [ox, oy] = style === 'slam' ? [0, -90] : style === 'swoop' ? [14 * side, -64] : style === 'roll' ? [42 * side, 0] : [0, 0];
   const ghost = makeGhost(s, K(`en-${kind}-a`, s.kit), x + ox, y + oy, 0.8, elite ? 1.6 : mini ? 0.8 : 1, s.player.x < x, color);
   s.pendingSpawns++;
   const t: Telegraph = {
@@ -227,8 +227,8 @@ export function entrance(s: GameScene, a: Enemy, sp: Img, dt: number) {
     case 'swoop': {
       // Dives in from high up and to the side its silhouette waited on.
       const q = 1 - (1 - k) * (1 - k);
-      sp.x += Math.round((1 - q) * (en.ox ?? 30));
-      sp.y -= Math.round((1 - q) * 70);
+      sp.x += Math.round((1 - q) * (en.ox ?? 14));
+      sp.y -= Math.round((1 - q) * 64);
       break;
     }
     case 'burrow': {
@@ -443,7 +443,7 @@ export function drawSummon(s: GameScene, g: Phaser.GameObjects.Graphics, t: Tele
   // The column of light: thin at first, filling out, brightest as it gathers; a soft glow round it, fainter toward
   // the top, and a pool of light where it meets the floor. An angel comes down its own beam instead.
   const H = columnHeight(t);
-  const cx = Math.round(t.x + (t.ox ?? 0));
+  const cx = Math.round(t.x);
   const w = Math.max(2, Math.round((tier >= 4 ? 12 : 4 + tier * 1.5) * (0.3 + 0.7 * load) * (1 + 0.4 * charge)));
   if (t.style !== 'beam') {
     const seg = Math.ceil(H / 4);
@@ -590,7 +590,7 @@ export function summonBoss(s: GameScene, r: DRoom, kind: 'guardian' | 'boar') {
   s.camFocus = { x, y: y - 30, t: dur + 2.2 };
   s.fx.dim(0.5, 700);
   ui.cinema((dur + 2) * 1000, false);
-  s.fx.converge(() => ({ x, y: y - lift - 20 }), dur * 0.95, [accent, E.white], 90);
+  s.fx.converge(() => ({ x, y: y - lift - 24 }), dur * 0.95, [accent, E.white], 56);
   audio.bossIntro(dur);
   s.telegraphs.push({
     kind: 'spawn',
