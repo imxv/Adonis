@@ -247,7 +247,7 @@ class AudioEngine {
     this.shard.volume.value = -15;
     this.tink = new Tone.PolySynth({
       voice: Tone.FMSynth,
-      maxPolyphony: 6,
+      maxPolyphony: 10,
       options: {
         harmonicity: 4.01,
         modulationIndex: 3,
@@ -1060,7 +1060,7 @@ class AudioEngine {
       this.slowmo(0.6, 1.5);
       [7, 4, 2, 0].forEach((d, i) => this.fuseBell.triggerAttackRelease(this.note(d, 0), 1.4, t + 0.4 + i * 0.3, 0.5));
     });
-    this.fadeOutLevel(1.4, 3.4);
+    if (!this.silentDepth) this.fadeOutLevel(1.4, 3.4);
   }
 
   /** The run is won: a deep hit under a climbing run and a big held chord, then the calm theme. */
@@ -1072,7 +1072,7 @@ class AudioEngine {
       [0, 4, 7, 12].forEach((d, i) => this.fuseBell.triggerAttackRelease(this.note(d, 1), 2.4, t + 0.5 + i * 0.015, 0.6));
       [7, 9, 12, 14].forEach((d, i) => this.sparkle.triggerAttackRelease(this.note(d, 2), 0.1, t + 0.65 + i * 0.07, 0.5));
     });
-    this.fadeOutLevel(1, 3.6);
+    if (!this.silentDepth) this.fadeOutLevel(1, 3.6);
   }
 
   /** A gun hits the floor (one swapped out, or dropped for good): two knocks of metal and a dull thud. */
@@ -1371,6 +1371,8 @@ class AudioEngine {
    * one lets it ring under the clear fanfare and brings the calm layer back over a few seconds.
    */
   setIntensity(level: 0 | 1 | 2) {
+    // A silent training scene runs the same fight code, and must not touch the real music.
+    if (this.silentDepth) return;
     const was = this.intensity > 0;
     this.intensity = level;
     const l = this.layers;

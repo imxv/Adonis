@@ -8,6 +8,8 @@ const BACK_ACTIONS = /^(back|close|exit|cancel)$/;
 function control(target: EventTarget | null): HTMLElement | null {
   const el = target instanceof Element ? target.closest<HTMLElement>(CONTROLS) : null;
   if (!el || (el as HTMLButtonElement).disabled || el.getAttribute('aria-disabled') === 'true') return null;
+  // Game actions dressed as buttons (the touch deck, the fishing rod) opt out: they have sounds of their own.
+  if (el.dataset.sfx === 'none') return null;
   return el;
 }
 

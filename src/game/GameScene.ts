@@ -2505,6 +2505,8 @@ export class GameScene extends Phaser.Scene {
       this.fx.sparks(e.x, e.y - 6, 3, sh.el);
       if (!o.quiet) this.fx.number(e.x, e.y - e.r * 2 - 4, dmg * k, { small: true, color: ELEMENT_COLOR[sh.el] });
       if (sh.hp > 0) {
+        // The shield rings when it shrugs a hit off, and thuds when the counter element bites.
+        if (o.quiet) return;
         if (k < 1) audio.deflect();
         else audio.hit(false);
         return;

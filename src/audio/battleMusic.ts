@@ -131,7 +131,7 @@ export function createBattleMusic(kit: StyleKit, out: Tone.ToneAudioNode, level:
   const stabLP = keep(new Tone.Filter(bright, 'lowpass').connect(bus));
   const stab = keep(new Tone.PolySynth({
     voice: Tone.FMSynth,
-    maxPolyphony: 8,
+    maxPolyphony: 12,
     options: {
       harmonicity: 1,
       modulationIndex: 3.5,

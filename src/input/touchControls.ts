@@ -208,6 +208,7 @@ export class TouchControls {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = `touch-action touch-action-${action}`;
+    button.dataset.sfx = 'none';
     button.textContent = caption;
     button.setAttribute('aria-label', label);
     button.addEventListener('pointerdown', (event) => {
