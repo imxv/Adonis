@@ -54,6 +54,24 @@ export function openDifficultySelect(host: LayerHost, options: DifficultySelectO
   let wheelAt = -Infinity;
   let suppressClickUntil = 0;
   let drag: { id: number; x: number; y: number; card: number } | undefined;
+  let finishTimer = 0;
+  let disposed = false;
+
+  const clearDrag = () => {
+    const pointerId = drag?.id;
+    drag = undefined;
+    overlay.classList.remove('is-dragging');
+    if (pointerId !== undefined && viewport.hasPointerCapture(pointerId)) viewport.releasePointerCapture(pointerId);
+  };
+  const dispose = () => {
+    if (disposed) return;
+    disposed = true;
+    done = true;
+    events.abort();
+    window.clearTimeout(finishTimer);
+    finishTimer = 0;
+    clearDrag();
+  };
 
   const cards = REALMS.map((realm, index) => {
     const difficulty = DIFFICULTIES[realm.id];
@@ -106,14 +124,13 @@ export function openDifficultySelect(host: LayerHost, options: DifficultySelectO
     if (done) return;
     done = true;
     events.abort();
-    drag = undefined;
-    overlay.classList.remove('is-dragging');
+    clearDrag();
     overlay.classList.add(confirmed ? 'is-confirming' : 'is-leaving');
     host.escUsed();
     audio.select();
     const close = () => {
       // If a caller has already discarded this screen, do not start a stale run.
-      if (!overlay.isConnected) return;
+      if (disposed || !overlay.isConnected) return;
       host.close(layer);
       if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
       if (confirmed) options.onConfirm(REALMS[selected].id);
@@ -121,7 +138,7 @@ export function openDifficultySelect(host: LayerHost, options: DifficultySelectO
     };
     const fast = (window as Window & { __fastUi?: boolean }).__fastUi;
     if (fast || window.matchMedia('(prefers-reduced-motion: reduce)').matches) close();
-    else window.setTimeout(close, confirmed ? 260 : 140);
+    else finishTimer = window.setTimeout(close, confirmed ? 260 : 140);
   }
 
   const layer = host.push(overlay, (event) => {
@@ -141,6 +158,7 @@ export function openDifficultySelect(host: LayerHost, options: DifficultySelectO
     else if (document.activeElement === next) select(selected + 1);
     else finish(true);
   });
+  layer.dispose = dispose;
 
   back.addEventListener('click', () => finish(false), { signal: events.signal });
   prev.addEventListener('click', () => select(selected - 1), { signal: events.signal });

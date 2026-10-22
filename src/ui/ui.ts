@@ -22,7 +22,7 @@ import { WeaponPreview } from './weaponPreview';
 import { BeatBar } from './beatBar';
 import { TitlePainting } from './titleArt';
 import { openDifficultySelect } from './difficultySelect';
-import { beginMobileEntry } from './mobileEntry';
+import { beginMobileEntry, cancelMobileEntry } from './mobileEntry';
 import { ASCENSION_NAME, ASCENSION_BONUS_LINES } from '../game/ascension';
 import './ascension.css';
 import { isTouchBrowser, safeViewport } from '../platform/mobile';
@@ -100,6 +100,8 @@ export interface TitleActions {
   initialDifficulty: () => DifficultyId;
   onNew: (hero: HeroId, difficulty: DifficultyId) => void;
   codex: () => CodexTab[];
+  onBack?: () => void;
+  initialAction?: 'new' | 'continue';
 }
 
 export interface PauseInfo {
@@ -121,6 +123,8 @@ export interface EndInfo {
   score: number;
   rank: number;
   date: number;
+  settlement?: string;
+  warning?: string | null;
 }
 
 const fmtTime = (secs: number) => `${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, '0')}`;
@@ -151,15 +155,20 @@ class UI implements LayerHost {
   private preview?: WeaponPreview;
   private previewPosition?: { left: number; top: number };
   private unmountListeners?: () => void;
+  private suspended = false;
+  private generation = 0;
+  private mounted = false;
+  private timers = new Set<number>();
 
   mount(canvas: HTMLCanvasElement, game: Phaser.Game) {
-    this.unmountListeners?.();
-    this.resetDamageFeedback();
-    this.preview?.destroy();
+    this.dispose();
+    this.mounted = true;
+    this.suspended = false;
     this.canvas = canvas;
     this.root = $('#ui-root');
     this.wrap = $('#ui-wrap') ?? el('div');
     this.wrap.id = 'ui-wrap';
+    this.wrap.hidden = false;
     if (!this.wrap.parentElement) {
       document.body.appendChild(this.wrap);
       this.wrap.appendChild(this.root);
@@ -187,7 +196,7 @@ class UI implements LayerHost {
     this.beats = new BeatBar(this.hud);
     const events = new AbortController();
     window.addEventListener('keydown', (e) => {
-      if (this.choiceKeys) return;
+      if (this.suspended || this.choiceKeys) return;
       const top = this.layers[this.layers.length - 1];
       // Phaser handles keys before this listener: the Esc that just opened the pause page must not also close it.
       if (!top || e.timeStamp < top.openedAt) return;
@@ -202,9 +211,47 @@ class UI implements LayerHost {
     sync();
   }
 
+  /** End this mount completely; the singleton can be mounted again for another scene. */
+  dispose() {
+    this.mounted = false;
+    this.suspended = true;
+    this.unmountListeners?.();
+    this.unmountListeners = undefined;
+    this.resetLayers();
+    for (const timer of this.timers) window.clearTimeout(timer);
+    this.timers.clear();
+    this.toastTimer = this.damageTimer = this.cineTimer = 0;
+    this.preview?.destroy();
+    this.preview = undefined;
+    this.cards = undefined;
+    this.beats = undefined;
+    this.iconRows = { hearts: [], shields: [] };
+    this.last = {};
+    this.mapSig = '';
+    this.hud?.replaceChildren();
+    this.root?.replaceChildren();
+    if (this.wrap) this.wrap.hidden = true;
+    this.canvas = undefined;
+    document.body.classList.remove('touch-menu');
+  }
+
+  private defer(callback: () => void, ms: number) {
+    const timer = window.setTimeout(() => {
+      this.timers.delete(timer);
+      if (this.mounted) callback();
+    }, ms);
+    this.timers.add(timer);
+    return timer;
+  }
+
+  private clearTimer(timer: number | undefined) {
+    window.clearTimeout(timer);
+    if (timer !== undefined) this.timers.delete(timer);
+  }
+
   /** Lay the UI over the canvas and zoom it by the same factor as the game pixels. */
   sync() {
-    if (!this.canvas) return;
+    if (!this.mounted || !this.canvas) return;
     const touchMenu = isTouchBrowser() && !!this.root.querySelector('.overlay');
     document.body.classList.toggle('touch-menu', touchMenu);
     if (touchMenu) {
@@ -239,6 +286,33 @@ class UI implements LayerHost {
     this.hud.style.opacity = show ? '1' : '0';
   }
 
+  /** External modes own the keyboard and viewport until the combat UI is explicitly released. */
+  suspend(suspended: boolean) {
+    if (!this.mounted) return;
+    this.suspended = suspended;
+    if (this.wrap) this.wrap.hidden = suspended;
+    if (suspended) this.resetLayers();
+    else this.sync();
+  }
+
+  resetLayers() {
+    this.generation++;
+    cancelMobileEntry(this);
+    if (this.choiceKeys) window.removeEventListener('keydown', this.choiceKeys);
+    this.choiceKeys = undefined;
+    for (const layer of this.layers) this.disposeLayer(layer);
+    this.layers = [];
+    this.root?.querySelectorAll(':scope > :not(.hud)').forEach((node) => node.remove());
+    this.hideWeaponPreview();
+    this.resetDamageFeedback();
+    this.canvas?.classList.remove('bt');
+    this.clearTimer(this.cineTimer);
+    this.cineTimer = 0;
+    this.cine = undefined;
+    this.closedAt = performance.now();
+    this.sync();
+  }
+
   /** Only accepted hits call this; HUD refreshes and armor recovery never count as damage. */
   damageFeedback(hpLoss: number, armorLoss: number) {
     hpLoss = Math.max(0, hpLoss);
@@ -260,13 +334,13 @@ class UI implements LayerHost {
     notice.classList.remove('visible');
     void notice.offsetWidth;
     notice.classList.add('visible');
-    clearTimeout(this.damageTimer);
-    this.damageTimer = window.setTimeout(() => this.resetDamageFeedback(), DAMAGE_FEEDBACK_MS);
+    this.clearTimer(this.damageTimer);
+    this.damageTimer = this.defer(() => this.resetDamageFeedback(), DAMAGE_FEEDBACK_MS);
   }
 
   /** Called when leaving the HUD or starting another run, including immediate restarts. */
   resetDamageFeedback() {
-    clearTimeout(this.damageTimer);
+    this.clearTimer(this.damageTimer);
     this.damageTimer = 0;
     this.damageStreak = undefined;
     const notice = this.hud?.querySelector<HTMLElement>('.damage-feedback');
@@ -341,7 +415,7 @@ class UI implements LayerHost {
     this.syncIcons('hearts', Math.max(0, d.hp), d.maxHp, 'heart', 'heart-empty', 'heart-flash');
     this.syncIcons('shields', d.armor, d.maxArmor, 'armor', 'armor-empty', 'armor-flash');
 
-    this.cards.update(d.guns, d.skill, d.skillActive);
+    this.cards?.update(d.guns, d.skill, d.skillActive);
 
     const spells = d.spells
       .map((s) => `<div class="sp" title="${SPELLS[s.id as keyof typeof SPELLS]?.name ?? s.id} · ${s.fused ? '融合' : s.evolved ? '进化' : `Lv${s.level}`}">${icon(`spell-${s.id}`, 2)}</div>`)
@@ -429,8 +503,8 @@ class UI implements LayerHost {
   }
 
   private iconRows: Record<string, { el: HTMLImageElement; full: boolean; timer?: number }[]> = { hearts: [], shields: [] };
-  private cards!: WeaponCards;
-  private beats!: BeatBar;
+  private cards?: WeaponCards;
+  private beats?: BeatBar;
 
   /**
    * Hearts and shields as icons, no numbers. Lost icons flash before going dark;
@@ -449,13 +523,17 @@ class UI implements LayerHost {
       box.appendChild(el);
       list.push({ el, full: false });
     }
-    while (list.length > max) list.pop()!.el.remove();
+    while (list.length > max) {
+      const removed = list.pop()!;
+      this.clearTimer(removed.timer);
+      removed.el.remove();
+    }
     let gains = 0;
     list.forEach((it, i) => {
       const want = i < n;
       if (want === it.full) return;
       it.full = want;
-      clearTimeout(it.timer);
+      this.clearTimer(it.timer);
       it.el.classList.remove('gain', 'lose');
       void it.el.offsetWidth;
       if (want) {
@@ -466,7 +544,7 @@ class UI implements LayerHost {
         it.el.src = ICONS[flash];
         it.el.style.animationDelay = '0ms';
         it.el.classList.add('lose');
-        it.timer = window.setTimeout(() => (it.el.src = ICONS[empty]), 140);
+        it.timer = this.defer(() => { it.el.src = ICONS[empty]; it.timer = undefined; }, 140);
       }
     });
   }
@@ -534,8 +612,8 @@ class UI implements LayerHost {
     const c = this.cine;
     c.classList.add('on');
     this.canvas?.classList.add('bt');
-    clearTimeout(this.cineTimer);
-    this.cineTimer = window.setTimeout(() => {
+    this.clearTimer(this.cineTimer);
+    this.cineTimer = this.defer(() => {
       c.classList.remove('on');
       this.canvas?.classList.remove('bt');
     }, ms);
@@ -552,7 +630,7 @@ class UI implements LayerHost {
       </div>
       <div class="cb-stats">${px(`用时 ${time}`, GREY)}${px(`击杀 ${o.kills}`, GREY)}${px(`最高连击 ${o.combo}`, GREY)}</div>`;
     this.root.appendChild(node);
-    setTimeout(() => node.remove(), 2600);
+    this.defer(() => node.remove(), 2600);
   }
 
   /** A fight was won: its grade is stamped across the top of the screen with the points it earned. */
@@ -561,15 +639,15 @@ class UI implements LayerHost {
     const node = el('div', 'stamp');
     node.innerHTML = `<div class="big">${px(rank, RANK_COLOR[rank], { small: true, scale: 4 })}</div><div class="col">${px('RANK', E.white, { small: true })}${px(`+${points}`, E.yellow, { small: true })}</div>`;
     this.root.appendChild(node);
-    setTimeout(() => node.remove(), 2300);
+    this.defer(() => node.remove(), 2300);
   }
 
   toast(text: string, ms = 1300) {
     const node = $('.toast', this.hud);
     node.innerHTML = `<div class="panel">${px(text, E.white)}</div>`;
     node.classList.add('show');
-    clearTimeout(this.toastTimer);
-    this.toastTimer = window.setTimeout(() => node.classList.remove('show'), ms);
+    this.clearTimer(this.toastTimer);
+    this.toastTimer = this.defer(() => node.classList.remove('show'), ms);
   }
 
   /** The scene owns its lifetime, so changing floors or restarting cannot leave a stale title. */
@@ -596,8 +674,8 @@ class UI implements LayerHost {
     const b = el('div', 'banner');
     b.innerHTML = `${px(kicker, GREY)}${px(big, E.white, { scale: 2 })}${px(en, ACCENT, { small: true })}<div class="rule"></div>${px(subtitle, GREY)}`;
     this.root.appendChild(b);
-    setTimeout(() => b.classList.add('out'), ms);
-    setTimeout(() => b.remove(), ms + 600);
+    this.defer(() => b.classList.add('out'), ms);
+    this.defer(() => b.remove(), ms + 600);
   }
 
   chestReward(c: Choice, run: RunState) {
@@ -606,7 +684,7 @@ class UI implements LayerHost {
     const b = el('div', 'chest panel');
     b.innerHTML = `<div class="ic">${this.iconFor(info, 2)}</div><div class="col">${px('获得', E.yellow)}${px(info.name, E.white)}${px(info.tag, info.tagColor)}</div>`;
     this.root.appendChild(b);
-    setTimeout(() => b.remove(), 1900);
+    this.defer(() => b.remove(), 1900);
   }
 
   /** The fusion popup: both ingredients, an arrow, the fused spell and what it does. */
@@ -618,7 +696,7 @@ class UI implements LayerHost {
     node.style.top = '26px';
     node.innerHTML = `<div class="ic">${icon(`spell-${a}`, 2)}${px('+', E.white)}${icon(`spell-${b}`, 2)}${px('→', E.magenta)}${icon(`spell-${f}`, 3)}</div><div class="col">${px('法术融合', E.magenta)}${px(s.name, E.white, { scale: 2 })}${pxBlock(s.desc, GREY, 170)}</div>`;
     this.root.appendChild(node);
-    setTimeout(() => node.remove(), 2200);
+    this.defer(() => node.remove(), 2200);
   }
 
   describe(c: Choice, run: RunState): { icon: string; name: string; tag: string; tagColor: string; desc: string; rarity: string } {
@@ -681,6 +759,7 @@ class UI implements LayerHost {
    * With `skip`, a line under the cards lets you take nothing (also Esc); onPick then gets -1.
    */
   choices(title: string, sub: string, items: Choice[], run: RunState, onPick: (i: number) => void, o: { tag?: string; skip?: string } = {}) {
+    const generation = this.generation;
     this.hideWeaponPreview();
     if (this.choiceKeys) window.removeEventListener('keydown', this.choiceKeys);
     this.root.querySelectorAll('.overlay.picker').forEach((x) => x.remove());
@@ -738,13 +817,14 @@ class UI implements LayerHost {
       if (i >= 0) audio.cardPick();
       else audio.select();
       const finish = () => {
+        if (generation !== this.generation || this.suspended || !ov.isConnected) return;
         ov.remove();
         onPick(i);
         this.sync();
       };
       // The chosen card flares and lifts away before play resumes (the playtest bot skips the wait).
       if ((window as unknown as { __fastUi?: boolean }).__fastUi) finish();
-      else window.setTimeout(finish, i >= 0 ? 560 : 280);
+      else this.defer(finish, i >= 0 ? 560 : 280);
     };
     cards.forEach((card, k) => {
       card.addEventListener('mouseenter', () => {
@@ -757,6 +837,7 @@ class UI implements LayerHost {
     skipEl?.addEventListener('mouseenter', () => !done && select(cards.length));
     skipEl?.addEventListener('click', () => pick(-1));
     const onKey = (e: KeyboardEvent) => {
+      if (this.suspended || generation !== this.generation) return;
       const n = Number(e.key) - 1;
       if (n >= 0 && n < cards.length) pick(n);
       else if (e.key === 'Escape' && skipEl) pick(-1);
@@ -781,6 +862,7 @@ class UI implements LayerHost {
    * them, their first weapon and their perk. Number keys, arrows and Enter or a click choose; Esc goes back to the menu.
    */
   heroSelect(onPick: (hero: HeroId) => void, initialHero: HeroId = 'adonis') {
+    const generation = this.generation;
     const ov = el('div', 'overlay picker heroes');
     ov.innerHTML = `<div class="pk-head"><span class="tagred">${px('HERO', E.white, { small: true, outline: false })}</span>${px('选择角色', E.yellow, { scale: 2 })}${px(isTouchBrowser() ? '轻触卡片选择角色' : '谁走进这幅画', GREY)}<button type="button" class="hero-back" aria-label="返回主页">${px(isTouchBrowser() ? '‹ 返回' : 'Esc 返回', DIM)}</button></div>`;
     const table = el('div', 'pk-cards');
@@ -828,11 +910,12 @@ class UI implements LayerHost {
       ov.classList.add('closing');
       audio.cardPick();
       const go = () => {
+        if (generation !== this.generation || this.suspended || !ov.isConnected) return;
         this.close(layer);
         onPick(HERO_ORDER[i]);
       };
       if ((window as unknown as { __fastUi?: boolean }).__fastUi) go();
-      else window.setTimeout(go, 560);
+      else this.defer(go, 560);
     };
     const back = () => {
       if (done) return;
@@ -889,11 +972,18 @@ class UI implements LayerHost {
   }
 
   close(layer: Layer, fadeMs = 0) {
+    this.disposeLayer(layer);
     this.layers = this.layers.filter((l) => l !== layer);
     const remove = () => { layer.el.remove(); this.sync(); };
     if (!fadeMs) return remove();
     layer.el.classList.add('out');
-    setTimeout(remove, fadeMs);
+    this.defer(remove, fadeMs);
+  }
+
+  private disposeLayer(layer: Layer) {
+    const dispose = layer.dispose;
+    layer.dispose = undefined;
+    dispose?.();
   }
 
   escUsed() {
@@ -921,7 +1011,7 @@ class UI implements LayerHost {
     ov.prepend(painting.el);
     ov.addEventListener('mousemove', (e) => painting.look(e.clientX, e.clientY));
     const note = save ? `第${FLOOR_NAMES[save.level] ?? save.level + 1}层 Lv${save.xpLevel}` : '没有存档';
-    const rows = [menuRow('继续游戏', { note }), menuRow('开始冒险'), menuRow('排行榜'), menuRow('游戏说明'), menuRow('图鉴'), menuRow('设置')];
+    const rows = [menuRow('继续游戏', { note }), menuRow('开始冒险'), menuRow('排行榜'), menuRow('游戏说明'), menuRow('图鉴'), menuRow('设置'), ...(a.onBack ? [menuRow('返回画廊', { key: 'Esc' })] : [])];
     ['continue', 'new', 'board', 'guide', 'codex', 'settings'].forEach((k, i) => (rows[i].dataset.k = k));
     ov.querySelector('.menu')!.append(...rows);
     ov.querySelector('.menu')!.after(painting.caption);
@@ -933,9 +1023,7 @@ class UI implements LayerHost {
       this.close(layer, 250);
       go();
     };
-    const nav = new MenuNav(
-      rows,
-      (i) => {
+    const pick = (i: number) => {
         if (leaving || this.layers.at(-1) !== layer) return;
         audio.select();
         if (i === 0) beginMobileEntry(this, () => leave(a.onContinue));
@@ -957,17 +1045,24 @@ class UI implements LayerHost {
         else if (i === 2) openBoard(this);
         else if (i === 3) openHelp(this);
         else if (i === 4) openCodex(this, (tabs ??= a.codex()));
-        else openSettings(this);
-      },
-      [!save],
-    );
+        else if (i === 5) openSettings(this);
+        else if (a.onBack) leave(a.onBack);
+      };
+    const nav = new MenuNav(rows, pick, [!save]);
     nav.onFocus = (i) => painting.setCaption(i);
     nav.select(save ? 0 : 1);
     const layer = this.push(ov, (e) => {
+      if ((e.key === 'Escape' || e.key === 'Backspace') && a.onBack) {
+        e.preventDefault();
+        this.escUsed();
+        leave(a.onBack);
+        return;
+      }
       const activate = e.key === 'Enter' || e.key === ' ';
       if (activate) e.preventDefault();
       if (!activate || !e.repeat) nav.key(e);
     });
+    if (a.initialAction) pick(a.initialAction === 'continue' ? 0 : 1);
   }
 
   /** Pause: the menu on the left, the run on the right (hero, progress, guns, spells, pets, upgrades). */
@@ -1041,7 +1136,7 @@ class UI implements LayerHost {
     ov.querySelector('.ps-right')!.addEventListener('keydown', (e) => {
       if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes((e as KeyboardEvent).key)) e.stopPropagation();
     });
-    const rows = [menuRow('继续游戏', { key: 'Esc' }), menuRow('游戏说明'), menuRow('图鉴'), menuRow('设置'), menuRow('返回主页', { note: '自动存档' })];
+    const rows = [menuRow('继续游戏', { key: 'Esc' }), menuRow('游戏说明'), menuRow('图鉴'), menuRow('设置'), menuRow('返回画廊', { note: '自动存档' })];
     ov.querySelector('.menu')!.append(...rows);
     let tabs: CodexTab[] | undefined;
     const resume = () => {
@@ -1054,7 +1149,7 @@ class UI implements LayerHost {
       else if (i === 1) openHelp(this);
       else if (i === 2) openCodex(this, (tabs ??= a.codex()));
       else if (i === 3) openSettings(this);
-      else confirmBox(this, '返回主页？进度会自动存档，之后可以在主页继续游戏。', () => {
+      else confirmBox(this, '返回画廊？进度会自动存档，之后可继续这次冒险。', () => {
         this.close(layer);
         a.onQuit();
       });
@@ -1077,13 +1172,17 @@ class UI implements LayerHost {
       .map(([k, v]) => `<div class="row"><div class="nm">${px(k, GREY)}</div><div class="b" style="width:${Math.max(2, Math.round((v / total) * 150))}px"></div>${px(`${Math.round((v / total) * 100)}%`, DIM, { small: true })}</div>`)
       .join('');
     const stat = (v: string, label: string) => `<div>${px(v, E.yellow, { small: true, scale: 2 })}${px(label, DIM)}</div>`;
-    const rank = info.rank === 1 ? px('新纪录！排行榜第 1 名', E.yellow) : info.rank > 0 && info.rank <= 10 ? px(`排行榜第 ${info.rank} 名`, E.white) : '';
+    const board = run.supply ? '补给榜' : '排行榜';
+    const rank = info.rank === 1 ? px(`新纪录！${board}第 1 名`, E.yellow) : info.rank > 0 && info.rank <= 10 ? px(`${board}第 ${info.rank} 名`, E.white) : '';
     ov.innerHTML = `<div class="box panel endbox">
       <div class="head"><span class="tagred">${px(victory ? 'CLEAR' : 'DEAD', E.white, { small: true, outline: false })}</span>${px(victory ? '这一次，他活了下来' : '阿多尼斯倒下了', victory ? E.yellow : ACCENT, { scale: 2 })}</div>
       <div class="end-details" tabindex="0" role="region" aria-label="本局结算详情">
         ${px(victory ? '野猪倒下了，银莲花开满了地牢。' : '血落处开出银莲花，他会再次重生。', GREY)}
         <div class="statgrid">${stat(`${run.level + 1}/${LEVELS}`, '层数')}${stat(String(run.kills), '击杀')}${stat(String(run.xpLevel), '等级')}${stat(fmtTime(run.elapsed), '用时')}</div>
         <div class="score">${px(`得分 ${info.score}`, E.yellow)}${px(DIFFICULTIES[run.diff.id].name, GREY)}${rank}</div>
+        ${run.supply ? px(`携带 ${run.supply.name} · 计入本机补给榜`, E.cyan) : ''}
+        ${info.settlement ? pxBlock(info.settlement, E.cream, 300) : ''}
+        ${info.warning ? pxBlock(info.warning, E.orange, 300) : ''}
         <div class="netrank"></div>
         <div class="dmg">${rows}</div>
       </div>
@@ -1092,7 +1191,7 @@ class UI implements LayerHost {
       // Let the focused details scroll without also moving the action-menu selection.
       if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes((e as KeyboardEvent).key)) e.stopPropagation();
     });
-    const items = [menuRow('再次重生', { key: 'R' }), menuRow('返回主页')];
+    const items = [menuRow('再次重生', { key: 'R' }), menuRow('返回画廊')];
     ov.querySelector('.menu')!.append(...items);
     const nav = new MenuNav(items, (i) => {
       audio.select();

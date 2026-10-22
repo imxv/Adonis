@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>希腊参考 v3 · 独立样段</title>
+<style>html,body,#world{margin:0;width:100%;height:100%;overflow:hidden;background:#163a48}#world{position:fixed;inset:0}#result{position:fixed;inset:0;display:grid;place-content:center;gap:20px;color:#e8e4d2;font:18px sans-serif}button{padding:16px;background:#244e57;color:#fff}</style>
+<div id="world"></div>
+<script type="module">
+  import { mountGreekReferenceWorld } from './index.ts';
+  const container=document.querySelector('#world'), ids=new Set(), params=new URLSearchParams(location.search);
+  const view=['coast','grove','waterfall'].includes(params.get('view'))?params.get('view'):'coast';
+  let entries=0;
+  async function enter(){
+    container.replaceChildren();container.dataset.entries=String(++entries);container.dataset.referenceView=view;
+    const abort=new AbortController();if(params.has('cancel'))setTimeout(()=>abort.abort(),25);
+    try{
+      await mountGreekReferenceWorld({container,quality:params.get('quality')??'auto',signal:abort.signal,discoveredIds:[...ids],
+        onDiscover(id){ids.add(id);container.dataset.discoveries=[...ids].join(',');},
+        onExit(){container.innerHTML='<div id="result">已返回 · 参考样段 · '+ids.size+'个发现<button>同页重新进入</button></div>';container.querySelector('button').addEventListener('click',enter,{once:true});}
+      },view);
+    }catch(error){container.textContent='参考样段未打开：'+error.message+' · 无残留画布：'+container.querySelectorAll('canvas').length;}
+  }
+  enter();
+</script>
+</html>

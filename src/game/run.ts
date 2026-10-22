@@ -9,12 +9,16 @@ import { KITS, KIT_BY_ID } from '../styles/kits';
 import { DIFFICULTIES, type Difficulty, type DifficultyId } from '../data/difficulty';
 import type { StyleKit } from '../styles/types';
 import { settings } from '../settings';
-import type { SavedRun } from '../save';
+import { createRunId, ensureRunId, type RunSupply, type SavedRun } from '../save';
+import type { PreparedRun } from '../meta/types';
 
 export const LEVELS = 5;
 export const COMBAT_ROOMS = 4;
 
 export interface RunState {
+  runId: string;
+  supply?: RunSupply;
+  prepared?: PreparedRun;
   hero: HeroId;
   seed: number;
   /** Old saves stay on the original generator for their full run. */
@@ -72,6 +76,7 @@ export function newRun(params: URLSearchParams, heroId: HeroId = 'adonis', diffi
   const startSpell = params.get('spell') as SpellId | null;
   if (startSpell && SPELLS[startSpell]) spells.push(newSpell(startSpell));
   return {
+    runId: createRunId(),
     hero: hero.id,
     seed,
     dungeonVersion: 2,
@@ -107,6 +112,9 @@ export function newRun(params: URLSearchParams, heroId: HeroId = 'adonis', diffi
 /** The run as plain data for a save; the floor progress is added by the scene. */
 export function snapshotRun(run: RunState): Omit<SavedRun, 'v' | 'savedAt' | 'rooms' | 'at'> {
   return {
+    runId: run.runId,
+    supply: run.supply ? { ...run.supply } : undefined,
+    prepared: run.prepared ? { ...run.prepared, effect: { ...run.prepared.effect } } : undefined,
     hero: run.hero,
     seed: run.seed,
     dungeonVersion: run.dungeonVersion,
@@ -138,6 +146,9 @@ export function snapshotRun(run: RunState): Omit<SavedRun, 'v' | 'savedAt' | 'ro
 export function restoreRun(s: SavedRun): RunState {
   const styles = s.styles.map((id) => KIT_BY_ID[id]).filter(Boolean);
   return {
+    runId: ensureRunId(s),
+    supply: s.supply ? { ...s.supply } : undefined,
+    prepared: s.prepared ? { ...s.prepared, effect: { ...s.prepared.effect } } : undefined,
     hero: HEROES[s.hero as HeroId] ? (s.hero as HeroId) : 'knight',
     seed: s.seed,
     dungeonVersion: s.dungeonVersion === 2 ? 2 : undefined,

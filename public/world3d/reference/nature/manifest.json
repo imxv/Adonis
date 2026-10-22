@@ -1,0 +1,286 @@
+{
+  "generator": "nature-textures-generate.py",
+  "source": "Poly Haven CC0 bark_brown_02 / rock_06 + original botanical atlas / moss",
+  "files": [
+    {
+      "path": "high/limestone-color.webp",
+      "bytes": 163114,
+      "size": [
+        1024,
+        1024
+      ],
+      "mode": "RGB",
+      "sha256": "420047bdea03b78b02378d944ad4ede8093d42bd09d986afdb433fa3284cbc4e"
+    },
+    {
+      "path": "high/limestone-normal.webp",
+      "bytes": 1676680,
+      "size": [
+        1024,
+        1024
+      ],
+      "mode": "RGB",
+      "sha256": "1a979f67154afe67ac931ec3ed7cf1dd1288fbd9ee05e23e60124d168856d884"
+    },
+    {
+      "path": "high/limestone-roughness.webp",
+      "bytes": 10450,
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGB",
+      "sha256": "f2806543e3ee4e00fade75ff4807b5c7f71a250a35dcbbd5b7c562382f7633fc"
+    },
+    {
+      "path": "high/limestone-wet-color.webp",
+      "bytes": 102488,
+      "size": [
+        1024,
+        1024
+      ],
+      "mode": "RGB",
+      "sha256": "ca775ea2e6687ba082acaaf41241ad149063a36e4100ed8d6732a3d36f194055"
+    },
+    {
+      "path": "high/limestone-wet-roughness.webp",
+      "bytes": 75060,
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGB",
+      "sha256": "666aa3ce76ebeb967e33dcaec00995c3c744b9c7998ddd299bcfbb7b4bea4050"
+    },
+    {
+      "path": "high/moss-color.webp",
+      "bytes": 28058,
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGB",
+      "sha256": "76becd682be78601d087ee329119b110a2298e0865bbb8dc1ff544fe4d3c06e4"
+    },
+    {
+      "path": "high/moss-normal.webp",
+      "bytes": 120278,
+      "size": [
+        256,
+        256
+      ],
+      "mode": "RGB",
+      "sha256": "faa716fd927ab95ca2a84a86ac21361ade7753b76f330b59f71c0b56aeca9a60"
+    },
+    {
+      "path": "high/moss-roughness.webp",
+      "bytes": 14846,
+      "size": [
+        256,
+        256
+      ],
+      "mode": "RGB",
+      "sha256": "7c5e00ca9fca54224f88e3d5a6c971e186cde44103eb90b20d6a4e9b85889450"
+    },
+    {
+      "path": "high/olive-bark-color.webp",
+      "bytes": 1384898,
+      "size": [
+        2048,
+        2048
+      ],
+      "mode": "RGB",
+      "sha256": "b789ab4a066e4f008fdf00c8f48b1fd0cf8940d6df873be1951b8a13fa2a4acd"
+    },
+    {
+      "path": "high/olive-bark-normal.webp",
+      "bytes": 2009556,
+      "size": [
+        1024,
+        1024
+      ],
+      "mode": "RGB",
+      "sha256": "4be67981a6bfb6f4581deab9d15c58f1ce9e3c86e12bd241607c186e83e1513a"
+    },
+    {
+      "path": "high/olive-bark-roughness.webp",
+      "bytes": 21292,
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGB",
+      "sha256": "5123a388f4f2ab2f6cee4aeef21fc48dc69a0fc40de278e2586e6090419b8e84"
+    },
+    {
+      "path": "high/olive-sprays-color.png",
+      "bytes": 1363540,
+      "size": [
+        2048,
+        1024
+      ],
+      "mode": "RGBA",
+      "sha256": "4cb3730cb2a1c6f89038053dfd6562285a1d4c317344ca08c8df19b065dae939"
+    },
+    {
+      "path": "high/olive-sprays-normal.webp",
+      "bytes": 119502,
+      "size": [
+        512,
+        256
+      ],
+      "mode": "RGB",
+      "sha256": "fb3a5ceb18f203cb78794fd18b3e7a6e164fbd0ebb9d242586876a7d4992f941"
+    },
+    {
+      "path": "high/olive-sprays-roughness.webp",
+      "bytes": 28292,
+      "size": [
+        512,
+        256
+      ],
+      "mode": "RGB",
+      "sha256": "2aebeb073eb07535556504ace2954ac6efb4914496b5bb6478724a660503aa09"
+    },
+    {
+      "path": "low/limestone-color.webp",
+      "bytes": 47568,
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGB",
+      "sha256": "1ebd0274c4575623c66f22489088c798a6645a0089bdf26f04e505072468ed1c"
+    },
+    {
+      "path": "low/limestone-normal.webp",
+      "bytes": 396830,
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGB",
+      "sha256": "8b6e8fc853b1c3a926f3694d916272f5dbfd30151109e4cd3a4ad8f4c7d318b3"
+    },
+    {
+      "path": "low/limestone-roughness.webp",
+      "bytes": 10450,
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGB",
+      "sha256": "f2806543e3ee4e00fade75ff4807b5c7f71a250a35dcbbd5b7c562382f7633fc"
+    },
+    {
+      "path": "low/limestone-wet-color.webp",
+      "bytes": 28280,
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGB",
+      "sha256": "decebd3c887c7916f05f9287181627f56c9d3a0b190822ee17d58a61341f0063"
+    },
+    {
+      "path": "low/limestone-wet-roughness.webp",
+      "bytes": 75060,
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGB",
+      "sha256": "666aa3ce76ebeb967e33dcaec00995c3c744b9c7998ddd299bcfbb7b4bea4050"
+    },
+    {
+      "path": "low/moss-color.webp",
+      "bytes": 28058,
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGB",
+      "sha256": "76becd682be78601d087ee329119b110a2298e0865bbb8dc1ff544fe4d3c06e4"
+    },
+    {
+      "path": "low/moss-normal.webp",
+      "bytes": 120278,
+      "size": [
+        256,
+        256
+      ],
+      "mode": "RGB",
+      "sha256": "faa716fd927ab95ca2a84a86ac21361ade7753b76f330b59f71c0b56aeca9a60"
+    },
+    {
+      "path": "low/moss-roughness.webp",
+      "bytes": 14846,
+      "size": [
+        256,
+        256
+      ],
+      "mode": "RGB",
+      "sha256": "7c5e00ca9fca54224f88e3d5a6c971e186cde44103eb90b20d6a4e9b85889450"
+    },
+    {
+      "path": "low/olive-bark-color.webp",
+      "bytes": 114616,
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGB",
+      "sha256": "7735592b542a8af2fbb5f66a82ea0a122ecd031ae232d2e3749650926d6995aa"
+    },
+    {
+      "path": "low/olive-bark-normal.webp",
+      "bytes": 562542,
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGB",
+      "sha256": "17d6ad8cb612a20267b6f293a21ccc3f2911d80e25fc88d389f65dab9bfb2ab0"
+    },
+    {
+      "path": "low/olive-bark-roughness.webp",
+      "bytes": 21292,
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGB",
+      "sha256": "5123a388f4f2ab2f6cee4aeef21fc48dc69a0fc40de278e2586e6090419b8e84"
+    },
+    {
+      "path": "low/olive-sprays-color.png",
+      "bytes": 918646,
+      "size": [
+        1024,
+        512
+      ],
+      "mode": "RGBA",
+      "sha256": "8983c79eb4e3471bdeddb34e75b917c813975e006c09211ec4387f602f8caa20"
+    },
+    {
+      "path": "low/olive-sprays-normal.webp",
+      "bytes": 119502,
+      "size": [
+        512,
+        256
+      ],
+      "mode": "RGB",
+      "sha256": "fb3a5ceb18f203cb78794fd18b3e7a6e164fbd0ebb9d242586876a7d4992f941"
+    },
+    {
+      "path": "low/olive-sprays-roughness.webp",
+      "bytes": 28292,
+      "size": [
+        512,
+        256
+      ],
+      "mode": "RGB",
+      "sha256": "2aebeb073eb07535556504ace2954ac6efb4914496b5bb6478724a660503aa09"
+    }
+  ]
+}

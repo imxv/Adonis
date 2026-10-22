@@ -1,0 +1,322 @@
+{
+  "revision": "v3-reference-r4-grove-terraces-scan",
+  "authority": "src/world3d/reference/layout.ts",
+  "sourceSha256": "d0de7852083cbfa0b7d7fba97393b7f89070f198bdb8de3e45af2cf2a70a176e",
+  "cascadeTransform": {
+    "scale": 2.0779144530371148,
+    "position": [
+      32,
+      -0.1524663124859384,
+      -12
+    ],
+    "yaw": 0
+  },
+  "water": [
+    {
+      "id": "water.sea",
+      "kind": "sea",
+      "controlledBySpring": false,
+      "outline": [
+        [
+          -180,
+          0,
+          100
+        ],
+        [
+          8,
+          0,
+          100
+        ],
+        [
+          8,
+          0,
+          44
+        ],
+        [
+          13,
+          0,
+          31
+        ],
+        [
+          16,
+          0,
+          18
+        ],
+        [
+          12,
+          0,
+          9
+        ],
+        [
+          2,
+          0,
+          3
+        ],
+        [
+          -10,
+          0,
+          -1
+        ],
+        [
+          -16,
+          0,
+          -9
+        ],
+        [
+          -19,
+          0,
+          -25
+        ],
+        [
+          -14,
+          0,
+          -45
+        ],
+        [
+          -30,
+          0,
+          -67
+        ],
+        [
+          -180,
+          0,
+          -100
+        ]
+      ]
+    },
+    {
+      "id": "water.pool",
+      "kind": "pool",
+      "controlledBySpring": false,
+      "outline": [
+        [
+          16,
+          0.18,
+          18
+        ],
+        [
+          43,
+          0.18,
+          18
+        ],
+        [
+          51,
+          0.18,
+          5
+        ],
+        [
+          48,
+          0.18,
+          -10
+        ],
+        [
+          28,
+          0.18,
+          -11
+        ],
+        [
+          20,
+          0.18,
+          0
+        ]
+      ]
+    },
+    {
+      "id": "water.grove-pool",
+      "kind": "pool",
+      "controlledBySpring": false,
+      "outline": [
+        [
+          2,
+          11.7,
+          -14
+        ],
+        [
+          7,
+          11.7,
+          -8
+        ],
+        [
+          15,
+          11.7,
+          -9
+        ],
+        [
+          17,
+          11.7,
+          -16
+        ],
+        [
+          15,
+          11.7,
+          -21
+        ],
+        [
+          8,
+          11.7,
+          -23
+        ],
+        [
+          5,
+          11.7,
+          -21
+        ]
+      ]
+    },
+    {
+      "id": "water.cascade",
+      "kind": "waterfall",
+      "controlledBySpring": false,
+      "tiers": [
+        {
+          "top": [
+            32.72727005856299,
+            17.966947717997705,
+            -14.32726418740157
+          ],
+          "bottom": [
+            33.45454011712598,
+            10.029314507395926,
+            -11.48052138674072
+          ],
+          "width": 4.259724628726085
+        },
+        {
+          "top": [
+            34.38960162099268,
+            9.925418784744068,
+            -10.794809617238474
+          ],
+          "bottom": [
+            34.59739306629639,
+            0.18,
+            -8.488324574367276
+          ],
+          "width": 5.090890409940932
+        }
+      ]
+    },
+    {
+      "id": "water.cascade-ledge",
+      "kind": "stream",
+      "controlledBySpring": false,
+      "width": 4.259724628726085,
+      "points": [
+        [
+          33.45454011712598,
+          10.029314507395926,
+          -11.48052138674072
+        ],
+        [
+          33.82856471867266,
+          9.987756218335182,
+          -11.168834218785154
+        ],
+        [
+          34.38960162099268,
+          9.925418784744068,
+          -10.794809617238474
+        ]
+      ]
+    },
+    {
+      "id": "water.outlet",
+      "kind": "stream",
+      "controlledBySpring": false,
+      "width": 3,
+      "points": [
+        [
+          20,
+          0.18,
+          0
+        ],
+        [
+          8,
+          0.1,
+          3
+        ],
+        [
+          1,
+          0,
+          3
+        ]
+      ]
+    },
+    {
+      "id": "water.sacred-spring",
+      "kind": "stream",
+      "controlledBySpring": true,
+      "width": 1.4,
+      "points": [
+        [
+          24.6,
+          20.3,
+          -22.8
+        ],
+        [
+          21,
+          17.5,
+          -20
+        ],
+        [
+          18.5,
+          14.5,
+          -16.5
+        ],
+        [
+          13,
+          11.7,
+          -14
+        ],
+        [
+          8,
+          11.7,
+          -13
+        ]
+      ]
+    }
+  ],
+  "bridge": {
+    "id": "grove.bridge",
+    "kind": "bridge",
+    "position": [
+      4.5,
+      14.6,
+      -16
+    ],
+    "yaw": 0,
+    "size": [
+      7,
+      2.5,
+      2.4
+    ],
+    "variant": 0
+  },
+  "spring": {
+    "id": "grove.spring",
+    "kind": "spring-shrine",
+    "position": [
+      25,
+      18,
+      -25
+    ],
+    "yaw": 0,
+    "size": [
+      6,
+      6,
+      4
+    ],
+    "variant": 0
+  },
+  "notes": [
+    "Derived handoff only. Runtime layout.ts is the single authority.",
+    "New scanned cascade only, no old local Z compression.",
+    "Both scan LODs use the frozen transform scale; do not re-fit after silhouette/depth edits.",
+    "C factory must atomically switch the scanned cascade before r4 water is rendered.",
+    "Two pools share the unchanged global medium 1-pass/512 budget; warm-up is finite 6 frames.",
+    "Sacred spring source equals the future A grove.spring.spout anchor.",
+    "C new thicker body final bounds and actual routes still require intersection verification.",
+    "Sacred stream now passes south of the stairs; raised third node clears the actual scanned cliff in both LODs, visible support still pending."
+  ],
+  "snapshotAt": "2026-10-21T08:23:43.060Z"
+}

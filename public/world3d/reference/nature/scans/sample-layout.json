@@ -1,0 +1,697 @@
+{
+  "kind": "limestone-scan-experiment",
+  "quality": "high",
+  "source": "Poly Haven CC0 photogrammetry-derived closed retopology; not Adonis-original scans or unchanged source triangle meshes",
+  "sources": [
+    {
+      "id": "rock_face_01",
+      "page": "https://polyhaven.com/a/rock_face_01",
+      "authors": {
+        "Dario Barresi": "All"
+      },
+      "license": "CC0-1.0",
+      "originalMetreBounds": {
+        "min": [
+          -2.133601427078247,
+          -0.03435921296477318,
+          -3.466048240661621
+        ],
+        "max": [
+          2.8199098110198975,
+          3.5296897888183594,
+          0.36125504970550537
+        ],
+        "size": [
+          4.9535112380981445,
+          3.5640490017831326,
+          3.8273032903671265
+        ]
+      }
+    },
+    {
+      "id": "rock_face_02",
+      "page": "https://polyhaven.com/a/rock_face_02",
+      "authors": {
+        "Dario Barresi": "All",
+        "Rico Cilliers": "processing"
+      },
+      "license": "CC0-1.0",
+      "originalMetreBounds": {
+        "min": [
+          -2.2611024379730225,
+          -0.13961930572986603,
+          -1.188185453414917
+        ],
+        "max": [
+          0.45009371638298035,
+          2.3323476314544678,
+          0.938514769077301
+        ],
+        "size": [
+          2.711196154356003,
+          2.471966937184334,
+          2.126700222492218
+        ]
+      }
+    }
+  ],
+  "bounds": {
+    "min": [
+      -7.356301307678223,
+      0,
+      -5.811478614807129
+    ],
+    "max": [
+      6.599999904632568,
+      8.75,
+      1.950313925743103
+    ]
+  },
+  "triangles": 73744,
+  "draws": 1,
+  "parts": [
+    {
+      "source": "rock_face_01 + rock_face_02",
+      "placement": "continuous-scan-derived-closed-volume",
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "yaw": 0,
+      "uniformScale": 1,
+      "depthScale": 1,
+      "crop": "Full source projection; triangle XY maximum-depth rasterisation, no rectangular cropped scan panels",
+      "retopology": "Closed continuous circumferential surface, original scan relief resampled from actual triangle positions; original source connectivity/undercuts are not retained.",
+      "authoring": "Art-directed circumference, depth, lateral envelope normalization and broad water recess. Source01 carries front relief; source02 carries flanks/rear. Not original scanned solid dimensions.",
+      "topology": {
+        "vertices": 36865,
+        "triangles": 73726,
+        "boundaryEdges": 0,
+        "nonManifoldEdges": 0,
+        "signedVolume": 421.764084021126
+      },
+      "bottomCap": {
+        "method": "Earcut of true ordered concave XZ bottom ring, no centre fan",
+        "triangles": 254,
+        "outerRingVertices": 256,
+        "boundaryMatchesSidewall": true,
+        "selfIntersections": 0,
+        "triangleArea": 36.35250088977625,
+        "outlineArea": 36.35250088977626,
+        "allGeometricFacesTowardNegativeY": true
+      },
+      "authoringParameters": {
+        "targetXRange": [
+          -7.356301212,
+          6.6
+        ],
+        "height": 8.68,
+        "integratedSourceCrest": {
+          "top": [
+            0.35,
+            8.75,
+            -1.85
+          ],
+          "frontZ": -1.118,
+          "frontLoweringFromRear": 0.14,
+          "centredAfterEnvelopeNormalization": true,
+          "startBlend": 0.88,
+          "endBlend": 0.98
+        },
+        "baseCentreZ": -2.5,
+        "circumferenceSamples": 256,
+        "heightRows": 144,
+        "source01DepthGain": 4.05,
+        "source02RearDepthGain": 2.3,
+        "source02FlankDepthGain": 1.3,
+        "lateralSource02Gain": 2.1,
+        "source01OutlineMargin": 0.1,
+        "rearUpperObliqueBreakXYZ": [
+          0.8,
+          0.35,
+          0.9
+        ],
+        "measuredOutputXBeforeEnvelopeNormalization": [
+          -9.164490681228255,
+          8.754364191161255
+        ]
+      },
+      "sourceSampling": {
+        "fieldResolution": 160,
+        "frontCoverage": {
+          "measuredPixels": 20868,
+          "extendedPixels": 4732,
+          "totalPixels": 25600
+        },
+        "sideRearCoverage": {
+          "measuredPixels": 21442,
+          "extendedPixels": 4158,
+          "totalPixels": 25600
+        },
+        "missingProjection": "Nearest measured neighbour extension",
+        "front": "rock_face_01",
+        "flanksAndRear": "rock_face_02"
+      },
+      "closure": "Single closed indexed surface before nonindexed merge; no independent convex plates or long scan boundary collars",
+      "scanFrontTriangles": 49738,
+      "normalRepairs": 962
+    },
+    {
+      "source": "Original manually authored support volume, not scanned surface",
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "yaw": 0,
+      "uniformScale": 1,
+      "depthScale": 1,
+      "placement": "lower-spill-integrated-lip",
+      "departureCut": {
+        "maximumForwardZ": 0.581,
+        "noseTopY": 4.69,
+        "lowerNoseZ": 0.23,
+        "reason": "35mm clearance from fixed straight departing water ribbon; vertical anchor-to-floor gap is reported separately and does not claim visual water contact."
+      },
+      "purpose": "Small irregular solid lip integrated into the full-width scanned midledge; physical lower water start support; forward nose tapers back below the crest so the departing straight water route clears the solid."
+    }
+  ],
+  "solidJoins": {
+    "method": "Odd/even ray crossings from unique attachment vertices against the closed main body; positive inside count proves volume overlap, not just a touching silhouette.",
+    "upperSource": {
+      "builtIntoMainBody": true,
+      "method": "The main closed body itself narrows into the source crest; no separate upper plate geometry"
+    },
+    "lowerSpill": {
+      "attachmentVerticesInsideBody": 3,
+      "sampleInsidePoints": [
+        [
+          0.9100000262260437,
+          4.800000190734863,
+          -0.6499999761581421
+        ],
+        [
+          0.2800000011920929,
+          4.460000038146973,
+          -1.100000023841858
+        ],
+        [
+          0.25,
+          4.760000228881836,
+          -0.699999988079071
+        ]
+      ]
+    }
+  },
+  "sharedMaterials": false,
+  "materialOwnership": {
+    "ownedMaterials": 1,
+    "release": "Final returned geometry dispose event, idempotent; merge-input disposal does not release the material.",
+    "borrowedMaps": "All maps remain caller-owned; material disposal never disposes textures or input materials.",
+    "wetness": "Continuous interpolated per-vertex mask on the same wide scanned surface; no separate wet column mesh."
+  },
+  "visibleFaces": {
+    "front": "Continuous full-height scan01-derived relief surface",
+    "sides": "Continuous closed scan-derived surface; no exposed scan boundary panels",
+    "rear": "Continuous scan02-derived relief; same closed body",
+    "bottom": "Below-ground cut and support must be embedded at local y=0"
+  },
+  "waterAnchors": {
+    "upper": {
+      "start": [
+        0.35,
+        8.72,
+        -1.12
+      ],
+      "end": [
+        0.7,
+        4.9,
+        0.25
+      ],
+      "width": 2.05
+    },
+    "lower": {
+      "start": [
+        1.15,
+        4.85,
+        0.58
+      ],
+      "end": [
+        1.25,
+        0.16,
+        1.69
+      ],
+      "width": 2.45
+    }
+  },
+  "ledgeFlow": [
+    [
+      0.7,
+      4.9,
+      0.25
+    ],
+    [
+      0.88,
+      4.88,
+      0.4
+    ],
+    [
+      1.15,
+      4.85,
+      0.58
+    ]
+  ],
+  "mapping": "Local finished geometry, no extra Z compression. Do not fit this sample to the 33m cascade envelope; integrator must map these actual attachment points and keep bridge/path space outside the body.",
+  "limits": "Scan-derived continuous closed retopology, not the original scan triangle connectivity or a manifold repair. Projection discards undercuts and missing projected samples are extended. The enclosing macro form and water recess are authored; measured scan relief is resampled. Bottom ground cap must be embedded at y=0. Original mineral type is not verified as limestone.",
+  "waterClearanceProof": {
+    "coverage": "Sparse runtime smoke check only: three longitudinal stations and three width lanes. Frozen dense first-metre/full-route and continuous triangle-ribbon checks are recorded separately in scans/validation and manifest sampleExperiment.",
+    "method": "Ray from water point +12m Z toward -Z against the actual finished rock meshes; positive clearance means water is in front.",
+    "probes": [
+      {
+        "id": "upper.0.-0.45",
+        "point": [
+          -0.5725,
+          8.72,
+          -1.12
+        ],
+        "surfaceZ": -1.750089127025955,
+        "clearance": 0.630089127025955
+      },
+      {
+        "id": "upper.0.0",
+        "point": [
+          0.35,
+          8.72,
+          -1.12
+        ],
+        "surfaceZ": -1.707834273495692,
+        "clearance": 0.5878342734956918
+      },
+      {
+        "id": "upper.0.0.45",
+        "point": [
+          1.2725,
+          8.72,
+          -1.12
+        ],
+        "surfaceZ": -1.7500891277242463,
+        "clearance": 0.6300891277242462
+      },
+      {
+        "id": "upper.0.5.-0.45",
+        "point": [
+          -0.3975000000000001,
+          6.8100000000000005,
+          -0.43500000000000005
+        ],
+        "surfaceZ": -2.5968448894810603,
+        "clearance": 2.1618448894810602
+      },
+      {
+        "id": "upper.0.5.0",
+        "point": [
+          0.5249999999999999,
+          6.8100000000000005,
+          -0.43500000000000005
+        ],
+        "surfaceZ": -2.513377850525968,
+        "clearance": 2.078377850525968
+      },
+      {
+        "id": "upper.0.5.0.45",
+        "point": [
+          1.4474999999999998,
+          6.8100000000000005,
+          -0.43500000000000005
+        ],
+        "surfaceZ": -2.233726169823049,
+        "clearance": 1.7987261698230488
+      },
+      {
+        "id": "upper.1.-0.45",
+        "point": [
+          -0.22250000000000003,
+          4.9,
+          0.25
+        ],
+        "surfaceZ": -0.2697997732797237,
+        "clearance": 0.5197997732797237
+      },
+      {
+        "id": "upper.1.0",
+        "point": [
+          0.7,
+          4.9,
+          0.25
+        ],
+        "surfaceZ": -0.20142343264196505,
+        "clearance": 0.45142343264196505
+      },
+      {
+        "id": "upper.1.0.45",
+        "point": [
+          1.6225,
+          4.9,
+          0.25
+        ],
+        "surfaceZ": -1.0357279553157976,
+        "clearance": 1.2857279553157976
+      },
+      {
+        "id": "lower.0.-0.45",
+        "point": [
+          0.047499999999999876,
+          4.85,
+          0.58
+        ],
+        "surfaceZ": 0.10542622559419534,
+        "clearance": 0.4745737744058046
+      },
+      {
+        "id": "lower.0.0",
+        "point": [
+          1.15,
+          4.85,
+          0.58
+        ],
+        "surfaceZ": 0.08013568663711901,
+        "clearance": 0.49986431336288095
+      },
+      {
+        "id": "lower.0.0.45",
+        "point": [
+          2.2525,
+          4.85,
+          0.58
+        ],
+        "surfaceZ": -0.862913167746644,
+        "clearance": 1.442913167746644
+      },
+      {
+        "id": "lower.0.5.-0.45",
+        "point": [
+          0.09749999999999992,
+          2.505,
+          1.135
+        ],
+        "surfaceZ": -0.7595202039064404,
+        "clearance": 1.8945202039064404
+      },
+      {
+        "id": "lower.0.5.0",
+        "point": [
+          1.2,
+          2.505,
+          1.135
+        ],
+        "surfaceZ": -0.8086920405203095,
+        "clearance": 1.9436920405203095
+      },
+      {
+        "id": "lower.0.5.0.45",
+        "point": [
+          2.3025,
+          2.505,
+          1.135
+        ],
+        "surfaceZ": -0.029493164842314457,
+        "clearance": 1.1644931648423145
+      },
+      {
+        "id": "lower.1.-0.45",
+        "point": [
+          0.14749999999999996,
+          0.16,
+          1.69
+        ],
+        "surfaceZ": 0.021935692007637897,
+        "clearance": 1.668064307992362
+      },
+      {
+        "id": "lower.1.0",
+        "point": [
+          1.25,
+          0.16,
+          1.69
+        ],
+        "surfaceZ": 0.015599660451840691,
+        "clearance": 1.6744003395481593
+      },
+      {
+        "id": "lower.1.0.45",
+        "point": [
+          2.3525,
+          0.16,
+          1.69
+        ],
+        "surfaceZ": 1.023722133887178,
+        "clearance": 0.6662778661128219
+      },
+      {
+        "id": "ledge.0",
+        "point": [
+          0.7,
+          4.9,
+          0.25
+        ],
+        "surfaceZ": -0.20142343264196505,
+        "clearance": 0.45142343264196505
+      },
+      {
+        "id": "ledge.1",
+        "point": [
+          0.88,
+          4.88,
+          0.4
+        ],
+        "surfaceZ": -0.057663980360723954,
+        "clearance": 0.457663980360724
+      },
+      {
+        "id": "ledge.2",
+        "point": [
+          1.15,
+          4.85,
+          0.58
+        ],
+        "surfaceZ": 0.08013568663711901,
+        "clearance": 0.49986431336288095
+      }
+    ],
+    "allCentrelinesClear": true,
+    "allSampledWidthClear": true
+  },
+  "ledgeGroundProof": [
+    {
+      "point": [
+        0.7,
+        4.9,
+        0.25
+      ],
+      "floorY": 4.827290838493224,
+      "waterAboveFloor": 0.07270916150677653
+    },
+    {
+      "point": [
+        0.88,
+        4.88,
+        0.4
+      ],
+      "floorY": 4.788381922272528,
+      "waterAboveFloor": 0.09161807772747199
+    },
+    {
+      "point": [
+        1.15,
+        4.85,
+        0.58
+      ],
+      "floorY": 4.688511695317968,
+      "waterAboveFloor": 0.1614883046820319
+    }
+  ],
+  "waterAttachments": [
+    {
+      "id": "upper.start",
+      "point": [
+        0.35,
+        8.72,
+        -1.12
+      ],
+      "expected": "Solid source crest integrated into the same closed scan-derived body",
+      "floorY": 8.595954453436157,
+      "waterAboveFloor": 0.1240455465638437,
+      "physicallySupported": true
+    },
+    {
+      "id": "upper.end",
+      "point": [
+        0.7,
+        4.9,
+        0.25
+      ],
+      "expected": "Supported landing on the scanned midledge",
+      "floorY": 4.827290838493224,
+      "waterAboveFloor": 0.07270916150677653,
+      "physicallySupported": true
+    },
+    {
+      "id": "lower.start",
+      "point": [
+        1.15,
+        4.85,
+        0.58
+      ],
+      "expected": "Solid irregular authored lip integrated into the scanned midledge",
+      "floorY": 4.688511695317968,
+      "waterAboveFloor": 0.1614883046820319,
+      "physicallySupported": true
+    },
+    {
+      "id": "lower.end",
+      "point": [
+        1.25,
+        0.16,
+        1.69
+      ],
+      "expected": "Intentional freefall into the integrator-owned pool at y=0.16; no rock platform is claimed at this point.",
+      "physicallySupported": false,
+      "targetPoolY": 0.16
+    }
+  ],
+  "denseWaterRouteProof": {
+    "method": "Actual finished meshes, horizontal -Z rays from +12m Z. Arc-length metre spacing and full-width lanes. No-hit is explicit open air, not a positive clearance or a source-support claim.",
+    "minimumRequiredClearance": 0.035,
+    "tiers": {
+      "upper": {
+        "length": 4.073303327767281,
+        "stations": 92,
+        "fullRouteMaximumStepMetres": 0.08,
+        "firstMetreMaximumStepMetres": 0.025,
+        "widthFractions": [
+          -0.5,
+          -0.375,
+          -0.25,
+          -0.125,
+          0,
+          0.125,
+          0.25,
+          0.375,
+          0.5
+        ]
+      },
+      "lower": {
+        "length": 4.820601622204431,
+        "stations": 102,
+        "fullRouteMaximumStepMetres": 0.08,
+        "firstMetreMaximumStepMetres": 0.025,
+        "widthFractions": [
+          -0.5,
+          -0.375,
+          -0.25,
+          -0.125,
+          0,
+          0.125,
+          0.25,
+          0.375,
+          0.5
+        ]
+      }
+    },
+    "totalProbes": 1746,
+    "finiteSurfaceProbes": 1746,
+    "noRockBehindProbes": 0,
+    "blockedProbes": 0,
+    "minimumFiniteClearance": 0.04352532823916111,
+    "worstProbe": {
+      "tier": "lower",
+      "distance": 0.175,
+      "t": 0.03630252273780997,
+      "widthFraction": 0,
+      "point": [
+        1.153630252273781,
+        4.679741168359671,
+        0.620295800238969
+      ],
+      "surfaceZ": 0.5767704719998079,
+      "clearance": 0.04352532823916111,
+      "state": "front-clear"
+    },
+    "allSampledRoutesClear": true,
+    "report": {
+      "url": "validation/dense-water-route-final.json",
+      "sha256": "6b15e2177cea1b1b73b83b1e91817692fcfe6bce502155c2ac151a3ec2e03057"
+    }
+  },
+  "continuousWaterRibbonProof": {
+    "method": "Clip all actual finished rock triangles against each complete XY water ribbon, minimize affine waterZ(y)-rockZ on every resulting polygon vertex. Covers the continuous planar baseline including spaces between dense ray stations and lanes.",
+    "minimumRequiredClearance": 0.035,
+    "allRibbonsClear": true,
+    "tiers": {
+      "upper": {
+        "minimumClearance": 0.042638927978994934,
+        "worst": {
+          "rockPoint": [
+            0.3499999940395355,
+            8.595532417297363,
+            -1.1180000305175781
+          ],
+          "waterPoint": [
+            0.3499999940395355,
+            8.595532417297363,
+            -1.0753611025385832
+          ],
+          "clearance": 0.042638927978994934,
+          "distance": 0.13272099969157114,
+          "widthFraction": -0.005562977488813347
+        },
+        "testedTriangles": 5407,
+        "insufficientClearanceTriangles": 0,
+        "allProjectedTrianglesBehindRibbon": true
+      },
+      "lower": {
+        "minimumClearance": 0.0368678198592749,
+        "worst": {
+          "rockPoint": [
+            1.1299999952316284,
+            4.690000057220459,
+            0.5809999704360962
+          ],
+          "waterPoint": [
+            1.1299999952316284,
+            4.690000057220459,
+            0.6178677902953711
+          ],
+          "clearance": 0.0368678198592749,
+          "distance": 0.16445543362807463,
+          "widthFraction": -0.009555721390854763
+        },
+        "testedTriangles": 5182,
+        "insufficientClearanceTriangles": 0,
+        "allProjectedTrianglesBehindRibbon": true
+      }
+    }
+  },
+  "bottomCapProof": {
+    "method": "Actual lowest horizontal triangles: geometric face winding, boundary-versus-sidewall edge equality, reconstructed boundary loops, self-intersections and triangle/outline area comparison.",
+    "minimumY": 0,
+    "capTriangles": 254,
+    "upwardTriangles": 0,
+    "faceNormalYRange": [
+      -1,
+      -1
+    ],
+    "boundaryEdges": 256,
+    "sidewallBottomEdges": 256,
+    "boundaryMatchesSidewall": true,
+    "boundaryDegreeTwo": true,
+    "boundaryLoops": 1,
+    "selfIntersections": 0,
+    "nonmanifoldEdges": 0,
+    "triangleArea": 28.313553175763097,
+    "outlineArea": 28.313553175763097,
+    "areaError": 0,
+    "valid": true
+  }
+}

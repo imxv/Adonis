@@ -1,0 +1,3886 @@
+{
+  "cFactorySha256": "fc87710da789be9ab127132e9f1c9a9242f5ac68c7a03321ee2124b197579029",
+  "bEnvelopeReportSha256": "bb59fc93489781596cf25395b28c50da0a6e0bb8d5a674dc074bfc324c5985b1",
+  "providedBAndLayoutHashes": {
+    "src/world3d/reference/water-falls.ts": "f94c1a40beaf359f016a6c59657c95a92e2fec13b75e876467f5f0626cf38127",
+    "src/world3d/reference/water-falls-shaders.ts": "f4a9b05d21f6079f6f12ece3fae22c79221c74e1927a835a2c6fb4e5d958cc73",
+    "src/world3d/reference/layout.ts": "662e5173f90750d72131a80a4de3596ba797f25342caedfb060d31817600971d"
+  },
+  "currentInputHashes": {
+    "src/world3d/reference/water-falls.ts": "f94c1a40beaf359f016a6c59657c95a92e2fec13b75e876467f5f0626cf38127",
+    "src/world3d/reference/water-falls-shaders.ts": "67215715af2c00b4bdaf01c3cf276f7d66eb79b2ba2bfdebf8f2aa3b86c94f32",
+    "src/world3d/reference/layout.ts": "662e5173f90750d72131a80a4de3596ba797f25342caedfb060d31817600971d"
+  },
+  "providedHashesMatchCurrent": false,
+  "currentClosedLobeBoundReview": {
+    "scope": "Current three primary closed lobes at the reported stations only. Static constructor hash unchanged, unit radial normals, aForm=min(.17,rx*.22,rz*.22), total radial shader clamp and unchanged extra vertical formula. Rounding tolerance 0.1mm. Does not cover veil/droplet/fragments, unreported stations, actual ring-angle contact or visual continuity; this is a bound check, not a literal diff against unavailable r3 shader source.",
+    "knownCurrentVertexBound": true,
+    "sameStaticGeometry": true,
+    "reportedBoundsRemainConservativeAtStations": true,
+    "stations": [
+      {
+        "centreDescentWorld": 0,
+        "lobe": 0,
+        "currentMaximumRadial": 0,
+        "reportedRadial": 0,
+        "currentMaximumExtraVertical": 0,
+        "reportedExtraVertical": 0,
+        "reportedBoundsRemainConservativeAtStation": true
+      },
+      {
+        "centreDescentWorld": 0,
+        "lobe": 1,
+        "currentMaximumRadial": 0,
+        "reportedRadial": 0,
+        "currentMaximumExtraVertical": 0,
+        "reportedExtraVertical": 0,
+        "reportedBoundsRemainConservativeAtStation": true
+      },
+      {
+        "centreDescentWorld": 0,
+        "lobe": 2,
+        "currentMaximumRadial": 0,
+        "reportedRadial": 0,
+        "currentMaximumExtraVertical": 0,
+        "reportedExtraVertical": 0,
+        "reportedBoundsRemainConservativeAtStation": true
+      },
+      {
+        "centreDescentWorld": 0.1,
+        "lobe": 0,
+        "currentMaximumRadial": 0,
+        "reportedRadial": 0,
+        "currentMaximumExtraVertical": 0,
+        "reportedExtraVertical": 0,
+        "reportedBoundsRemainConservativeAtStation": true
+      },
+      {
+        "centreDescentWorld": 0.1,
+        "lobe": 1,
+        "currentMaximumRadial": 0,
+        "reportedRadial": 0,
+        "currentMaximumExtraVertical": 0,
+        "reportedExtraVertical": 0,
+        "reportedBoundsRemainConservativeAtStation": true
+      },
+      {
+        "centreDescentWorld": 0.1,
+        "lobe": 2,
+        "currentMaximumRadial": 0,
+        "reportedRadial": 0,
+        "currentMaximumExtraVertical": 0,
+        "reportedExtraVertical": 0,
+        "reportedBoundsRemainConservativeAtStation": true
+      },
+      {
+        "centreDescentWorld": 0.25,
+        "lobe": 0,
+        "currentMaximumRadial": 0.0033489064991402712,
+        "reportedRadial": 0.0052,
+        "currentMaximumExtraVertical": 0.0011386282097076924,
+        "reportedExtraVertical": 0.0011,
+        "reportedBoundsRemainConservativeAtStation": true
+      },
+      {
+        "centreDescentWorld": 0.25,
+        "lobe": 1,
+        "currentMaximumRadial": 0.0022378828563386763,
+        "reportedRadial": 0.0041,
+        "currentMaximumExtraVertical": 0.00076088017115515,
+        "reportedExtraVertical": 0.0008,
+        "reportedBoundsRemainConservativeAtStation": true
+      },
+      {
+        "centreDescentWorld": 0.25,
+        "lobe": 2,
+        "currentMaximumRadial": 0.0026692438031732752,
+        "reportedRadial": 0.0045,
+        "currentMaximumExtraVertical": 0.0009075428930789136,
+        "reportedExtraVertical": 0.0009,
+        "reportedBoundsRemainConservativeAtStation": true
+      },
+      {
+        "centreDescentWorld": 0.5,
+        "lobe": 0,
+        "currentMaximumRadial": 0.030468660555690617,
+        "reportedRadial": 0.0479,
+        "currentMaximumExtraVertical": 0.01035934458893481,
+        "reportedExtraVertical": 0.0104,
+        "reportedBoundsRemainConservativeAtStation": true
+      },
+      {
+        "centreDescentWorld": 0.5,
+        "lobe": 1,
+        "currentMaximumRadial": 0.02219269715644663,
+        "reportedRadial": 0.0396,
+        "currentMaximumExtraVertical": 0.0075455170331918545,
+        "reportedExtraVertical": 0.0075,
+        "reportedBoundsRemainConservativeAtStation": true
+      },
+      {
+        "centreDescentWorld": 0.5,
+        "lobe": 2,
+        "currentMaximumRadial": 0.02517398697965191,
+        "reportedRadial": 0.0426,
+        "currentMaximumExtraVertical": 0.00855915557308165,
+        "reportedExtraVertical": 0.0086,
+        "reportedBoundsRemainConservativeAtStation": true
+      },
+      {
+        "centreDescentWorld": 1,
+        "lobe": 0,
+        "currentMaximumRadial": 0.09150976263664434,
+        "reportedRadial": 0.1499,
+        "currentMaximumExtraVertical": 0.031113319296459083,
+        "reportedExtraVertical": 0.0311,
+        "reportedBoundsRemainConservativeAtStation": true
+      },
+      {
+        "centreDescentWorld": 1,
+        "lobe": 1,
+        "currentMaximumRadial": 0.0815798931170263,
+        "reportedRadial": 0.14,
+        "currentMaximumExtraVertical": 0.027737163659788948,
+        "reportedExtraVertical": 0.0277,
+        "reportedBoundsRemainConservativeAtStation": true
+      },
+      {
+        "centreDescentWorld": 1,
+        "lobe": 2,
+        "currentMaximumRadial": 0.08037689044421836,
+        "reportedRadial": 0.1388,
+        "currentMaximumExtraVertical": 0.02732814275103425,
+        "reportedExtraVertical": 0.0273,
+        "reportedBoundsRemainConservativeAtStation": true
+      }
+    ]
+  },
+  "samples": {
+    "low": {
+      "scope": "Lower tier frozen B r3 conservative bounds only, compared with actual C rock at ring-centre horizontal Y slices. X uses reported nominal rx plus radial dynamic bound. Z extrema and X extrema need not occur at the same ring angle/phase; tilted ring vertical span is not reconstructed. Negative gap is potential bound overlap, not certified actual water-mesh penetration; positive slices do not certify complete dynamics.",
+      "transform": {
+        "scale": 2.0779144530371148,
+        "translation": [
+          32,
+          -0.1524663124859384,
+          -12
+        ],
+        "yaw": 0
+      },
+      "sampleCount": 135,
+      "potentialOverlapSamples": 33,
+      "noRockAtSliceSamples": 0,
+      "minimumRearGapWorld": -0.2750092101461572,
+      "rows": [
+        {
+          "centreDescentWorld": 0,
+          "lobe": 0,
+          "approximateXRange": [
+            32.2565,
+            33.366299999999995
+          ],
+          "conservativeZRange": [
+            -11.3656,
+            -10.1853
+          ],
+          "reportedDynamicVerticalExtra": 0,
+          "samples": [
+            {
+              "worldX": 32.2565,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                0.1234410779640605,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -11.823512594681556,
+              "conservativeRearWorldZ": -11.3656,
+              "rearGapWorld": 0.4579125946815559,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 32.395224999999996,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                0.19020272919432696,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -11.816622574790532,
+              "conservativeRearWorldZ": -11.3656,
+              "rearGapWorld": 0.45102257479053165,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 32.53395,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                0.25696438042459685,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -11.806842036670599,
+              "conservativeRearWorldZ": -11.3656,
+              "rearGapWorld": 0.441242036670598,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 32.672675,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                0.32372603165486674,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -11.803559548863609,
+              "conservativeRearWorldZ": -11.3656,
+              "rearGapWorld": 0.4379595488636081,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 32.8114,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                0.39048768288513663,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -11.801996696454468,
+              "conservativeRearWorldZ": -11.3656,
+              "rearGapWorld": 0.43639669645446766,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 32.950125,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                0.4572493341154065,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -11.80043384404534,
+              "conservativeRearWorldZ": -11.3656,
+              "rearGapWorld": 0.43483384404533965,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 33.08885,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                0.5240109853456764,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -11.798870991636205,
+              "conservativeRearWorldZ": -11.3656,
+              "rearGapWorld": 0.4332709916362045,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 33.227575,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                0.5907726365759463,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -11.797308139227072,
+              "conservativeRearWorldZ": -11.3656,
+              "rearGapWorld": 0.4317081392270712,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 33.366299999999995,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                0.6575342878062128,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -11.794547058468837,
+              "conservativeRearWorldZ": -11.3656,
+              "rearGapWorld": 0.42894705846883596,
+              "state": "bound-in-front-at-slice"
+            }
+          ]
+        },
+        {
+          "centreDescentWorld": 0,
+          "lobe": 1,
+          "approximateXRange": [
+            33.559000000000005,
+            34.9656
+          ],
+          "conservativeZRange": [
+            -11.1842,
+            -10.4917
+          ],
+          "reportedDynamicVerticalExtra": 0,
+          "samples": [
+            {
+              "worldX": 33.559000000000005,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                0.7502715031031927,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -11.792345294328408,
+              "conservativeRearWorldZ": -11.1842,
+              "rearGapWorld": 0.6081452943284074,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 33.734825,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                0.8348875948498993,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -11.79514331284991,
+              "conservativeRearWorldZ": -11.1842,
+              "rearGapWorld": 0.6109433128499102,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 33.910650000000004,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                0.9195036865966093,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -11.797941331371412,
+              "conservativeRearWorldZ": -11.1842,
+              "rearGapWorld": 0.6137413313714113,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.086475,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                1.0041197783433158,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -11.800739349892908,
+              "conservativeRearWorldZ": -11.1842,
+              "rearGapWorld": 0.616539349892907,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.2623,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                1.0887358700900258,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -11.798545465214012,
+              "conservativeRearWorldZ": -11.1842,
+              "rearGapWorld": 0.6143454652140115,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.43812500000001,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                1.1733519618367358,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -12.05049630411178,
+              "conservativeRearWorldZ": -11.1842,
+              "rearGapWorld": 0.8662963041117795,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.61395,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                1.2579680535834425,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -12.402263610441004,
+              "conservativeRearWorldZ": -11.1842,
+              "rearGapWorld": 1.2180636104410034,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.789775000000006,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                1.3425841453301524,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -12.754030916770246,
+              "conservativeRearWorldZ": -11.1842,
+              "rearGapWorld": 1.569830916770245,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.9656,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                1.427200237076859,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -13.088533945874042,
+              "conservativeRearWorldZ": -11.1842,
+              "rearGapWorld": 1.9043339458740416,
+              "state": "bound-in-front-at-slice"
+            }
+          ]
+        },
+        {
+          "centreDescentWorld": 0,
+          "lobe": 2,
+          "approximateXRange": [
+            35.5925,
+            36.444900000000004
+          ],
+          "conservativeZRange": [
+            -11.2731,
+            -10.1955
+          ],
+          "reportedDynamicVerticalExtra": 0,
+          "samples": [
+            {
+              "worldX": 35.5925,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                1.7288969691457425,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -14.407793424458928,
+              "conservativeRearWorldZ": -11.2731,
+              "rearGapWorld": 3.134693424458929,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 35.69905,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                1.7801743448068355,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -14.641023291386256,
+              "conservativeRearWorldZ": -11.2731,
+              "rearGapWorld": 3.3679232913862567,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 35.805600000000005,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                1.831451720467932,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -14.616026060222314,
+              "conservativeRearWorldZ": -11.2731,
+              "rearGapWorld": 3.3429260602223145,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 35.912150000000004,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                1.8827290961290248,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -14.511983174716782,
+              "conservativeRearWorldZ": -11.2731,
+              "rearGapWorld": 3.2388831747167828,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.0187,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                1.9340064717901178,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -14.397209152959094,
+              "conservativeRearWorldZ": -11.2731,
+              "rearGapWorld": 3.124109152959095,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.12525,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                1.9852838474512107,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -14.282435131201407,
+              "conservativeRearWorldZ": -11.2731,
+              "rearGapWorld": 3.009335131201407,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.2318,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                2.0365612231123036,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -14.16766110944372,
+              "conservativeRearWorldZ": -11.2731,
+              "rearGapWorld": 2.894561109443721,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.338350000000005,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                2.0878385987734,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -14.052887087686024,
+              "conservativeRearWorldZ": -11.2731,
+              "rearGapWorld": 2.7797870876860244,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.444900000000004,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                2.139115974434493,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -13.930137357092464,
+              "conservativeRearWorldZ": -11.2731,
+              "rearGapWorld": 2.657037357092465,
+              "state": "bound-in-front-at-slice"
+            }
+          ]
+        },
+        {
+          "centreDescentWorld": 0.1,
+          "lobe": 0,
+          "approximateXRange": [
+            32.271699999999996,
+            33.3609
+          ],
+          "conservativeZRange": [
+            -11.318,
+            -10.1488
+          ],
+          "reportedDynamicVerticalExtra": 0,
+          "samples": [
+            {
+              "worldX": 32.271699999999996,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                0.13075610480637176,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -11.372904263971089,
+              "conservativeRearWorldZ": -11.318,
+              "rearGapWorld": 0.05490426397108905,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 32.407849999999996,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                0.19627853273934154,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -11.367706601486748,
+              "conservativeRearWorldZ": -11.318,
+              "rearGapWorld": 0.04970660148674888,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 32.544,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                0.2618009606723113,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -11.362508939002408,
+              "conservativeRearWorldZ": -11.318,
+              "rearGapWorld": 0.04450893900240871,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 32.68015,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                0.3273233886052811,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -11.360524790264988,
+              "conservativeRearWorldZ": -11.318,
+              "rearGapWorld": 0.0425247902649879,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 32.8163,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                0.39284581653825085,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -11.360050579260044,
+              "conservativeRearWorldZ": -11.318,
+              "rearGapWorld": 0.042050579260044074,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 32.95245,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                0.45836824447122065,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -11.35928622488857,
+              "conservativeRearWorldZ": -11.318,
+              "rearGapWorld": 0.041286224888571255,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 33.0886,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                0.5238906724041904,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -11.358521870517093,
+              "conservativeRearWorldZ": -11.318,
+              "rearGapWorld": 0.040521870517093106,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 33.22475,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                0.5894131003371602,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -11.357757516145613,
+              "conservativeRearWorldZ": -11.318,
+              "rearGapWorld": 0.03975751614561318,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 33.3609,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                0.6549355282701299,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -11.356993161774138,
+              "conservativeRearWorldZ": -11.318,
+              "rearGapWorld": 0.038993161774138585,
+              "state": "bound-in-front-at-slice"
+            }
+          ]
+        },
+        {
+          "centreDescentWorld": 0.1,
+          "lobe": 1,
+          "approximateXRange": [
+            33.5606,
+            34.956399999999995
+          ],
+          "conservativeZRange": [
+            -11.1438,
+            -10.4371
+          ],
+          "reportedDynamicVerticalExtra": 0,
+          "samples": [
+            {
+              "worldX": 33.5606,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                0.7510415059286977,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -11.366445945289904,
+              "conservativeRearWorldZ": -11.1438,
+              "rearGapWorld": 0.22264594528990322,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 33.735074999999995,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                0.8350079077913819,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -11.38901407774447,
+              "conservativeRearWorldZ": -11.1438,
+              "rearGapWorld": 0.24521407774446935,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 33.909549999999996,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                0.9189743096540695,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -11.392506168887857,
+              "conservativeRearWorldZ": -11.1438,
+              "rearGapWorld": 0.2487061688878569,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.084025,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                1.002940711516757,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -11.395998260031247,
+              "conservativeRearWorldZ": -11.1438,
+              "rearGapWorld": 0.25219826003124624,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.2585,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                1.0869071133794446,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -11.399490351174634,
+              "conservativeRearWorldZ": -11.1438,
+              "rearGapWorld": 0.2556903511746338,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.432975,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                1.1708735152421321,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -11.650234270542096,
+              "conservativeRearWorldZ": -11.1438,
+              "rearGapWorld": 0.5064342705420959,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.60745,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                1.25483991710482,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -12.048269239776275,
+              "conservativeRearWorldZ": -11.1438,
+              "rearGapWorld": 0.9044692397762741,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.781925,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                1.3388063189675075,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -12.397616474369459,
+              "conservativeRearWorldZ": -11.1438,
+              "rearGapWorld": 1.253816474369458,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.956399999999995,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                1.4227727208301915,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -12.746963708962618,
+              "conservativeRearWorldZ": -11.1438,
+              "rearGapWorld": 1.603163708962617,
+              "state": "bound-in-front-at-slice"
+            }
+          ]
+        },
+        {
+          "centreDescentWorld": 0.1,
+          "lobe": 2,
+          "approximateXRange": [
+            35.6017,
+            36.450700000000005
+          ],
+          "conservativeZRange": [
+            -11.2186,
+            -10.134
+          ],
+          "reportedDynamicVerticalExtra": 0,
+          "samples": [
+            {
+              "worldX": 35.6017,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                1.7333244853924066,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -14.239432176372844,
+              "conservativeRearWorldZ": -11.2186,
+              "rearGapWorld": 3.020832176372844,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 35.707825,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                1.7843973290529744,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -14.498430838625156,
+              "conservativeRearWorldZ": -11.2186,
+              "rearGapWorld": 3.2798308386251556,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 35.813950000000006,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                1.8354701727135456,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -14.757429500877482,
+              "conservativeRearWorldZ": -11.2186,
+              "rearGapWorld": 3.5388295008774815,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 35.920075000000004,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                1.8865430163741133,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -14.724759674679781,
+              "conservativeRearWorldZ": -11.2186,
+              "rearGapWorld": 3.5061596746797807,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.0262,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                1.9376158600346811,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -14.580905918414754,
+              "conservativeRearWorldZ": -11.2186,
+              "rearGapWorld": 3.3623059184147532,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.132325,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                1.9886887036952487,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -14.467293784502797,
+              "conservativeRearWorldZ": -11.2186,
+              "rearGapWorld": 3.2486937845027963,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.23845,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                2.0397615473558166,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -14.353681650590836,
+              "conservativeRearWorldZ": -11.2186,
+              "rearGapWorld": 3.135081650590836,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.344575000000006,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                2.090834391016388,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -14.240069516678876,
+              "conservativeRearWorldZ": -11.2186,
+              "rearGapWorld": 3.0214695166788754,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.450700000000005,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                2.1419072346769554,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -14.126457382766919,
+              "conservativeRearWorldZ": -11.2186,
+              "rearGapWorld": 2.9078573827669185,
+              "state": "bound-in-front-at-slice"
+            }
+          ]
+        },
+        {
+          "centreDescentWorld": 0.25,
+          "lobe": 0,
+          "approximateXRange": [
+            32.2885,
+            33.356300000000005
+          ],
+          "conservativeZRange": [
+            -11.2481,
+            -10.0888
+          ],
+          "reportedDynamicVerticalExtra": 0.0011,
+          "samples": [
+            {
+              "worldX": 32.2885,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                0.13884113447419485,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -11.004141552703931,
+              "conservativeRearWorldZ": -11.2481,
+              "rearGapWorld": -0.24395844729606964,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 32.421975,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                0.20307621393327216,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -11.003666759834744,
+              "conservativeRearWorldZ": -11.2481,
+              "rearGapWorld": -0.24443324016525736,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 32.55545,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                0.26731129339234605,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -10.999995060350855,
+              "conservativeRearWorldZ": -11.2481,
+              "rearGapWorld": -0.2481049396491457,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 32.688925000000005,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                0.33154637285142335,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -10.99580501284526,
+              "conservativeRearWorldZ": -11.2481,
+              "rearGapWorld": -0.2522949871547411,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 32.8224,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                0.3957814523104972,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -10.995430681803038,
+              "conservativeRearWorldZ": -11.2481,
+              "rearGapWorld": -0.25266931819696303,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 32.955875,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                0.46001653176957114,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -10.99505635076081,
+              "conservativeRearWorldZ": -11.2481,
+              "rearGapWorld": -0.2530436492391903,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 33.08935,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                0.5242516112286485,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -10.994682019718583,
+              "conservativeRearWorldZ": -11.2481,
+              "rearGapWorld": -0.2534179802814176,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 33.222825,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                0.5884866906877223,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -10.994307688676349,
+              "conservativeRearWorldZ": -11.2481,
+              "rearGapWorld": -0.253792311323652,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 33.356300000000005,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                0.6527217701467997,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -10.993933357634125,
+              "conservativeRearWorldZ": -11.2481,
+              "rearGapWorld": -0.2541666423658757,
+              "state": "potential-overlap-of-conservative-bound"
+            }
+          ]
+        },
+        {
+          "centreDescentWorld": 0.25,
+          "lobe": 1,
+          "approximateXRange": [
+            33.5579,
+            34.9485
+          ],
+          "conservativeZRange": [
+            -11.0904,
+            -10.3513
+          ],
+          "reportedDynamicVerticalExtra": 0.0008,
+          "samples": [
+            {
+              "worldX": 33.5579,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                0.7497421261606528,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -10.992933963223386,
+              "conservativeRearWorldZ": -11.0904,
+              "rearGapWorld": -0.09746603677661447,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 33.731725,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                0.8333957143754782,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -11.020088272784102,
+              "conservativeRearWorldZ": -11.0904,
+              "rearGapWorld": -0.0703117272158984,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 33.90555,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                0.9170493025903035,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -11.050529827586628,
+              "conservativeRearWorldZ": -11.0904,
+              "rearGapWorld": -0.039870172413372984,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 34.079375,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                1.0007028908051288,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -11.080971382389148,
+              "conservativeRearWorldZ": -11.0904,
+              "rearGapWorld": -0.009428617610852896,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 34.2532,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                1.0843564790199542,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -11.111412937191668,
+              "conservativeRearWorldZ": -11.0904,
+              "rearGapWorld": 0.02101293719166719,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.427025,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                1.1680100672347795,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -11.153288025824018,
+              "conservativeRearWorldZ": -11.0904,
+              "rearGapWorld": 0.06288802582401765,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.60085,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                1.2516636554496048,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -11.440044107295611,
+              "conservativeRearWorldZ": -11.0904,
+              "rearGapWorld": 0.34964410729561024,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.774675,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                1.33531724366443,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -11.351689320610191,
+              "conservativeRearWorldZ": -11.0904,
+              "rearGapWorld": 0.2612893206101905,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.9485,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                1.4189708318792555,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -11.400084450162943,
+              "conservativeRearWorldZ": -11.0904,
+              "rearGapWorld": 0.3096844501629423,
+              "state": "bound-in-front-at-slice"
+            }
+          ]
+        },
+        {
+          "centreDescentWorld": 0.25,
+          "lobe": 2,
+          "approximateXRange": [
+            35.6122,
+            36.464
+          ],
+          "conservativeZRange": [
+            -11.1396,
+            -10.0383
+          ],
+          "reportedDynamicVerticalExtra": 0.0009,
+          "samples": [
+            {
+              "worldX": 35.6122,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                1.7383776289347952,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -14.074456220695224,
+              "conservativeRearWorldZ": -11.1396,
+              "rearGapWorld": 2.934856220695224,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 35.718675,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                1.7896189107134413,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -14.326257459180702,
+              "conservativeRearWorldZ": -11.1396,
+              "rearGapWorld": 3.1866574591807026,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 35.82515,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                1.8408601924920909,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -14.581171994567615,
+              "conservativeRearWorldZ": -11.1396,
+              "rearGapWorld": 3.4415719945676155,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 35.931625,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                1.892101474270737,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -14.792770140722912,
+              "conservativeRearWorldZ": -11.1396,
+              "rearGapWorld": 3.653170140722912,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.0381,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                1.9433427560493866,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -14.636076554449925,
+              "conservativeRearWorldZ": -11.1396,
+              "rearGapWorld": 3.4964765544499254,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.144575,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                1.994584037828036,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -14.479382968176939,
+              "conservativeRearWorldZ": -11.1396,
+              "rearGapWorld": 3.339782968176939,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.25105,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                2.0458253196066822,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -14.322689381903967,
+              "conservativeRearWorldZ": -11.1396,
+              "rearGapWorld": 3.183089381903967,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.357525,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                2.0970666013853316,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -14.165995795630987,
+              "conservativeRearWorldZ": -11.1396,
+              "rearGapWorld": 3.0263957956309877,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.464,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                2.148307883163978,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -14.009302209358012,
+              "conservativeRearWorldZ": -11.1396,
+              "rearGapWorld": 2.869702209358012,
+              "state": "bound-in-front-at-slice"
+            }
+          ]
+        },
+        {
+          "centreDescentWorld": 0.5,
+          "lobe": 0,
+          "approximateXRange": [
+            32.2795,
+            33.3789
+          ],
+          "conservativeZRange": [
+            -11.1572,
+            -9.9531
+          ],
+          "reportedDynamicVerticalExtra": 0.0104,
+          "samples": [
+            {
+              "worldX": 32.2795,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                0.13450986858071892,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.882476581684777,
+              "conservativeRearWorldZ": -11.1572,
+              "rearGapWorld": -0.2747234183152223,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 32.416925,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                0.2006458925152643,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.88243049464829,
+              "conservativeRearWorldZ": -11.1572,
+              "rearGapWorld": -0.27476950535170985,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 32.55435,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                0.26678191644980964,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.882406335161516,
+              "conservativeRearWorldZ": -11.1572,
+              "rearGapWorld": -0.27479366483848366,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 32.691775,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                0.332917940384355,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.882410561523171,
+              "conservativeRearWorldZ": -11.1572,
+              "rearGapWorld": -0.27478943847682835,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 32.8292,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                0.3990539643189004,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.88236936454221,
+              "conservativeRearWorldZ": -11.1572,
+              "rearGapWorld": -0.2748306354577892,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 32.966625,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                0.4651899882534457,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.88232472087012,
+              "conservativeRearWorldZ": -11.1572,
+              "rearGapWorld": -0.27487527912987986,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 33.10405,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                0.5313260121879911,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.88228007719802,
+              "conservativeRearWorldZ": -11.1572,
+              "rearGapWorld": -0.2749199228019794,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 33.241475,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                0.5974620361225365,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.88223543352593,
+              "conservativeRearWorldZ": -11.1572,
+              "rearGapWorld": -0.2749645664740701,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 33.3789,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                0.6635980600570818,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.882190789853842,
+              "conservativeRearWorldZ": -11.1572,
+              "rearGapWorld": -0.2750092101461572,
+              "state": "potential-overlap-of-conservative-bound"
+            }
+          ]
+        },
+        {
+          "centreDescentWorld": 0.5,
+          "lobe": 1,
+          "approximateXRange": [
+            33.5229,
+            34.969100000000005
+          ],
+          "conservativeZRange": [
+            -11.0362,
+            -10.1806
+          ],
+          "reportedDynamicVerticalExtra": 0.0075,
+          "samples": [
+            {
+              "worldX": 33.5229,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                0.7328983143526933,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.882174838497686,
+              "conservativeRearWorldZ": -11.0362,
+              "rearGapWorld": -0.1540251615023127,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 33.703675000000004,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                0.8198966023408153,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.900520967893222,
+              "conservativeRearWorldZ": -11.0362,
+              "rearGapWorld": -0.13567903210677734,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 33.88445,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                0.906894890328934,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.934447151466188,
+              "conservativeRearWorldZ": -11.0362,
+              "rearGapWorld": -0.1017528485338115,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 34.065225000000005,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                0.9938931783170561,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.933144778947039,
+              "conservativeRearWorldZ": -11.0362,
+              "rearGapWorld": -0.10305522105296028,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 34.246,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                1.0808914663051747,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.931842406427894,
+              "conservativeRearWorldZ": -11.0362,
+              "rearGapWorld": -0.1043575935721055,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 34.426775,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                1.1678897542932936,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.930540033908743,
+              "conservativeRearWorldZ": -11.0362,
+              "rearGapWorld": -0.10565996609125605,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 34.60755,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                1.2548880422814155,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.929237661389598,
+              "conservativeRearWorldZ": -11.0362,
+              "rearGapWorld": -0.10696233861040128,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 34.788325,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                1.3418863302695343,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.927935288870449,
+              "conservativeRearWorldZ": -11.0362,
+              "rearGapWorld": -0.10826471112955005,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 34.969100000000005,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                1.4288846182576564,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.926632916351304,
+              "conservativeRearWorldZ": -11.0362,
+              "rearGapWorld": -0.10956708364869527,
+              "state": "potential-overlap-of-conservative-bound"
+            }
+          ]
+        },
+        {
+          "centreDescentWorld": 0.5,
+          "lobe": 2,
+          "approximateXRange": [
+            35.6017,
+            36.5161
+          ],
+          "conservativeZRange": [
+            -11.036,
+            -9.8518
+          ],
+          "reportedDynamicVerticalExtra": 0.0086,
+          "samples": [
+            {
+              "worldX": 35.6017,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                1.7333244853924066,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.927671544923912,
+              "conservativeRearWorldZ": -11.036,
+              "rearGapWorld": -0.10832845507608724,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 35.716,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                1.7883315622395488,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -11.006344345361976,
+              "conservativeRearWorldZ": -11.036,
+              "rearGapWorld": -0.029655654638023776,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 35.8303,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                1.843338639086691,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -11.14736799923845,
+              "conservativeRearWorldZ": -11.036,
+              "rearGapWorld": 0.11136799923844976,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 35.9446,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                1.8983457159338333,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -14.723559271357253,
+              "conservativeRearWorldZ": -11.036,
+              "rearGapWorld": 3.6875592713572534,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.0589,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                1.9533527927809755,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -14.59873511539849,
+              "conservativeRearWorldZ": -11.036,
+              "rearGapWorld": 3.5627351153984907,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.1732,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                2.0083598696281175,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -14.42880687721531,
+              "conservativeRearWorldZ": -11.036,
+              "rearGapWorld": 3.3928068772153104,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.2875,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                2.0633669464752598,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -14.258878639032115,
+              "conservativeRearWorldZ": -11.036,
+              "rearGapWorld": 3.222878639032116,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.4018,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                2.118374023322402,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -14.088950400848928,
+              "conservativeRearWorldZ": -11.036,
+              "rearGapWorld": 3.0529504008489283,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.5161,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                2.1733811001695442,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -13.91914328310801,
+              "conservativeRearWorldZ": -11.036,
+              "rearGapWorld": 2.8831432831080104,
+              "state": "bound-in-front-at-slice"
+            }
+          ]
+        },
+        {
+          "centreDescentWorld": 1,
+          "lobe": 0,
+          "approximateXRange": [
+            32.2311,
+            33.4285
+          ],
+          "conservativeZRange": [
+            -10.9654,
+            -9.655
+          ],
+          "reportedDynamicVerticalExtra": 0.0311,
+          "samples": [
+            {
+              "worldX": 32.2311,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                0.11121728310913773,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -11.988481364320123,
+              "conservativeRearWorldZ": -10.9654,
+              "rearGapWorld": 1.023081364320122,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 32.380775,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                0.18324864117647033,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -11.99119502272522,
+              "conservativeRearWorldZ": -10.9654,
+              "rearGapWorld": 1.0257950227252195,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 32.53045,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                0.25527999924380296,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -11.993595935871388,
+              "conservativeRearWorldZ": -10.9654,
+              "rearGapWorld": 1.0281959358713877,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 32.680125,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                0.32731135731113215,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -11.99476868242086,
+              "conservativeRearWorldZ": -10.9654,
+              "rearGapWorld": 1.0293686824208592,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 32.8298,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                0.3993427153784647,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -11.994654297501944,
+              "conservativeRearWorldZ": -10.9654,
+              "rearGapWorld": 1.029254297501943,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 32.979475,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                0.47137407344579735,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -11.994053051237197,
+              "conservativeRearWorldZ": -10.9654,
+              "rearGapWorld": 1.028653051237196,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 33.129149999999996,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                0.5434054315131266,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -11.993451804972459,
+              "conservativeRearWorldZ": -10.9654,
+              "rearGapWorld": 1.028051804972458,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 33.278825,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                0.6154367895804591,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -11.992850558707714,
+              "conservativeRearWorldZ": -10.9654,
+              "rearGapWorld": 1.027450558707713,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 33.4285,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                0.6874681476477917,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -11.99224931244297,
+              "conservativeRearWorldZ": -10.9654,
+              "rearGapWorld": 1.0268493124429696,
+              "state": "bound-in-front-at-slice"
+            }
+          ]
+        },
+        {
+          "centreDescentWorld": 1,
+          "lobe": 1,
+          "approximateXRange": [
+            33.4234,
+            35.0624
+          ],
+          "conservativeZRange": [
+            -10.9739,
+            -9.8131
+          ],
+          "reportedDynamicVerticalExtra": 0.0277,
+          "samples": [
+            {
+              "worldX": 33.4234,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                0.6850137636414895,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -11.992269799203958,
+              "conservativeRearWorldZ": -10.9739,
+              "rearGapWorld": 1.018369799203958,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 33.628275,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                0.7836102191888064,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -11.992238245198196,
+              "conservativeRearWorldZ": -10.9739,
+              "rearGapWorld": 1.018338245198196,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 33.833149999999996,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                0.8822066747361198,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -12.028076287789386,
+              "conservativeRearWorldZ": -10.9739,
+              "rearGapWorld": 1.0541762877893852,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.038025,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                0.9808031302834368,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -12.066784409600634,
+              "conservativeRearWorldZ": -10.9739,
+              "rearGapWorld": 1.092884409600634,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.2429,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                1.0793995858307537,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -12.10549253141188,
+              "conservativeRearWorldZ": -10.9739,
+              "rearGapWorld": 1.1315925314118793,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.447775,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                1.1779960413780706,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -12.139459936831036,
+              "conservativeRearWorldZ": -10.9739,
+              "rearGapWorld": 1.1655599368310359,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.65265,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                1.2765924969253875,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -12.454374075828644,
+              "conservativeRearWorldZ": -10.9739,
+              "rearGapWorld": 1.4804740758286439,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.857524999999995,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                1.375188952472701,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -12.840414469548945,
+              "conservativeRearWorldZ": -10.9739,
+              "rearGapWorld": 1.8665144695489442,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 35.0624,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                1.473785408020018,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -13.226454863269272,
+              "conservativeRearWorldZ": -10.9739,
+              "rearGapWorld": 2.252554863269271,
+              "state": "bound-in-front-at-slice"
+            }
+          ]
+        },
+        {
+          "centreDescentWorld": 1,
+          "lobe": 2,
+          "approximateXRange": [
+            35.5698,
+            36.6358
+          ],
+          "conservativeZRange": [
+            -10.8778,
+            -9.4795
+          ],
+          "reportedDynamicVerticalExtra": 0.0273,
+          "samples": [
+            {
+              "worldX": 35.5698,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                1.7179725540588646,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -14.052401334495737,
+              "conservativeRearWorldZ": -10.8778,
+              "rearGapWorld": 3.174601334495737,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 35.703050000000005,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                1.782099351870605,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -14.210781901056993,
+              "conservativeRearWorldZ": -10.8778,
+              "rearGapWorld": 3.3329819010569928,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 35.8363,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                1.8462261496823418,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -14.369162467618242,
+              "conservativeRearWorldZ": -10.8778,
+              "rearGapWorld": 3.4913624676182415,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 35.969550000000005,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                1.910352947494082,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -14.615343567400249,
+              "conservativeRearWorldZ": -10.8778,
+              "rearGapWorld": 3.737543567400248,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.1028,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                1.9744797453058187,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -14.54831553870871,
+              "conservativeRearWorldZ": -10.8778,
+              "rearGapWorld": 3.6705155387087096,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.23605,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                2.0386065431175555,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -14.325019889584661,
+              "conservativeRearWorldZ": -10.8778,
+              "rearGapWorld": 3.4472198895846606,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.3693,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                2.1027333409292956,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -14.101724240460602,
+              "conservativeRearWorldZ": -10.8778,
+              "rearGapWorld": 3.223924240460601,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.50255,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                2.1668601387410327,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -13.878428591336549,
+              "conservativeRearWorldZ": -10.8778,
+              "rearGapWorld": 3.0006285913365485,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.6358,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                2.230986936552773,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -13.672059562252656,
+              "conservativeRearWorldZ": -10.8778,
+              "rearGapWorld": 2.7942595622526554,
+              "state": "bound-in-front-at-slice"
+            }
+          ]
+        }
+      ]
+    },
+    "high": {
+      "scope": "Lower tier frozen B r3 conservative bounds only, compared with actual C rock at ring-centre horizontal Y slices. X uses reported nominal rx plus radial dynamic bound. Z extrema and X extrema need not occur at the same ring angle/phase; tilted ring vertical span is not reconstructed. Negative gap is potential bound overlap, not certified actual water-mesh penetration; positive slices do not certify complete dynamics.",
+      "transform": {
+        "scale": 2.0779144530371148,
+        "translation": [
+          32,
+          -0.1524663124859384,
+          -12
+        ],
+        "yaw": 0
+      },
+      "sampleCount": 135,
+      "potentialOverlapSamples": 43,
+      "noRockAtSliceSamples": 0,
+      "minimumRearGapWorld": -0.3221959211917067,
+      "rows": [
+        {
+          "centreDescentWorld": 0,
+          "lobe": 0,
+          "approximateXRange": [
+            32.2565,
+            33.366299999999995
+          ],
+          "conservativeZRange": [
+            -11.3656,
+            -10.1853
+          ],
+          "reportedDynamicVerticalExtra": 0,
+          "samples": [
+            {
+              "worldX": 32.2565,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                0.1234410779640605,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -11.779995754599298,
+              "conservativeRearWorldZ": -11.3656,
+              "rearGapWorld": 0.41439575459929756,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 32.395224999999996,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                0.19020272919432696,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -11.777250472748161,
+              "conservativeRearWorldZ": -11.3656,
+              "rearGapWorld": 0.41165047274816047,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 32.53395,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                0.25696438042459685,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -11.775444708196503,
+              "conservativeRearWorldZ": -11.3656,
+              "rearGapWorld": 0.409844708196502,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 32.672675,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                0.32372603165486674,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -11.774429087324217,
+              "conservativeRearWorldZ": -11.3656,
+              "rearGapWorld": 0.4088290873242162,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 32.8114,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                0.39048768288513663,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -11.772891550503054,
+              "conservativeRearWorldZ": -11.3656,
+              "rearGapWorld": 0.40729155050305366,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 32.950125,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                0.4572493341154065,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -11.771779465893761,
+              "conservativeRearWorldZ": -11.3656,
+              "rearGapWorld": 0.40617946589376075,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 33.08885,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                0.5240109853456764,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -11.770267906835981,
+              "conservativeRearWorldZ": -11.3656,
+              "rearGapWorld": 0.4046679068359804,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 33.227575,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                0.5907726365759463,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -11.767519809696253,
+              "conservativeRearWorldZ": -11.3656,
+              "rearGapWorld": 0.40191980969625263,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 33.366299999999995,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                0.6575342878062128,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -11.764132544029842,
+              "conservativeRearWorldZ": -11.3656,
+              "rearGapWorld": 0.39853254402984106,
+              "state": "bound-in-front-at-slice"
+            }
+          ]
+        },
+        {
+          "centreDescentWorld": 0,
+          "lobe": 1,
+          "approximateXRange": [
+            33.559000000000005,
+            34.9656
+          ],
+          "conservativeZRange": [
+            -11.1842,
+            -10.4917
+          ],
+          "reportedDynamicVerticalExtra": 0,
+          "samples": [
+            {
+              "worldX": 33.559000000000005,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                0.7502715031031927,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -11.75893862594183,
+              "conservativeRearWorldZ": -11.1842,
+              "rearGapWorld": 0.5747386259418299,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 33.734825,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                0.8348875948498993,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -11.753228098317177,
+              "conservativeRearWorldZ": -11.1842,
+              "rearGapWorld": 0.569028098317176,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 33.910650000000004,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                0.9195036865966093,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -11.749104869433038,
+              "conservativeRearWorldZ": -11.1842,
+              "rearGapWorld": 0.5649048694330379,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.086475,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                1.0041197783433158,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -11.745023517528791,
+              "conservativeRearWorldZ": -11.1842,
+              "rearGapWorld": 0.5608235175287906,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.2623,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                1.0887358700900258,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -11.79752163893491,
+              "conservativeRearWorldZ": -11.1842,
+              "rearGapWorld": 0.6133216389349094,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.43812500000001,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                1.1733519618367358,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -11.885847879915739,
+              "conservativeRearWorldZ": -11.1842,
+              "rearGapWorld": 0.701647879915738,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.61395,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                1.2579680535834425,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -12.168185612526013,
+              "conservativeRearWorldZ": -11.1842,
+              "rearGapWorld": 0.9839856125260127,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.789775000000006,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                1.3425841453301524,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -12.499964254830092,
+              "conservativeRearWorldZ": -11.1842,
+              "rearGapWorld": 1.315764254830091,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.9656,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                1.427200237076859,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -12.903983504950656,
+              "conservativeRearWorldZ": -11.1842,
+              "rearGapWorld": 1.7197835049506551,
+              "state": "bound-in-front-at-slice"
+            }
+          ]
+        },
+        {
+          "centreDescentWorld": 0,
+          "lobe": 2,
+          "approximateXRange": [
+            35.5925,
+            36.444900000000004
+          ],
+          "conservativeZRange": [
+            -11.2731,
+            -10.1955
+          ],
+          "reportedDynamicVerticalExtra": 0,
+          "samples": [
+            {
+              "worldX": 35.5925,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                1.7288969691457425,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -14.538987193469692,
+              "conservativeRearWorldZ": -11.2731,
+              "rearGapWorld": 3.265887193469693,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 35.69905,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                1.7801743448068355,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -14.729826836669059,
+              "conservativeRearWorldZ": -11.2731,
+              "rearGapWorld": 3.456726836669059,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 35.805600000000005,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                1.831451720467932,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -14.893019677619286,
+              "conservativeRearWorldZ": -11.2731,
+              "rearGapWorld": 3.6199196776192863,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 35.912150000000004,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                1.8827290961290248,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -14.904704636305555,
+              "conservativeRearWorldZ": -11.2731,
+              "rearGapWorld": 3.631604636305555,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.0187,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                1.9340064717901178,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -14.892378140529726,
+              "conservativeRearWorldZ": -11.2731,
+              "rearGapWorld": 3.619278140529726,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.12525,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                1.9852838474512107,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -14.798875966502834,
+              "conservativeRearWorldZ": -11.2731,
+              "rearGapWorld": 3.5257759665028345,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.2318,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                2.0365612231123036,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -14.623493847050364,
+              "conservativeRearWorldZ": -11.2731,
+              "rearGapWorld": 3.3503938470503645,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.338350000000005,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                2.0878385987734,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -14.448508337828745,
+              "conservativeRearWorldZ": -11.2731,
+              "rearGapWorld": 3.1754083378287454,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.444900000000004,
+              "worldY": 9.925418784744068,
+              "localXY": [
+                2.139115974434493,
+                4.85
+              ],
+              "actualRockSurfaceWorldZ": -14.244438112023627,
+              "conservativeRearWorldZ": -11.2731,
+              "rearGapWorld": 2.971338112023627,
+              "state": "bound-in-front-at-slice"
+            }
+          ]
+        },
+        {
+          "centreDescentWorld": 0.1,
+          "lobe": 0,
+          "approximateXRange": [
+            32.271699999999996,
+            33.3609
+          ],
+          "conservativeZRange": [
+            -11.318,
+            -10.1488
+          ],
+          "reportedDynamicVerticalExtra": 0,
+          "samples": [
+            {
+              "worldX": 32.271699999999996,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                0.13075610480637176,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -11.28581552244298,
+              "conservativeRearWorldZ": -11.318,
+              "rearGapWorld": -0.03218447755701881,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 32.407849999999996,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                0.19627853273934154,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -11.285481580135956,
+              "conservativeRearWorldZ": -11.318,
+              "rearGapWorld": -0.03251841986404358,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 32.544,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                0.2618009606723113,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -11.285036944990265,
+              "conservativeRearWorldZ": -11.318,
+              "rearGapWorld": -0.03296305500973418,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 32.68015,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                0.3273233886052811,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -11.28452697981436,
+              "conservativeRearWorldZ": -11.318,
+              "rearGapWorld": -0.0334730201856388,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 32.8163,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                0.39284581653825085,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -11.284060256312676,
+              "conservativeRearWorldZ": -11.318,
+              "rearGapWorld": -0.03393974368732344,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 32.95245,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                0.45836824447122065,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -11.283920809492464,
+              "conservativeRearWorldZ": -11.318,
+              "rearGapWorld": -0.03407919050753527,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 33.0886,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                0.5238906724041904,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -11.283228873920976,
+              "conservativeRearWorldZ": -11.318,
+              "rearGapWorld": -0.03477112607902377,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 33.22475,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                0.5894131003371602,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -11.282550621902532,
+              "conservativeRearWorldZ": -11.318,
+              "rearGapWorld": -0.03544937809746784,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 33.3609,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                0.6549355282701299,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -11.280642718341136,
+              "conservativeRearWorldZ": -11.318,
+              "rearGapWorld": -0.03735728165886343,
+              "state": "potential-overlap-of-conservative-bound"
+            }
+          ]
+        },
+        {
+          "centreDescentWorld": 0.1,
+          "lobe": 1,
+          "approximateXRange": [
+            33.5606,
+            34.956399999999995
+          ],
+          "conservativeZRange": [
+            -11.1438,
+            -10.4371
+          ],
+          "reportedDynamicVerticalExtra": 0,
+          "samples": [
+            {
+              "worldX": 33.5606,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                0.7510415059286977,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -11.278222530801452,
+              "conservativeRearWorldZ": -11.1438,
+              "rearGapWorld": 0.1344225308014515,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 33.735074999999995,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                0.8350079077913819,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -11.27584155698239,
+              "conservativeRearWorldZ": -11.1438,
+              "rearGapWorld": 0.13204155698239006,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 33.909549999999996,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                0.9189743096540695,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -11.27461678062772,
+              "conservativeRearWorldZ": -11.1438,
+              "rearGapWorld": 0.13081678062772006,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.084025,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                1.002940711516757,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -11.273815432725039,
+              "conservativeRearWorldZ": -11.1438,
+              "rearGapWorld": 0.13001543272503824,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.2585,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                1.0869071133794446,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -11.330725084082522,
+              "conservativeRearWorldZ": -11.1438,
+              "rearGapWorld": 0.18692508408252095,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.432975,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                1.1708735152421321,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -11.425949550879261,
+              "conservativeRearWorldZ": -11.1438,
+              "rearGapWorld": 0.28214955087926086,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.60745,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                1.25483991710482,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -11.732193538003255,
+              "conservativeRearWorldZ": -11.1438,
+              "rearGapWorld": 0.5883935380032543,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.781925,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                1.3388063189675075,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -12.105957885284559,
+              "conservativeRearWorldZ": -11.1438,
+              "rearGapWorld": 0.962157885284558,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.956399999999995,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                1.4227727208301915,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -12.556379974109058,
+              "conservativeRearWorldZ": -11.1438,
+              "rearGapWorld": 1.4125799741090574,
+              "state": "bound-in-front-at-slice"
+            }
+          ]
+        },
+        {
+          "centreDescentWorld": 0.1,
+          "lobe": 2,
+          "approximateXRange": [
+            35.6017,
+            36.450700000000005
+          ],
+          "conservativeZRange": [
+            -11.2186,
+            -10.134
+          ],
+          "reportedDynamicVerticalExtra": 0,
+          "samples": [
+            {
+              "worldX": 35.6017,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                1.7333244853924066,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -14.41507253667517,
+              "conservativeRearWorldZ": -11.2186,
+              "rearGapWorld": 3.19647253667517,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 35.707825,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                1.7843973290529744,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -14.622115021975125,
+              "conservativeRearWorldZ": -11.2186,
+              "rearGapWorld": 3.4035150219751245,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 35.813950000000006,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                1.8354701727135456,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -14.812122718308489,
+              "conservativeRearWorldZ": -11.2186,
+              "rearGapWorld": 3.5935227183084884,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 35.920075000000004,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                1.8865430163741133,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -14.822927588520475,
+              "conservativeRearWorldZ": -11.2186,
+              "rearGapWorld": 3.6043275885204746,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.0262,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                1.9376158600346811,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -14.81969626381145,
+              "conservativeRearWorldZ": -11.2186,
+              "rearGapWorld": 3.601096263811449,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.132325,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                1.9886887036952487,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -14.73097836154998,
+              "conservativeRearWorldZ": -11.2186,
+              "rearGapWorld": 3.5123783615499793,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.23845,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                2.0397615473558166,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -14.55873326556605,
+              "conservativeRearWorldZ": -11.2186,
+              "rearGapWorld": 3.340133265566049,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.344575000000006,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                2.090834391016388,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -14.381699986637999,
+              "conservativeRearWorldZ": -11.2186,
+              "rearGapWorld": 3.1630999866379987,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.450700000000005,
+              "worldY": 9.825418784744068,
+              "localXY": [
+                2.1419072346769554,
+                4.801874823405824
+              ],
+              "actualRockSurfaceWorldZ": -14.180864386437854,
+              "conservativeRearWorldZ": -11.2186,
+              "rearGapWorld": 2.9622643864378535,
+              "state": "bound-in-front-at-slice"
+            }
+          ]
+        },
+        {
+          "centreDescentWorld": 0.25,
+          "lobe": 0,
+          "approximateXRange": [
+            32.2885,
+            33.356300000000005
+          ],
+          "conservativeZRange": [
+            -11.2481,
+            -10.0888
+          ],
+          "reportedDynamicVerticalExtra": 0.0011,
+          "samples": [
+            {
+              "worldX": 32.2885,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                0.13884113447419485,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -10.926152257573717,
+              "conservativeRearWorldZ": -11.2481,
+              "rearGapWorld": -0.32194774242628377,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 32.421975,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                0.20307621393327216,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -10.926161872279083,
+              "conservativeRearWorldZ": -11.2481,
+              "rearGapWorld": -0.3219381277209177,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 32.55545,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                0.26731129339234605,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -10.926320924525253,
+              "conservativeRearWorldZ": -11.2481,
+              "rearGapWorld": -0.3217790754747476,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 32.688925000000005,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                0.33154637285142335,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -10.926150753480082,
+              "conservativeRearWorldZ": -11.2481,
+              "rearGapWorld": -0.3219492465199192,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 32.8224,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                0.3957814523104972,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -10.926126762974432,
+              "conservativeRearWorldZ": -11.2481,
+              "rearGapWorld": -0.3219732370255688,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 32.955875,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                0.46001653176957114,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -10.926051375921848,
+              "conservativeRearWorldZ": -11.2481,
+              "rearGapWorld": -0.32204862407815327,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 33.08935,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                0.5242516112286485,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -10.925904078808294,
+              "conservativeRearWorldZ": -11.2481,
+              "rearGapWorld": -0.3221959211917067,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 33.222825,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                0.5884866906877223,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -10.926262983314029,
+              "conservativeRearWorldZ": -11.2481,
+              "rearGapWorld": -0.3218370166859721,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 33.356300000000005,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                0.6527217701467997,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -10.926121579218895,
+              "conservativeRearWorldZ": -11.2481,
+              "rearGapWorld": -0.3219784207811056,
+              "state": "potential-overlap-of-conservative-bound"
+            }
+          ]
+        },
+        {
+          "centreDescentWorld": 0.25,
+          "lobe": 1,
+          "approximateXRange": [
+            33.5579,
+            34.9485
+          ],
+          "conservativeZRange": [
+            -11.0904,
+            -10.3513
+          ],
+          "reportedDynamicVerticalExtra": 0.0008,
+          "samples": [
+            {
+              "worldX": 33.5579,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                0.7497421261606528,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -10.92582514278468,
+              "conservativeRearWorldZ": -11.0904,
+              "rearGapWorld": -0.16457485721532095,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 33.731725,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                0.8333957143754782,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -10.925667197971595,
+              "conservativeRearWorldZ": -11.0904,
+              "rearGapWorld": -0.16473280202840535,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 33.90555,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                0.9170493025903035,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -10.925909088840815,
+              "conservativeRearWorldZ": -11.0904,
+              "rearGapWorld": -0.16449091115918613,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 34.079375,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                1.0007028908051288,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -10.926126841776085,
+              "conservativeRearWorldZ": -11.0904,
+              "rearGapWorld": -0.16427315822391542,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 34.2532,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                1.0843564790199542,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -10.995838023094931,
+              "conservativeRearWorldZ": -11.0904,
+              "rearGapWorld": -0.0945619769050694,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 34.427025,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                1.1680100672347795,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -11.137410794215794,
+              "conservativeRearWorldZ": -11.0904,
+              "rearGapWorld": 0.047010794215793794,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.60085,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                1.2516636554496048,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -11.4296656870281,
+              "conservativeRearWorldZ": -11.0904,
+              "rearGapWorld": 0.33926568702809945,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.774675,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                1.33531724366443,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -11.351689320610191,
+              "conservativeRearWorldZ": -11.0904,
+              "rearGapWorld": 0.2612893206101905,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.9485,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                1.4189708318792555,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -11.400084450162943,
+              "conservativeRearWorldZ": -11.0904,
+              "rearGapWorld": 0.3096844501629423,
+              "state": "bound-in-front-at-slice"
+            }
+          ]
+        },
+        {
+          "centreDescentWorld": 0.25,
+          "lobe": 2,
+          "approximateXRange": [
+            35.6122,
+            36.464
+          ],
+          "conservativeZRange": [
+            -11.1396,
+            -10.0383
+          ],
+          "reportedDynamicVerticalExtra": 0.0009,
+          "samples": [
+            {
+              "worldX": 35.6122,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                1.7383776289347952,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -14.325078710324902,
+              "conservativeRearWorldZ": -11.1396,
+              "rearGapWorld": 3.1854787103249027,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 35.718675,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                1.7896189107134413,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -14.485522750598857,
+              "conservativeRearWorldZ": -11.1396,
+              "rearGapWorld": 3.3459227505988576,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 35.82515,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                1.8408601924920909,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -14.64520791903037,
+              "conservativeRearWorldZ": -11.1396,
+              "rearGapWorld": 3.5056079190303695,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 35.931625,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                1.892101474270737,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -14.754677681883539,
+              "conservativeRearWorldZ": -11.1396,
+              "rearGapWorld": 3.6150776818835393,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.0381,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                1.9433427560493866,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -14.663585427245485,
+              "conservativeRearWorldZ": -11.1396,
+              "rearGapWorld": 3.523985427245485,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.144575,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                1.994584037828036,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -14.652280927242984,
+              "conservativeRearWorldZ": -11.1396,
+              "rearGapWorld": 3.512680927242984,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.25105,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                2.0458253196066822,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -14.481204616056617,
+              "conservativeRearWorldZ": -11.1396,
+              "rearGapWorld": 3.3416046160566175,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.357525,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                2.0970666013853316,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -14.297539238556231,
+              "conservativeRearWorldZ": -11.1396,
+              "rearGapWorld": 3.1579392385562315,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.464,
+              "worldY": 9.675418784744068,
+              "localXY": [
+                2.148307883163978,
+                4.729687058514561
+              ],
+              "actualRockSurfaceWorldZ": -14.110217599930222,
+              "conservativeRearWorldZ": -11.1396,
+              "rearGapWorld": 2.970617599930222,
+              "state": "bound-in-front-at-slice"
+            }
+          ]
+        },
+        {
+          "centreDescentWorld": 0.5,
+          "lobe": 0,
+          "approximateXRange": [
+            32.2795,
+            33.3789
+          ],
+          "conservativeZRange": [
+            -11.1572,
+            -9.9531
+          ],
+          "reportedDynamicVerticalExtra": 0.0104,
+          "samples": [
+            {
+              "worldX": 32.2795,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                0.13450986858071892,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.881363463666254,
+              "conservativeRearWorldZ": -11.1572,
+              "rearGapWorld": -0.2758365363337454,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 32.416925,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                0.2006458925152643,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.881315778338966,
+              "conservativeRearWorldZ": -11.1572,
+              "rearGapWorld": -0.275884221661034,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 32.55435,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                0.26678191644980964,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.881318154683017,
+              "conservativeRearWorldZ": -11.1572,
+              "rearGapWorld": -0.2758818453169827,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 32.691775,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                0.332917940384355,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.881273033910178,
+              "conservativeRearWorldZ": -11.1572,
+              "rearGapWorld": -0.2759269660898216,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 32.8292,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                0.3990539643189004,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.8812305355777,
+              "conservativeRearWorldZ": -11.1572,
+              "rearGapWorld": -0.27596946442229964,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 32.966625,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                0.4651899882534457,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.881228294001133,
+              "conservativeRearWorldZ": -11.1572,
+              "rearGapWorld": -0.27597170599886667,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 33.10405,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                0.5313260121879911,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.881188398915565,
+              "conservativeRearWorldZ": -11.1572,
+              "rearGapWorld": -0.27601160108443423,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 33.241475,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                0.5974620361225365,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.881180347533322,
+              "conservativeRearWorldZ": -11.1572,
+              "rearGapWorld": -0.2760196524666778,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 33.3789,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                0.6635980600570818,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.881161887836713,
+              "conservativeRearWorldZ": -11.1572,
+              "rearGapWorld": -0.27603811216328644,
+              "state": "potential-overlap-of-conservative-bound"
+            }
+          ]
+        },
+        {
+          "centreDescentWorld": 0.5,
+          "lobe": 1,
+          "approximateXRange": [
+            33.5229,
+            34.969100000000005
+          ],
+          "conservativeZRange": [
+            -11.0362,
+            -10.1806
+          ],
+          "reportedDynamicVerticalExtra": 0.0075,
+          "samples": [
+            {
+              "worldX": 33.5229,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                0.7328983143526933,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.881141060333428,
+              "conservativeRearWorldZ": -11.0362,
+              "rearGapWorld": -0.1550589396665707,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 33.703675000000004,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                0.8198966023408153,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.881131947794756,
+              "conservativeRearWorldZ": -11.0362,
+              "rearGapWorld": -0.15506805220524278,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 33.88445,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                0.906894890328934,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.88111903198395,
+              "conservativeRearWorldZ": -11.0362,
+              "rearGapWorld": -0.15508096801604943,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 34.065225000000005,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                0.9938931783170561,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.882457283562157,
+              "conservativeRearWorldZ": -11.0362,
+              "rearGapWorld": -0.15374271643784176,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 34.246,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                1.0808914663051747,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.884365959254568,
+              "conservativeRearWorldZ": -11.0362,
+              "rearGapWorld": -0.15183404074543105,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 34.426775,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                1.1678897542932936,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.930540033908743,
+              "conservativeRearWorldZ": -11.0362,
+              "rearGapWorld": -0.10565996609125605,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 34.60755,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                1.2548880422814155,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.929237661389598,
+              "conservativeRearWorldZ": -11.0362,
+              "rearGapWorld": -0.10696233861040128,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 34.788325,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                1.3418863302695343,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.927935288870449,
+              "conservativeRearWorldZ": -11.0362,
+              "rearGapWorld": -0.10826471112955005,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 34.969100000000005,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                1.4288846182576564,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.926632916351304,
+              "conservativeRearWorldZ": -11.0362,
+              "rearGapWorld": -0.10956708364869527,
+              "state": "potential-overlap-of-conservative-bound"
+            }
+          ]
+        },
+        {
+          "centreDescentWorld": 0.5,
+          "lobe": 2,
+          "approximateXRange": [
+            35.6017,
+            36.5161
+          ],
+          "conservativeZRange": [
+            -11.036,
+            -9.8518
+          ],
+          "reportedDynamicVerticalExtra": 0.0086,
+          "samples": [
+            {
+              "worldX": 35.6017,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                1.7333244853924066,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -10.927671544923912,
+              "conservativeRearWorldZ": -11.036,
+              "rearGapWorld": -0.10832845507608724,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 35.716,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                1.7883315622395488,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -11.006344345361976,
+              "conservativeRearWorldZ": -11.036,
+              "rearGapWorld": -0.029655654638023776,
+              "state": "potential-overlap-of-conservative-bound"
+            },
+            {
+              "worldX": 35.8303,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                1.843338639086691,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -11.14736799923845,
+              "conservativeRearWorldZ": -11.036,
+              "rearGapWorld": 0.11136799923844976,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 35.9446,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                1.8983457159338333,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -14.74401390619908,
+              "conservativeRearWorldZ": -11.036,
+              "rearGapWorld": 3.7080139061990796,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.0589,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                1.9533527927809755,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -14.662420104787216,
+              "conservativeRearWorldZ": -11.036,
+              "rearGapWorld": 3.6264201047872167,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.1732,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                2.0083598696281175,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -14.554436813613172,
+              "conservativeRearWorldZ": -11.036,
+              "rearGapWorld": 3.5184368136131727,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.2875,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                2.0633669464752598,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -14.388263458620468,
+              "conservativeRearWorldZ": -11.036,
+              "rearGapWorld": 3.3522634586204685,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.4018,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                2.118374023322402,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -14.18260490057593,
+              "conservativeRearWorldZ": -11.036,
+              "rearGapWorld": 3.1466049005759302,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.5161,
+              "worldY": 9.425418784744068,
+              "localXY": [
+                2.1733811001695442,
+                4.609374117029124
+              ],
+              "actualRockSurfaceWorldZ": -13.972084921042349,
+              "conservativeRearWorldZ": -11.036,
+              "rearGapWorld": 2.936084921042349,
+              "state": "bound-in-front-at-slice"
+            }
+          ]
+        },
+        {
+          "centreDescentWorld": 1,
+          "lobe": 0,
+          "approximateXRange": [
+            32.2311,
+            33.4285
+          ],
+          "conservativeZRange": [
+            -10.9654,
+            -9.655
+          ],
+          "reportedDynamicVerticalExtra": 0.0311,
+          "samples": [
+            {
+              "worldX": 32.2311,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                0.11121728310913773,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -11.974643623468108,
+              "conservativeRearWorldZ": -10.9654,
+              "rearGapWorld": 1.009243623468107,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 32.380775,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                0.18324864117647033,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -11.97626908869044,
+              "conservativeRearWorldZ": -10.9654,
+              "rearGapWorld": 1.0108690886904395,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 32.53045,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                0.25527999924380296,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -11.97731859288043,
+              "conservativeRearWorldZ": -10.9654,
+              "rearGapWorld": 1.0119185928804288,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 32.680125,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                0.32731135731113215,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -11.977371241541901,
+              "conservativeRearWorldZ": -10.9654,
+              "rearGapWorld": 1.0119712415419002,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 32.8298,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                0.3993427153784647,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -11.976891181871295,
+              "conservativeRearWorldZ": -10.9654,
+              "rearGapWorld": 1.0114911818712944,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 32.979475,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                0.47137407344579735,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -11.977024233642013,
+              "conservativeRearWorldZ": -10.9654,
+              "rearGapWorld": 1.0116242336420118,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 33.129149999999996,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                0.5434054315131266,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -11.976814334134534,
+              "conservativeRearWorldZ": -10.9654,
+              "rearGapWorld": 1.0114143341345336,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 33.278825,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                0.6154367895804591,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -11.977330570494084,
+              "conservativeRearWorldZ": -10.9654,
+              "rearGapWorld": 1.0119305704940835,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 33.4285,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                0.6874681476477917,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -11.977558624364578,
+              "conservativeRearWorldZ": -10.9654,
+              "rearGapWorld": 1.0121586243645773,
+              "state": "bound-in-front-at-slice"
+            }
+          ]
+        },
+        {
+          "centreDescentWorld": 1,
+          "lobe": 1,
+          "approximateXRange": [
+            33.4234,
+            35.0624
+          ],
+          "conservativeZRange": [
+            -10.9739,
+            -9.8131
+          ],
+          "reportedDynamicVerticalExtra": 0.0277,
+          "samples": [
+            {
+              "worldX": 33.4234,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                0.6850137636414895,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -11.9775580617449,
+              "conservativeRearWorldZ": -10.9739,
+              "rearGapWorld": 1.0036580617448987,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 33.628275,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                0.7836102191888064,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -11.977172372499663,
+              "conservativeRearWorldZ": -10.9739,
+              "rearGapWorld": 1.0032723724996622,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 33.833149999999996,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                0.8822066747361198,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -11.974540615527483,
+              "conservativeRearWorldZ": -10.9739,
+              "rearGapWorld": 1.000640615527482,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.038025,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                0.9808031302834368,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -11.974676199531807,
+              "conservativeRearWorldZ": -10.9739,
+              "rearGapWorld": 1.0007761995318063,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.2429,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                1.0793995858307537,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -11.980393965124065,
+              "conservativeRearWorldZ": -10.9739,
+              "rearGapWorld": 1.006493965124065,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.447775,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                1.1779960413780706,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -12.120702679901664,
+              "conservativeRearWorldZ": -10.9739,
+              "rearGapWorld": 1.146802679901663,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.65265,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                1.2765924969253875,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -12.369738579699876,
+              "conservativeRearWorldZ": -10.9739,
+              "rearGapWorld": 1.3958385796998751,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 34.857524999999995,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                1.375188952472701,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -12.751799876087404,
+              "conservativeRearWorldZ": -10.9739,
+              "rearGapWorld": 1.7778998760874032,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 35.0624,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                1.473785408020018,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -13.187431149326057,
+              "conservativeRearWorldZ": -10.9739,
+              "rearGapWorld": 2.213531149326057,
+              "state": "bound-in-front-at-slice"
+            }
+          ]
+        },
+        {
+          "centreDescentWorld": 1,
+          "lobe": 2,
+          "approximateXRange": [
+            35.5698,
+            36.6358
+          ],
+          "conservativeZRange": [
+            -10.8778,
+            -9.4795
+          ],
+          "reportedDynamicVerticalExtra": 0.0273,
+          "samples": [
+            {
+              "worldX": 35.5698,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                1.7179725540588646,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -14.304278226192633,
+              "conservativeRearWorldZ": -10.8778,
+              "rearGapWorld": 3.426478226192632,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 35.703050000000005,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                1.782099351870605,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -14.53538917045303,
+              "conservativeRearWorldZ": -10.8778,
+              "rearGapWorld": 3.6575891704530292,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 35.8363,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                1.8462261496823418,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -14.640056805675846,
+              "conservativeRearWorldZ": -10.8778,
+              "rearGapWorld": 3.762256805675845,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 35.969550000000005,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                1.910352947494082,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -14.662471796318608,
+              "conservativeRearWorldZ": -10.8778,
+              "rearGapWorld": 3.784671796318607,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.1028,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                1.9744797453058187,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -14.572582643513881,
+              "conservativeRearWorldZ": -10.8778,
+              "rearGapWorld": 3.6947826435138804,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.23605,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                2.0386065431175555,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -14.393100135449398,
+              "conservativeRearWorldZ": -10.8778,
+              "rearGapWorld": 3.5153001354493973,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.3693,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                2.1027333409292956,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -14.177919186434814,
+              "conservativeRearWorldZ": -10.8778,
+              "rearGapWorld": 3.300119186434813,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.50255,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                2.1668601387410327,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -13.938453206860125,
+              "conservativeRearWorldZ": -10.8778,
+              "rearGapWorld": 3.060653206860124,
+              "state": "bound-in-front-at-slice"
+            },
+            {
+              "worldX": 36.6358,
+              "worldY": 8.925418784744068,
+              "localXY": [
+                2.230986936552773,
+                4.368748234058248
+              ],
+              "actualRockSurfaceWorldZ": -13.688892060876249,
+              "conservativeRearWorldZ": -10.8778,
+              "rearGapWorld": 2.8110920608762484,
+              "state": "bound-in-front-at-slice"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

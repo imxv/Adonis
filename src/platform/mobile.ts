@@ -25,9 +25,11 @@ export function requestMobileDisplay() {
   const token = {};
   const target = document.documentElement;
   const orientation = screen.orientation as LockableOrientation | undefined;
+  // An existing browser/user fullscreen has no lease here; do not replace its orientation.
+  const borrowsFullscreen = !!document.fullscreenElement
+    && (!ownsFullscreen || document.fullscreenElement !== target);
   let cancelled = false;
   let wantsLandscape = true;
-  let requestedFullscreen = false;
   let awaitingFullscreen = false;
   let ignoreLateFullscreen = false;
   let lockStarted = false;
@@ -38,7 +40,7 @@ export function requestMobileDisplay() {
     try { orientation?.unlock?.(); } catch { /* Unsupported or already released. */ }
   };
   const exitOwnedFullscreen = () => {
-    if (exitingFullscreen || (!ownsFullscreen && !requestedFullscreen) || document.fullscreenElement !== target) return;
+    if (exitingFullscreen || !ownsFullscreen || document.fullscreenElement !== target) return;
     try {
       const pending = document.exitFullscreen();
       exitingFullscreen = pending;
@@ -54,7 +56,7 @@ export function requestMobileDisplay() {
     } catch { /* Browser owns fullscreen. */ }
   };
   const lockLandscape = () => {
-    if (cancelled || !wantsLandscape || lockStarted || typeof orientation?.lock !== 'function') return;
+    if (cancelled || !wantsLandscape || borrowsFullscreen || lockStarted || typeof orientation?.lock !== 'function') return;
     lockStarted = true;
     orientationOwner = token;
     try {
@@ -70,7 +72,6 @@ export function requestMobileDisplay() {
     }
   };
   const fullscreenChanged = () => {
-    if (document.fullscreenElement === target && requestedFullscreen) ownsFullscreen = true;
     if (document.fullscreenElement === target && ignoreLateFullscreen) exitOwnedFullscreen();
     else if (document.fullscreenElement === target) lockLandscape();
     else {
@@ -93,8 +94,7 @@ export function requestMobileDisplay() {
   window.addEventListener('pagehide', onPageHide);
 
   if (document.fullscreenElement === target && !exitingFullscreen) lockLandscape();
-  else if (typeof target.requestFullscreen === 'function' && document.fullscreenEnabled !== false) {
-    requestedFullscreen = true;
+  else if (!borrowsFullscreen && typeof target.requestFullscreen === 'function' && document.fullscreenEnabled !== false) {
     awaitingFullscreen = true;
     try {
       // Keep this before any await, timer, animation, or choice panel.

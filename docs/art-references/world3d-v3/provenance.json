@@ -1,0 +1,26 @@
+[
+  {
+    "file": "01-coastal-sanctuary.png",
+    "source": "/Users/sunmozong/.codex/generated_images/01a14565-129b-7eb1-b72f-8afcd11da05c/exec-1a4b0295-74f2-4446-8852-848b7909874b.png",
+    "sha256": "845f1db6cdbd41ff5daf0a39481e6bc1b67ea72d88d47e056d76fcbed579dd39",
+    "kind": "AI-generated concept reference, not a game screenshot",
+    "generator": "built-in imagegen",
+    "prompt": "../../world3d-reference-prompts.md"
+  },
+  {
+    "file": "02-sacred-grove.png",
+    "source": "/Users/sunmozong/.codex/generated_images/01a14565-129b-7eb1-b72f-8afcd11da05c/exec-4e59f622-b716-4e49-b877-d1981d8c1b47.png",
+    "sha256": "1b7fa22d5d0d68d990a3f153815969a5ab47d0258e0b1b6f51f4e09bb8047132",
+    "kind": "AI-generated concept reference, not a game screenshot",
+    "generator": "built-in imagegen",
+    "prompt": "../../world3d-reference-prompts.md"
+  },
+  {
+    "file": "03-waterfall-pool.png",
+    "source": "/Users/sunmozong/.codex/generated_images/01a14565-129b-7eb1-b72f-8afcd11da05c/exec-e85260d3-281c-412d-b856-cb2fdb8399bc.png",
+    "sha256": "85579cb80982a6c8a8921c026e4ad709d8b71a472eb8fe4faa5abd71b944bca5",
+    "kind": "AI-generated concept reference, not a game screenshot",
+    "generator": "built-in imagegen",
+    "prompt": "../../world3d-reference-prompts.md"
+  }
+]

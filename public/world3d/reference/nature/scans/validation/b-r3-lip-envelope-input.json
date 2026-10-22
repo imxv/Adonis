@@ -1,0 +1,329 @@
+{
+  "snapshot": "third-round-frozen",
+  "top": [
+    34.38960162099268,
+    9.925418784744068,
+    -10.794809617238474
+  ],
+  "bottom": [
+    34.59739306629639,
+    0.18,
+    -8.488324574367276
+  ],
+  "height": 9.745418784744068,
+  "width": 5.090890409940932,
+  "seed": 166,
+  "unit": "metres; ring centers at specified descent, not a horizontal plane intersection",
+  "rows": [
+    {
+      "centerDescent": 0,
+      "v": 0.0,
+      "linearZ": -10.7948,
+      "lobes": [
+        {
+          "lobe": 0,
+          "centerX": 32.8114,
+          "centerZ": -10.7948,
+          "forwardOfLine": 0.0,
+          "rx": 0.5549,
+          "rz": 0.5922,
+          "staticZ": [
+            -11.3656,
+            -10.1853
+          ],
+          "maxRadialDynamic": 0.0,
+          "maxVerticalExtra": 0.0,
+          "zEnvelopeConservative": [
+            -11.3656,
+            -10.1853
+          ]
+        },
+        {
+          "lobe": 1,
+          "centerX": 34.2623,
+          "centerZ": -10.7948,
+          "forwardOfLine": 0.0,
+          "rx": 0.7033,
+          "rz": 0.3449,
+          "staticZ": [
+            -11.1842,
+            -10.4917
+          ],
+          "maxRadialDynamic": 0.0,
+          "maxVerticalExtra": 0.0,
+          "zEnvelopeConservative": [
+            -11.1842,
+            -10.4917
+          ]
+        },
+        {
+          "lobe": 2,
+          "centerX": 36.0187,
+          "centerZ": -10.7948,
+          "forwardOfLine": 0.0,
+          "rx": 0.4262,
+          "rz": 0.5369,
+          "staticZ": [
+            -11.2731,
+            -10.1955
+          ],
+          "maxRadialDynamic": 0.0,
+          "maxVerticalExtra": 0.0,
+          "zEnvelopeConservative": [
+            -11.2731,
+            -10.1955
+          ]
+        }
+      ]
+    },
+    {
+      "centerDescent": 0.1,
+      "v": 0.010261,
+      "linearZ": -10.7711,
+      "lobes": [
+        {
+          "lobe": 0,
+          "centerX": 32.8163,
+          "centerZ": -10.7492,
+          "forwardOfLine": 0.022,
+          "rx": 0.5446,
+          "rz": 0.5827,
+          "staticZ": [
+            -11.318,
+            -10.1488
+          ],
+          "maxRadialDynamic": 0.0,
+          "maxVerticalExtra": 0.0,
+          "zEnvelopeConservative": [
+            -11.318,
+            -10.1488
+          ]
+        },
+        {
+          "lobe": 1,
+          "centerX": 34.2585,
+          "centerZ": -10.7483,
+          "forwardOfLine": 0.0229,
+          "rx": 0.6979,
+          "rz": 0.3478,
+          "staticZ": [
+            -11.1438,
+            -10.4371
+          ],
+          "maxRadialDynamic": 0.0,
+          "maxVerticalExtra": 0.0,
+          "zEnvelopeConservative": [
+            -11.1438,
+            -10.4371
+          ]
+        },
+        {
+          "lobe": 2,
+          "centerX": 36.0262,
+          "centerZ": -10.7408,
+          "forwardOfLine": 0.0304,
+          "rx": 0.4245,
+          "rz": 0.5415,
+          "staticZ": [
+            -11.2186,
+            -10.134
+          ],
+          "maxRadialDynamic": 0.0,
+          "maxVerticalExtra": 0.0,
+          "zEnvelopeConservative": [
+            -11.2186,
+            -10.134
+          ]
+        }
+      ]
+    },
+    {
+      "centerDescent": 0.25,
+      "v": 0.025653,
+      "linearZ": -10.7356,
+      "lobes": [
+        {
+          "lobe": 0,
+          "centerX": 32.8224,
+          "centerZ": -10.679,
+          "forwardOfLine": 0.0566,
+          "rx": 0.5287,
+          "rz": 0.568,
+          "staticZ": [
+            -11.2429,
+            -10.094
+          ],
+          "maxRadialDynamic": 0.0052,
+          "maxVerticalExtra": 0.0011,
+          "zEnvelopeConservative": [
+            -11.2481,
+            -10.0888
+          ]
+        },
+        {
+          "lobe": 1,
+          "centerX": 34.2532,
+          "centerZ": -10.6803,
+          "forwardOfLine": 0.0554,
+          "rx": 0.6912,
+          "rz": 0.3533,
+          "staticZ": [
+            -11.0863,
+            -10.3553
+          ],
+          "maxRadialDynamic": 0.0041,
+          "maxVerticalExtra": 0.0008,
+          "zEnvelopeConservative": [
+            -11.0904,
+            -10.3513
+          ]
+        },
+        {
+          "lobe": 2,
+          "centerX": 36.0381,
+          "centerZ": -10.6592,
+          "forwardOfLine": 0.0764,
+          "rx": 0.4214,
+          "rz": 0.5475,
+          "staticZ": [
+            -11.1351,
+            -10.0428
+          ],
+          "maxRadialDynamic": 0.0045,
+          "maxVerticalExtra": 0.0009,
+          "zEnvelopeConservative": [
+            -11.1396,
+            -10.0383
+          ]
+        }
+      ]
+    },
+    {
+      "centerDescent": 0.5,
+      "v": 0.051306,
+      "linearZ": -10.6765,
+      "lobes": [
+        {
+          "lobe": 0,
+          "centerX": 32.8292,
+          "centerZ": -10.5573,
+          "forwardOfLine": 0.1191,
+          "rx": 0.5018,
+          "rz": 0.5423,
+          "staticZ": [
+            -11.1094,
+            -10.001
+          ],
+          "maxRadialDynamic": 0.0479,
+          "maxVerticalExtra": 0.0104,
+          "zEnvelopeConservative": [
+            -11.1572,
+            -9.9531
+          ]
+        },
+        {
+          "lobe": 1,
+          "centerX": 34.246,
+          "centerZ": -10.5717,
+          "forwardOfLine": 0.1048,
+          "rx": 0.6835,
+          "rz": 0.3655,
+          "staticZ": [
+            -10.9966,
+            -10.2202
+          ],
+          "maxRadialDynamic": 0.0396,
+          "maxVerticalExtra": 0.0075,
+          "zEnvelopeConservative": [
+            -11.0362,
+            -10.1806
+          ]
+        },
+        {
+          "lobe": 2,
+          "centerX": 36.0589,
+          "centerZ": -10.5229,
+          "forwardOfLine": 0.1536,
+          "rx": 0.4146,
+          "rz": 0.5549,
+          "staticZ": [
+            -10.9934,
+            -9.8943
+          ],
+          "maxRadialDynamic": 0.0426,
+          "maxVerticalExtra": 0.0086,
+          "zEnvelopeConservative": [
+            -11.036,
+            -9.8518
+          ]
+        }
+      ]
+    },
+    {
+      "centerDescent": 1.0,
+      "v": 0.102612,
+      "linearZ": -10.5581,
+      "lobes": [
+        {
+          "lobe": 0,
+          "centerX": 32.8298,
+          "centerZ": -10.2976,
+          "forwardOfLine": 0.2605,
+          "rx": 0.4488,
+          "rz": 0.4894,
+          "staticZ": [
+            -10.8155,
+            -9.8049
+          ],
+          "maxRadialDynamic": 0.1499,
+          "maxVerticalExtra": 0.0311,
+          "zEnvelopeConservative": [
+            -10.9654,
+            -9.655
+          ]
+        },
+        {
+          "lobe": 1,
+          "centerX": 34.2429,
+          "centerZ": -10.3688,
+          "forwardOfLine": 0.1894,
+          "rx": 0.6795,
+          "rz": 0.4001,
+          "staticZ": [
+            -10.8339,
+            -9.9531
+          ],
+          "maxRadialDynamic": 0.14,
+          "maxVerticalExtra": 0.0277,
+          "zEnvelopeConservative": [
+            -10.9739,
+            -9.8131
+          ]
+        },
+        {
+          "lobe": 2,
+          "centerX": 36.1028,
+          "centerZ": -10.2556,
+          "forwardOfLine": 0.3025,
+          "rx": 0.3942,
+          "rz": 0.5599,
+          "staticZ": [
+            -10.739,
+            -9.6183
+          ],
+          "maxRadialDynamic": 0.1388,
+          "maxVerticalExtra": 0.0273,
+          "zEnvelopeConservative": [
+            -10.8778,
+            -9.4795
+          ]
+        }
+      ]
+    }
+  ],
+  "sha256": {
+    "src/world3d/reference/water-falls.ts": "f94c1a40beaf359f016a6c59657c95a92e2fec13b75e876467f5f0626cf38127",
+    "src/world3d/reference/water-falls-shaders.ts": "f4a9b05d21f6079f6f12ece3fae22c79221c74e1927a835a2c6fb4e5d958cc73",
+    "src/world3d/reference/layout.ts": "662e5173f90750d72131a80a4de3596ba797f25342caedfb060d31817600971d"
+  }
+}

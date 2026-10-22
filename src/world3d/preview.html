@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>希腊首区 · 开发验收</title>
+<style>html,body,#world{margin:0;width:100%;height:100%;overflow:hidden;background:#133c49}#world{position:fixed;inset:0}#result{position:fixed;inset:0;display:grid;place-content:center;gap:22px;color:#f5ead0;font:20px sans-serif}button{padding:16px;border:1px solid #e6c574;background:#244e57;color:#f5ead0;font:inherit}</style>
+<div id="world"></div>
+<script type="module">
+  import { mountGreekWorld } from './index.ts';
+  const ids = new Set();
+  const container = document.querySelector('#world');
+  let entries = 0;
+  async function enter() {
+    container.replaceChildren();
+    container.dataset.entries = String(++entries);
+    const abort = new AbortController();
+    const params = new URLSearchParams(location.search);
+    if (params.has('cancel')) setTimeout(() => abort.abort(), 25);
+    // Dev-only fault injection: this HTML is never included in the production entry graph.
+    const getContext = HTMLCanvasElement.prototype.getContext;
+    if (params.get('webgl') === 'off') HTMLCanvasElement.prototype.getContext = function(type, ...args) {
+      return type === 'webgl2' ? null : Reflect.apply(getContext, this, [type, ...args]);
+    };
+    try {
+      await mountGreekWorld({ container, discoveredIds: [...ids], quality: params.get('quality') ?? 'auto', signal: abort.signal,
+        onDiscover(id) { ids.add(id); container.dataset.discoveries = [...ids].join(','); },
+        onExit() {
+          container.innerHTML = '<div id="result">已返回 · 本次记录 ' + ids.size + ' 个发现 · 第 ' + entries + ' 次挂载<button type="button">再次进入（同一页面）</button></div>';
+          container.querySelector('button').addEventListener('click', enter, { once: true });
+        }
+      });
+    } catch (error) { container.textContent = (error.name === 'AbortError' ? '加载已取消' : '无法打开画卷：' + error.message) + ' · 无残留画布：' + container.querySelectorAll('canvas').length; }
+    finally { HTMLCanvasElement.prototype.getContext = getContext; }
+  }
+  enter();
+</script>
+</html>
