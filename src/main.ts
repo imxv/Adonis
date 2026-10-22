@@ -7,6 +7,7 @@ import { HUD_FOOTER_H } from './ui/ui';
 import { installMobileViewport, isTouchBrowser, safeViewport, TOUCH_CONTROLS_HEIGHT } from './platform/mobile';
 import './ui/mobile.css';
 import { audio } from './audio/audio';
+import { startAccount } from './ui/signIn';
 
 const W = 480;
 const H = 270;
@@ -77,6 +78,8 @@ async function boot() {
     window.removeEventListener('pointerdown', unlockAudio, true);
     window.removeEventListener('keydown', unlockAudio);
   });
+  // Who is playing: a GitHub sign-in or a guest name, asked once over the hall.
+  void startAccount();
   (window as any).__game = game;
   (window as any).__kits = KIT_BY_ID;
 }

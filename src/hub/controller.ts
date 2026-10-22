@@ -4,6 +4,7 @@ import type { LifeCost, MetaProfile, ProfileState } from '../meta/life';
 import type { PlantId } from '../meta/profile';
 import { loadRun, topSupplyScores } from '../save';
 import { mountGallery, type GalleryAction, type GalleryHandle } from './gallery';
+import { mountAccountBadge } from '../ui/signIn';
 import { createPixelRepairDisplay } from './gallery-pixel-renderer';
 import './controller.css';
 import '../ui/visualTheme.css';
@@ -62,7 +63,9 @@ export class HubController {
     this.root.append(this.galleryHost, this.externalHost);
     document.body.append(this.root);
     this.gallery = mountGallery({ container: this.galleryHost, onAction: (action) => this.act(action), hasSave: !!loadRun(), profile: this.profile() });
-    this.unsubscribe = subscribeProfile(() => this.refresh());
+    const unmountBadge = mountAccountBadge(this.galleryHost);
+    const unsubscribeProfile = subscribeProfile(() => this.refresh());
+    this.unsubscribe = () => { unsubscribeProfile(); unmountBadge(); };
     window.addEventListener('mobileviewportchange', () => this.external?.resize?.(), { signal: this.events.signal });
     document.addEventListener('visibilitychange', () => {
       this.gallery.pause(document.hidden || this.mode !== 'gallery');

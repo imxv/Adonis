@@ -217,6 +217,8 @@ export async function start({ click = true, hero = 0, difficulty } = {}) {
   // Pick panels close at once instead of playing their exit animation, so stepped frames never wait on a timer.
   window.__fastUi = true;
   await wait(800);
+  // First visit: enter as a guest under the suggested name.
+  document.querySelector('.acct-gate form')?.requestSubmit();
   if (click) {
     // Main menu: "开始冒险", then confirm if it asks to overwrite a saved run.
     document.querySelector('.overlay.title [data-k="new"]')?.click();

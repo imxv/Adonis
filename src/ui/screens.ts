@@ -3,6 +3,7 @@ import { DIFFICULTIES, type DifficultyId } from '../data/difficulty';
 import { E } from '../pixel/palette';
 import { topScores } from '../save';
 import { fetchGlobal, playerName, setPlayerName, type BoardReply } from '../net/board';
+import { isSignedIn } from '../net/account';
 import { DEFAULT_SETTINGS, settings, type Settings } from '../settings';
 import type { CodexEntry, CodexTab, Pic } from './codex';
 import { diamond, el, icon, img, px, pxBlock } from './pxhtml';
@@ -612,7 +613,14 @@ interface BoardRow {
   victory: boolean;
   rank?: string;
   you: boolean;
+  provider?: string;
 }
+
+/** GitHub logins run to 39 characters; the board keeps names to a column. */
+const shortName = (name: string) => (name.length > 14 ? `${name.slice(0, 13)}…` : name);
+/** A signed-in player's name carries a small GitHub tag; guests stay plain. */
+const nameCell = (r: BoardRow) =>
+  `<span class="bd-name">${px(shortName(r.name), r.you ? E.yellow : E.white)}${r.provider === 'github' ? px('GH', E.slate, { small: true }) : ''}</span>`;
 
 const result = (r: BoardRow) => (r.victory ? px('通关', E.yellow) : px(`第${FLOOR_CN[r.floor - 1] ?? r.floor}层`, GREY));
 const FLOOR_CN = ['一', '二', '三', '四', '五', '六'];
@@ -628,7 +636,7 @@ function podium(rows: BoardRow[]): string {
       if (!r) return `<div class="pd pd${p.place} vacant" style="--d:${i * 120}ms"><div class="pd-name">${px('虚位以待', DIM)}</div><div class="pd-block" style="height:${p.height}px">${px(String(p.place), DIM, { small: true, scale: 2 })}</div></div>`;
       return `<div class="pd pd${p.place} ${r.you ? 'you' : ''}" style="--d:${i * 120}ms">
         <div class="pd-top">${sparkles}<div class="pd-medal">${icon(p.medal, 2)}</div><div class="pd-av">${icon('adonis', 2)}</div></div>
-        <div class="pd-name">${px(r.name, r.you ? E.yellow : E.white)}</div>
+        <div class="pd-name">${nameCell(r)}</div>
         <div class="pd-score">${px(String(r.score), p.color, { small: true, scale: i === 0 ? 2 : 1 })}</div>
         <div class="pd-meta">${result(r)}${r.rank ? px(r.rank, STYLE_COLOR[r.rank] ?? GREY, { small: true }) : ''}</div>
         <div class="pd-block" style="height:${p.height}px;--c:${p.color}">${px(String(p.place), E.ink, { small: true, scale: 2, outline: false })}</div>
@@ -643,7 +651,7 @@ function listRows(rows: BoardRow[], from: number): string {
       const i = from + k;
       const cells = [
         px(String(i + 1), GREY, { small: true }),
-        px(r.name, r.you ? E.yellow : E.white),
+        nameCell(r),
         px(String(r.score), E.yellow, { small: true }),
         result(r),
         r.rank ? px(r.rank, STYLE_COLOR[r.rank] ?? GREY, { small: true }) : '',
@@ -676,10 +684,10 @@ export function openBoard(host: LayerHost, highlight?: number) {
         ? px('连接全服排行榜……', DIM)
         : global === null
           ? px('全服排行榜暂时连不上，先看看本机记录', HOT)
-          : px(`全服共 ${global.runs} 局${global.best ? ` · 你的最佳第 ${global.best} 名` : ''}`, GREY)
+          : px(`全服${global.players ? ` ${global.players} 人` : ''}共 ${global.runs} 局${global.best ? ` · 你第 ${global.best} 名` : ''}`, GREY)
       : px('这台电脑上的记录', GREY);
     sub.innerHTML = status;
-    const tabs = `<div class="bd-tabs">${['全服', '本机'].map((t, i) => `<div class="cx-tab ${i === tab ? 'sel' : ''}" data-i="${i}">${px(t, E.white)}</div>`).join('')}<div class="bd-me">${px('署名', DIM)}<span class="nm">${px(playerName() || '未署名', playerName() ? E.yellow : DIM)}</span><span class="edit">${px('改名', E.white)}</span></div></div>`;
+    const tabs = `<div class="bd-tabs">${['全服', '本机'].map((t, i) => `<div class="cx-tab ${i === tab ? 'sel' : ''}" data-i="${i}">${px(t, E.white)}</div>`).join('')}<div class="bd-me">${px(isSignedIn() ? 'GitHub' : '游客', DIM)}<span class="nm">${px(shortName(playerName()) || '未署名', playerName() ? E.yellow : DIM)}</span>${isSignedIn() ? '' : `<span class="edit">${px('改名', E.white)}</span>`}</div></div>`;
     const empty = online && global === undefined ? '' : `<div class="bd-empty">${px(online ? '还没有人上榜。打完一局，你就是第一个。' : '还没有记录。去冒险吧，结束一局就会上榜。', GREY)}</div>`;
     body.innerHTML = tabs + (rows.length ? podium(rows) + `<div class="bd-list">${listRows(rows.slice(3, 10), 3)}</div>` : empty);
     body.querySelectorAll<HTMLElement>('.bd-tabs .cx-tab').forEach((t) =>
@@ -689,7 +697,8 @@ export function openBoard(host: LayerHost, highlight?: number) {
         render();
       }),
     );
-    (body.querySelector('.bd-me .edit') as HTMLElement).addEventListener('click', () => rename());
+    // A GitHub name comes from the account; only a guest renames here.
+    body.querySelector('.bd-me .edit')?.addEventListener('click', () => rename());
   };
 
   // Typing a name: the field swallows its own keys, so the game and the menus never see them.
