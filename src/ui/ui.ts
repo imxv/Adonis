@@ -1,10 +1,10 @@
 import { RARITY_INFO, UPGRADE_BY_ID } from '../data/upgrades';
-import { WEAPONS, STAT_MEANING, MAX_WEAPON_LEVEL, type WeaponInstance } from '../data/weapons';
+import { WEAPONS, STAT_MEANING, type WeaponInstance } from '../data/weapons';
 import { HEROES, HERO_ORDER, type HeroId } from '../data/heroes';
 import { FUSE_LEVEL, SPELLS, fusionOf, spellName, type FusionId } from '../data/spells';
 import { PETS, PET_ORDER } from '../data/enemies';
 import type { StyleKit } from '../styles/types';
-import { LEVELS, type Choice, type RunState } from '../game/run';
+import { LEVELS, fusionHint, type Choice, type RunState } from '../game/run';
 import type { Dir } from '../game/dirs';
 import { ICONS, ICON_SIZE } from '../styles/textures';
 import { E } from '../pixel/palette';
@@ -732,10 +732,6 @@ class UI implements LayerHost {
         const m = STAT_MEANING[w.kind];
         return { icon: `gun-${c.id}`, name: w.name, tag: run.weapons.length >= 2 ? '选择替换武器' : '新武器', tagColor: E.yellow, desc: `${w.desc}。数量+1：${m.count}，穿透：${m.pierce}`, rarity: 'rare' };
       }
-      case 'weapon-up': {
-        const w = run.weapons[c.index];
-        return { icon: `gun-${w.def.id}`, name: `${w.def.name}强化`, tag: `Lv${w.level}→${w.level + 1}`, tagColor: E.cyan, desc: `伤害+30%${w.level + 1 === 3 || w.level + 1 === 5 ? '，数量+1' : ''}（上限${MAX_WEAPON_LEVEL}级）`, rarity: 'common' };
-      }
       case 'pet': {
         const p = PETS[c.kind];
         return { icon: `pet-${c.kind}`, name: p.name, tag: `伙伴 · ${p.role}`, tagColor: E.pink, desc: p.desc, rarity: 'epic' };
@@ -789,6 +785,14 @@ class UI implements LayerHost {
             <i class="pk-shine"></i>
           </div>
         </div>`;
+      // A spell whose partner you already hold says what it will fuse into, on a tab under the card.
+      const fuse = fusionHint(run, c);
+      if (fuse) {
+        const tab = el('div', `pk-fuse${fuse.now ? ' now' : ''}`);
+        tab.innerHTML = `${icon(`spell-${fuse.fusion}`, 1)}${px(fuse.now ? '将融合' : '可融合', E.magenta)}${px(SPELLS[fuse.fusion].name, E.white)}`;
+        card.appendChild(tab);
+        ov.classList.add('has-fuse');
+      }
       table.appendChild(card);
       cards.push(card);
     });
@@ -1089,7 +1093,7 @@ class UI implements LayerHost {
     const hero = `<div class="ps-hero">${icon(run.ascended ? 'jesus' : HEROES[run.hero]?.tex ?? 'adonis', 2)}<div class="ps-bars">${row(Math.max(0, run.hp), m.maxHp, 'heart', 'heart-empty')}${row(run.armor, m.maxArmor, 'armor', 'armor-empty')}${bar('xp', run.xp, run.xpNext, `LV${run.xpLevel}`)}</div></div>${run.ascended ? `<div class="ps-ascended">${px(`隐藏神迹 · ${ASCENSION_NAME}`, E.yellow)}${px('本局永久觉醒', E.cream)}</div>` : ''}`;
     const statGrid = `<div class="ps-stats">${stats.map(([k, v]) => `<div class="st">${px(k, DIM)}${px(v, E.white, { small: true })}</div>`).join('')}</div>${elems.length ? `<div class="ps-line">${px('元素', DIM)}${px(elems.join('  '), E.white)}</div>` : ''}`;
     const guns = run.weapons
-      .map((w, i) => `<div class="ps-item">${icon(`gun-${w.def.id}`)}${px(w.def.name, E.white)}${px(`Lv${w.level}`, E.yellow, { small: true })}${px(i === run.held ? '主' : '副', i === run.held ? E.cyan : DIM)}${w.def.mag ? px(`弹匣${Math.round(w.def.mag * m.mag)}`, DIM) : ''}</div>`)
+      .map((w, i) => `<div class="ps-item">${icon(`gun-${w.def.id}`)}${px(w.def.name, E.white)}${px(i === run.held ? '主' : '副', i === run.held ? E.cyan : DIM)}${w.def.mag ? px(`弹匣${Math.round(w.def.mag * m.mag)}`, DIM) : ''}</div>`)
       .join('');
     const spells = run.spells.length
       ? run.spells

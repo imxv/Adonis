@@ -1,4 +1,3 @@
-import { MAX_WEAPON_LEVEL } from '../data/weapons';
 import { E } from '../pixel/palette';
 import { ICON_SIZE } from '../styles/textures';
 import { icon, px } from './pxhtml';
@@ -7,7 +6,6 @@ import { icon, px } from './pxhtml';
 export interface GunView {
   id: string;
   name: string;
-  level: number;
   held: boolean;
   kind: string;
   ammo?: number;
@@ -28,7 +26,6 @@ interface Card {
   label: HTMLElement;
   bullets: HTMLElement[];
   id?: string;
-  level?: number;
   ammo?: number;
   reloading?: boolean;
   countKey?: string;
@@ -101,17 +98,14 @@ export class WeaponCards {
       }
       return;
     }
-    if (g.id !== c.id || g.level !== c.level) {
+    if (g.id !== c.id) {
       const w = ICON_SIZE[`gun-${g.id}`]?.[0] ?? 99;
-      const lv = g.level > 1 ? px(`${front ? 'Lv' : 'L'}${g.level}`, E.yellow, { small: true }) : '';
-      const pips = front ? `<span class="pips">${Array.from({ length: MAX_WEAPON_LEVEL }, (_, i) => (i < g.level ? '<i class="on"></i>' : '<i></i>')).join('')}</span>` : '';
-      c.gun.innerHTML = icon(`gun-${g.id}`, front && w * 2 <= 40 ? 2 : 1) + pips;
-      c.label.innerHTML = front ? `${px(g.name, E.white)}${lv}` : `${px('Q', E.greyM, { small: true })}${lv}`;
-      c.el.title = `${g.name} · Lv${g.level}`;
+      c.gun.innerHTML = icon(`gun-${g.id}`, front && w * 2 <= 40 ? 2 : 1);
+      c.label.innerHTML = front ? px(g.name, E.white) : px('Q', E.greyM, { small: true });
+      c.el.title = g.name;
       // The front card has no room for the name, so it rises above the stack whenever the gun in hand changes.
       if (front) replay(c.label, 'flash');
       c.id = g.id;
-      c.level = g.level;
       c.ammo = undefined;
     }
     const reloading = g.reload !== undefined;

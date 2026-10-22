@@ -45,7 +45,7 @@ export class WeaponPreview {
     if (!changed && !wasHidden && now - this.lastMetrics < 200) return;
     this.lastMetrics = now;
     const metrics = weaponMetrics(weapon, run);
-    const signature = JSON.stringify([weapon.def.id, weapon.level, metrics]);
+    const signature = JSON.stringify([weapon.def.id, metrics]);
     if (signature !== this.signature) {
       this.signature = signature;
       const d = weapon.def;
@@ -56,9 +56,9 @@ export class WeaponPreview {
         ['距', `${Math.round(metrics.range)}px`],
         ['弹', metrics.magazine ? String(metrics.magazine) : '无限'],
       ];
-      this.slot('heading').innerHTML = px(d.name, E.white) + px(`Lv${weapon.level}`, E.greyM);
+      this.slot('heading').innerHTML = px(d.name, E.white);
       this.slot('metrics').innerHTML = entries.map(([label, value]) => `<div class="weapon-preview-metric">${px(label, E.greyM)}${px(value, E.white)}</div>`).join('');
-      this.root.setAttribute('aria-label', `${d.name}，${weapon.level}级。${metrics.usage}。${metrics.traits.join('；')}。${metrics.damageLabel}${fmt(metrics.damage)}，攻速${fmt(metrics.attackRate)}次每秒${metrics.maxAttackRate > metrics.attackRate ? `，起转后最高${fmt(metrics.maxAttackRate)}次每秒` : ''}，${metrics.rangeLabel}${fmt(metrics.range)}，数量${metrics.projectileCount}，弹匣${metrics.magazine || '无限'}，换弹${fmt(metrics.reloadSeconds)}秒。训练动画仅示意使用方式，${metrics.note}`);
+      this.root.setAttribute('aria-label', `${d.name}。${metrics.usage}。${metrics.traits.join('；')}。${metrics.damageLabel}${fmt(metrics.damage)}，攻速${fmt(metrics.attackRate)}次每秒${metrics.maxAttackRate > metrics.attackRate ? `，起转后最高${fmt(metrics.maxAttackRate)}次每秒` : ''}，${metrics.rangeLabel}${fmt(metrics.range)}，数量${metrics.projectileCount}，弹匣${metrics.magazine || '无限'}，换弹${fmt(metrics.reloadSeconds)}秒。训练动画仅示意使用方式，${metrics.note}`);
     }
     this.weapon = weapon;
     this.hero = run.hero;

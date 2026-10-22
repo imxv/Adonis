@@ -80,7 +80,7 @@ export class WeaponTrainingScene extends GameScene {
   /** Snapshot all writable state. Repeated HUD refreshes preserve ammo and animation progress. */
   configure(weapon: WeaponInstance, source: RunState) {
     const kit = source.styles[source.level] ?? source.styles[0];
-    const next = `${source.hero}:${source.ascended}:${kit.id}:${weapon.def.id}:${weapon.level}`;
+    const next = `${source.hero}:${source.ascended}:${kit.id}:${weapon.def.id}`;
     const changed = next !== this.selection;
     const currentWeapon = !changed ? this.run?.weapons[0] : undefined;
     this.run = {
@@ -94,7 +94,7 @@ export class WeaponTrainingScene extends GameScene {
       spells: [],
       pets: [],
       held: 0,
-      weapons: [currentWeapon ?? { def: weapon.def, level: weapon.level, cd: 0 }],
+      weapons: [currentWeapon ?? { def: weapon.def, cd: 0 }],
     };
     this.kit = kit;
     this.heroTex = source.ascended ? 'jesus' : HEROES[source.hero].tex;

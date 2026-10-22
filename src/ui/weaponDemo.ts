@@ -32,7 +32,7 @@ export class WeaponDemo {
   }
 
   set(weapon: WeaponInstance, run: RunState, metrics: WeaponMetrics) {
-    const signature = JSON.stringify([weapon.def.id, weapon.level, run.hero, run.ascended, run.styles[run.level].id, metrics]);
+    const signature = JSON.stringify([weapon.def.id, run.hero, run.ascended, run.styles[run.level].id, metrics]);
     this.pending = { weapon, run, signature };
     this.configure();
     if (!this.loading && !this.training) this.loading = this.load();

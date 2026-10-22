@@ -15,7 +15,6 @@ export interface SavedGroundWeapon {
   x: number;
   y: number;
   id: string;
-  level: number;
   cd: number;
   ammo?: number;
   reloadT?: number;
@@ -53,7 +52,7 @@ export interface SavedRun {
   mods: Mods;
   stacks: Record<string, number>;
   tags: Partial<Record<Tag, number>>;
-  weapons: { id: string; level: number }[];
+  weapons: { id: string }[];
   /** Weapons left on the current floor; absent in older v1 saves. */
   groundWeapons?: SavedGroundWeapon[];
   held: number;
