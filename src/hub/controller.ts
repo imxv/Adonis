@@ -35,6 +35,8 @@ interface HubOptions {
   suspendGame(): void;
   resumeGame(): void;
   showAdventure(action?: 'new' | 'continue'): void;
+  /** Opens the training ground inside the combat scene. */
+  showTraining(): void;
   releaseUI(): void;
 }
 
@@ -144,7 +146,8 @@ export class HubController {
       this.root.hidden = true;
       this.options.releaseUI();
       this.options.showAdventure(action === 'continue' ? 'continue' : 'new');
-    } else if (action === 'collection') this.collection();
+    } else if (action === 'training') this.options.showTraining();
+    else if (action === 'collection') this.collection();
     else if (action === 'repair') this.restoration();
     else void this.openExternal(action);
   }

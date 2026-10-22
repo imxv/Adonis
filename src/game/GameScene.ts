@@ -58,6 +58,8 @@ import { destroyTraps, populateTraps, settleTraps, updateTraps, grounded, type T
 import { currentPush, destroyCurrents, populateCurrents, updateCurrents, type Current } from './currents';
 import { challengeProgress, destroyChallenges, finishChallenge, populateChallenges, updateChallenge, type Challenge } from './challenge';
 import { HubController } from '../hub/controller';
+import { KIT_BY_ID } from '../styles/kits';
+import { TRAINING_KIT, hitDummy, holdDummy, setupTraining, takeTrainingWeapon, trainingDungeon, trainingSpawn, updateTraining, type TrainingState } from './training';
 import { prepareRun, settleRun, SUPPLIES } from '../meta/profile';
 export type { Trap } from './traps';
 
@@ -221,6 +223,8 @@ export class GameScene extends Phaser.Scene {
   private runGeneration = 0;
   private levelGeneration = 0;
   private recorded?: { runId: string; score: number; rank: number; date: number; settlement: string; warning?: string | null };
+  /** Open while the player is in the training ground: weapons on racks, dummies, and nothing saved or scored. */
+  training?: TrainingState;
 
   constructor(key = 'game') {
     super(key);
@@ -326,12 +330,17 @@ export class GameScene extends Phaser.Scene {
       resumeGame: () => this.resumeFromHub(),
       releaseUI: () => ui.suspend(false),
       showAdventure: (action) => this.openAdventureMenu(action),
+      showTraining: () => {
+        void audio.init();
+        this.startTraining();
+      },
     });
     this.showTitle();
   }
 
   showTitle() {
     this.runGeneration++;
+    this.training = undefined;
     this.mode = 'title';
     ui.showHud(false);
     audio.playHome();
@@ -411,7 +420,7 @@ export class GameScene extends Phaser.Scene {
   saveProgress() {
     const run = this.run;
     const d = this.dungeon;
-    if (this.sys.settings.key !== 'game' || !run || !d || this.mode === 'dead' || this.mode === 'end' || this.mode === 'title') return;
+    if (this.sys.settings.key !== 'game' || !run || !d || this.training || this.mode === 'dead' || this.mode === 'end' || this.mode === 'title') return;
     saveRun({
       v: 1,
       savedAt: Date.now(),
@@ -475,7 +484,7 @@ export class GameScene extends Phaser.Scene {
     this.mode = 'pause';
     const fights = this.dungeon.rooms.filter((r) => r.type === 'combat' || r.type === 'horde' || r.type === 'boss');
     ui.pause(
-      { run: this.run, floorName: this.kit.name, roomsCleared: fights.filter((r) => r.cleared).length, roomsTotal: fights.length },
+      { run: this.run, floorName: this.kit.name, roomsCleared: fights.filter((r) => r.cleared).length, roomsTotal: fights.length, training: !!this.training },
       {
         onResume: () => {
           if (this.mode === 'pause') this.mode = 'play';
@@ -489,14 +498,7 @@ export class GameScene extends Phaser.Scene {
   // ---------------------------------------------------------------- run and floors
 
   startRun(saved?: SavedRun, hero?: HeroId, difficulty?: DifficultyId) {
-    this.runGeneration++;
-    this.recorded = undefined;
-    this.hub?.enterRun();
-    ui.resetLayers();
-    this.touch?.reset();
-    ui.resetDamageFeedback();
-    this.clearLevel();
-    destroyPets(this);
+    this.leaveForRun();
     if (!saved) this.resetCrystalRuntime();
     this.run = saved ? restoreRun(saved) : newRun(this.params, hero, difficulty);
     let preparationWarning: string | null = null;
@@ -520,6 +522,41 @@ export class GameScene extends Phaser.Scene {
       const id = this.run.prepared.supply;
       this.run.supply = { id: id ?? 'garden-supply', name: id ? SUPPLIES[id]?.name ?? '花园补给' : '花园补给' };
     }
+    this.resetHero();
+    this.enterLevel(true, saved);
+    if (preparationWarning) ui.toast(preparationWarning, 6500);
+  }
+
+  /** The training ground: one hall with every weapon on a rack and dummies to hit. Nothing is saved or scored. */
+  startTraining(hero?: HeroId) {
+    this.leaveForRun();
+    this.resetCrystalRuntime();
+    const run = newRun(this.params, hero);
+    run.styles = [KIT_BY_ID[TRAINING_KIT]];
+    run.level = 0;
+    run.room = 0;
+    this.run = run;
+    this.training = { racks: {}, groups: [] };
+    this.resetHero();
+    this.god = true;
+    this.enterLevel(true);
+  }
+
+  /** Close whatever was open (the hall, a run, the training ground) before a new run or training begins. */
+  private leaveForRun() {
+    this.runGeneration++;
+    this.recorded = undefined;
+    this.training = undefined;
+    this.god = this.params.has('god');
+    this.hub?.enterRun();
+    ui.resetLayers();
+    this.touch?.reset();
+    ui.resetDamageFeedback();
+    this.clearLevel();
+    destroyPets(this);
+  }
+
+  private resetHero() {
     this.heroTex = this.run.ascended ? 'jesus' : HEROES[this.run.hero].tex;
     this.combo = 0;
     this.carryTokens = [];
@@ -533,8 +570,6 @@ export class GameScene extends Phaser.Scene {
       this.player.gun.setVisible(true);
       this.player.iframes = 1;
     }
-    this.enterLevel(true, saved);
-    if (preparationWarning) ui.toast(preparationWarning, 6500);
   }
 
   clearLevel() {
@@ -612,8 +647,8 @@ export class GameScene extends Phaser.Scene {
     audio.setStyle(kit);
     audio.setIntensity(0);
     const seed = this.run.seed + this.run.level * 7919;
-    const d = generateDungeon(new Rng(seed), this.run.level, this.run.diff.traps);
-    if (this.run.dungeonVersion === 2) enhanceDungeon(d, seed, this.run.level, kit.id);
+    const d = this.training ? trainingDungeon() : generateDungeon(new Rng(seed), this.run.level, this.run.diff.traps);
+    if (!this.training && this.run.dungeonVersion === 2) enhanceDungeon(d, seed, this.run.level, kit.id);
     this.dungeon = d;
     this.flow = new FlowField(d);
     this.bg?.destroy();
@@ -635,10 +670,10 @@ export class GameScene extends Phaser.Scene {
       startRoom = d.byId.get(saved.at) ?? d.start;
     }
     this.safeRoom = startRoom.cleared ? startRoom : d.start;
-    const [sx, sy] = openSpot(d, ...roomCenter(startRoom));
+    const [sx, sy] = this.training ? trainingSpawn() : openSpot(d, ...roomCenter(startRoom));
     const p = this.player;
     p.x = sx;
-    p.y = sy + 10;
+    p.y = this.training ? sy : sy + 10;
     p.vx = p.vy = 0;
     p.sprite.setVisible(true);
     p.gun.setVisible(true);
@@ -652,8 +687,11 @@ export class GameScene extends Phaser.Scene {
     this.markSeen(startRoom);
     this.light.setLevel(kit, d, seed);
     this.dressLevel(kit, d);
-    this.populate(new Rng(seed + 1));
-    populateChallenges(this, saved);
+    if (this.training) this.training = setupTraining(this);
+    else {
+      this.populate(new Rng(seed + 1));
+      populateChallenges(this, saved);
+    }
     this.ambient?.destroy();
     const cam = this.cameras.main;
     this.ambient = this.add
@@ -672,7 +710,8 @@ export class GameScene extends Phaser.Scene {
     this.player.sprite.setTexture(`${this.heroTex}-a`);
     if (this.run.ascended) (this.ascensionFx ??= new AscensionFx(this)).syncAura(true);
     ui.showHud(true);
-    ui.banner(`第${['一', '二', '三', '四'][this.run.level]}层`, kit.name, kit.en, kit.subtitle, first ? 2400 : 2200);
+    if (this.training) ui.banner('万象画廊', '训练场', 'TRAINING GROUND', '武器随便试，木桩随便打，不计分也不存档', 2400);
+    else ui.banner(`第${['一', '二', '三', '四'][this.run.level]}层`, kit.name, kit.en, kit.subtitle, first ? 2400 : 2200);
     if (!first) cam.fadeIn(420, 255, 255, 255);
     if (saved && d.boss.cleared) this.spawnTrapdoor(...roomCenter(d.boss));
     if (saved) this.after(800, () => this.checkFusions());
@@ -1393,6 +1432,7 @@ export class GameScene extends Phaser.Scene {
     this.updatePickups(dt);
     updateLevelTokens(this, dt);
     updateInteractionHints(this);
+    if (this.training) updateTraining(this, this.training);
     this.updateHazards(dt);
     updateCores(this, dt);
     for (const h of this.ehazards) {
@@ -1484,6 +1524,7 @@ export class GameScene extends Phaser.Scene {
       pets: run.pets,
       level: run.level,
       styleName: this.kit.name,
+      place: this.training ? '训练场' : undefined,
       timer: this.active?.type === 'horde' ? Math.max(0, this.hordeDur - this.hordeT) : 0,
       kills: run.kills,
       combo: this.combo,
@@ -2535,7 +2576,8 @@ export class GameScene extends Phaser.Scene {
         for (let i = 0; i < m.splitOnCrit; i++) this.spawnProj('shard', e.x, e.y, rand(0, TAU), 260, 0.4, 2, dmg * 0.35, 0, 20, '裂变').hit.add(e);
       }
     }
-    if (e.hp <= 0) this.killEnemy(e, o.src, o.environmental);
+    if (e.dummy) hitDummy(this, e, dmg);
+    else if (e.hp <= 0) this.killEnemy(e, o.src, o.environmental);
   }
 
   /** Throttle the small words over an enemy (resists), so a stream of hits doesn't bury it in text. */
@@ -2837,7 +2879,8 @@ export class GameScene extends Phaser.Scene {
         updateBoss(this, e, dt, slowMul);
         this.bossShot = undefined;
       }
-      if (!e.boss) updateEnemyAI(this, e, dt, slowMul);
+      if (e.dummy) holdDummy(this, e);
+      else if (!e.boss) updateEnemyAI(this, e, dt, slowMul);
       if (e.dead) continue;
       const kd = Math.exp(-dt * 10);
       e.kx *= kd;
@@ -2882,13 +2925,13 @@ export class GameScene extends Phaser.Scene {
       // The guardian hovers over pillars; everything else is held back by walls.
       const flies = a.kind === 'guardian' || a.kind === 'ghost' || a.kind === 'drone';
       if (!flies && (!a.boss || a.boss.air < 20)) [a.x, a.y] = collide(this.dungeon, a.x, a.y, Math.max(3, a.r * 0.8));
-      if (this.mode === 'play' && dist2(a.x, a.y, pl.x, pl.y) < (a.r + pl.r * 0.8) ** 2 && (a.boss?.air ?? 0) < 20) {
+      if (this.mode === 'play' && !a.dummy && dist2(a.x, a.y, pl.x, pl.y) < (a.r + pl.r * 0.8) ** 2 && (a.boss?.air ?? 0) < 20) {
         this.hurtPlayer(a.state === 'charge' ? 2 : a.contact, a.x, a.y);
       }
       a.flash -= dt;
       a.anim += dt;
       const sp = a.sprite;
-      if (!a.boss) {
+      if (!a.boss && !a.dummy) {
         const moving = Math.hypot(a.vx, a.vy) > 4;
         const frame = moving && Math.floor(a.anim * (a.kind === 'bat' ? 10 : 5)) % 2 ? 'b' : 'a';
         sp.setTexture(K(`en-${a.kind}-${frame}`, this.kit));
@@ -2983,6 +3026,13 @@ export class GameScene extends Phaser.Scene {
     if (p.dead || p.kind !== 'weapon' || !p.weapon || (p.revealT ?? 0) > 0 || this.mode !== 'play') return;
     if (this.run.weapons.some((w) => w.def.id === p.weapon!.def.id)) {
       ui.toast('已携带这把武器，地上的武器会保留', 1300);
+      return;
+    }
+    if (this.training) {
+      if (!takeTrainingWeapon(this, this.training, p)) return;
+      this.removePickup(p);
+      this.swapT = 0.2;
+      audio.swap();
       return;
     }
     this.chooseReward({ type: 'weapon-new', id: p.weapon.def.id, instance: p.weapon }, () => {

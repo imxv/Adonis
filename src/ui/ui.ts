@@ -75,6 +75,8 @@ export interface HudData {
   pets: string[];
   level: number;
   styleName: string;
+  /** Replaces the floor name for places outside the five floors (the training ground). */
+  place?: string;
   timer: number;
   kills: number;
   combo: number;
@@ -109,6 +111,8 @@ export interface PauseInfo {
   floorName: string;
   roomsCleared: number;
   roomsTotal: number;
+  /** In the training ground nothing is saved, so leaving needs no warning. */
+  training?: boolean;
 }
 
 export interface PauseActions {
@@ -424,8 +428,8 @@ class UI implements LayerHost {
     this.set('.spells', spells + (pets ? `<div class="pet-roster">${pets}</div>` : ''));
 
     this.drawMap(d.map);
-    this.set('.sname', px(`${FLOOR_NAMES[d.level]}层 ${d.styleName}`, GREY));
-    this.set('.kills', px(`KILL ${d.kills}`, DIM, { small: true }));
+    this.set('.sname', px(d.place ?? `${FLOOR_NAMES[d.level]}层 ${d.styleName}`, GREY));
+    this.set('.kills', d.place ? '' : px(`KILL ${d.kills}`, DIM, { small: true }));
 
     const tt = d.timer > 0 ? `${String(Math.floor(d.timer / 60)).padStart(2, '0')}:${String(Math.floor(d.timer % 60)).padStart(2, '0')}` : '';
     this.set('.timer', tt ? `${px('坚持住', E.yellow)}${px(tt, E.white, { small: true, scale: 2 })}` : '');
@@ -1126,10 +1130,10 @@ class UI implements LayerHost {
       <div class="ps-left">
         <div class="head"><span class="tagred">${px('PAUSE', E.white, { small: true, outline: false })}</span>${px('暂停', E.yellow, { scale: 2 })}</div>
         <div class="menu"></div>
-        <div class="ps-diff">${px('难度', DIM)}${px(run.diff.name, run.diff.id === 'hard' ? ACCENT : E.white)}${px('种子', DIM)}${px(String(run.seed), DIM, { small: true })}</div>
+        ${info.training ? '' : `<div class="ps-diff">${px('难度', DIM)}${px(run.diff.name, run.diff.id === 'hard' ? ACCENT : E.white)}${px('种子', DIM)}${px(String(run.seed), DIM, { small: true })}</div>`}
       </div>
       <div class="ps-right panel" tabindex="0" role="region" aria-label="本局状态与宠物加成">
-        <div class="ps-top">${px(`第${floorNo}层 · ${info.floorName}`, E.yellow)}${px(`房间 ${info.roomsCleared}/${info.roomsTotal}`, GREY)}${px(`击杀 ${run.kills}`, GREY)}${px(`用时 ${fmtTime(run.elapsed)}`, GREY)}</div>
+        <div class="ps-top">${info.training ? `${px('训练场', E.yellow)}${px('不计分，不存档', GREY)}` : `${px(`第${floorNo}层 · ${info.floorName}`, E.yellow)}${px(`房间 ${info.roomsCleared}/${info.roomsTotal}`, GREY)}${px(`击杀 ${run.kills}`, GREY)}`}${px(`用时 ${fmtTime(run.elapsed)}`, GREY)}</div>
         <div class="ps-cols">
           <div class="ps-col">${sec('角色', hero)}${sec('属性', statGrid)}</div>
           <div class="ps-col">${sec('武器', guns)}${sec('法术', `<div class="ps-two">${spells}</div>`)}${sec('宠物', `<div class="ps-row">${pets}</div>${petStats}`)}</div>
@@ -1140,7 +1144,7 @@ class UI implements LayerHost {
     ov.querySelector('.ps-right')!.addEventListener('keydown', (e) => {
       if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes((e as KeyboardEvent).key)) e.stopPropagation();
     });
-    const rows = [menuRow('继续游戏', { key: 'Esc' }), menuRow('游戏说明'), menuRow('图鉴'), menuRow('设置'), menuRow('返回画廊', { note: '自动存档' })];
+    const rows = [menuRow(info.training ? '继续训练' : '继续游戏', { key: 'Esc' }), menuRow('游戏说明'), menuRow('图鉴'), menuRow('设置'), menuRow('返回画廊', info.training ? {} : { note: '自动存档' })];
     ov.querySelector('.menu')!.append(...rows);
     let tabs: CodexTab[] | undefined;
     const resume = () => {
@@ -1153,7 +1157,10 @@ class UI implements LayerHost {
       else if (i === 1) openHelp(this);
       else if (i === 2) openCodex(this, (tabs ??= a.codex()));
       else if (i === 3) openSettings(this);
-      else confirmBox(this, '返回画廊？进度会自动存档，之后可继续这次冒险。', () => {
+      else if (info.training) {
+        this.close(layer);
+        a.onQuit();
+      } else confirmBox(this, '返回画廊？进度会自动存档，之后可继续这次冒险。', () => {
         this.close(layer);
         a.onQuit();
       });
