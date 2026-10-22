@@ -5,6 +5,7 @@ import { audio } from '../audio/audio';
 import { K } from '../styles/textures';
 import { FLOATING, HEAVY, type Pose } from '../pixel/bossArt';
 import { E } from '../pixel/palette';
+import { ui } from '../ui/ui';
 import type { BossState, Enemy } from './entities';
 import { DEPTH } from './fx';
 import type { GameScene } from './GameScene';
@@ -33,6 +34,12 @@ const ACCENT: Record<string, string> = {
   reef: E.magenta,
   neon: E.cyan,
 };
+
+/** The colour a boss's moves (and its summoning) glow with. */
+export const bossAccent = (kitId: string, kind: 'guardian' | 'boar') => (kind === 'boar' ? E.red : (ACCENT[kitId] ?? E.yellow));
+
+/** How far above the floor a boss breaks out of its summon, to drop (or float down) the rest of the way. */
+export const bossDrop = (kitId: string, kind: 'guardian' | 'boar') => (kind === 'guardian' && FLOATING.has(kitId) ? 22 : 40);
 
 /** The name a move is called out with as it is gathered. */
 const MOVE_NAME: Record<string, string> = {
@@ -91,6 +98,9 @@ export interface BossLook {
   landed: boolean;
   /** White flicker while it changes act. */
   flicker: number;
+  /** Seconds after landing until it roars; then seconds left of the roar. */
+  roarIn?: number;
+  roaring: number;
   accent: string;
   float: boolean;
   heavy: boolean;
@@ -116,11 +126,12 @@ export function initLook(s: GameScene, e: Enemy): BossLook {
     lastStep: 0,
     lastPattern: '',
     ghostT: 0,
-    drop: guardian && FLOATING.has(id) ? 110 : 170,
+    drop: bossDrop(id, e.kind === 'boar' ? 'boar' : 'guardian'),
     dropV: 0,
     landed: false,
     flicker: 0,
-    accent: guardian ? (ACCENT[id] ?? E.yellow) : E.red,
+    roaring: 0,
+    accent: bossAccent(id, e.kind === 'boar' ? 'boar' : 'guardian'),
     float: guardian && FLOATING.has(id),
     heavy: !guardian || HEAVY.has(id),
     sigilA: 0,
@@ -233,6 +244,14 @@ export function animateBoss(s: GameScene, e: Enemy, dt: number) {
     lift = look.drop;
     if (look.drop <= 0 && !look.landed) land(s, e, look);
   }
+  if (look.roarIn !== undefined) {
+    look.roarIn -= dt;
+    if (look.roarIn <= 0) {
+      look.roarIn = undefined;
+      roar(s, e, look);
+    }
+  }
+  look.roaring = Math.max(0, look.roaring - dt);
 
   // Strides on the ground, a slow bob in the air.
   const prevSide = Math.sign(Math.sin(look.walk * Math.PI));
@@ -263,10 +282,11 @@ export function animateBoss(s: GameScene, e: Enemy, dt: number) {
   let pose: string;
   const gathering = (b.windup ?? 0) > 0;
   if (e.kind === 'boar') {
-    pose = boarPose(e, look);
+    pose = look.roaring > 0 ? 'boss-boar-windup' : boarPose(e, look);
   } else {
     let g: Pose;
-    if (gathering) g = 'cast';
+    if (look.roaring > 0) g = 'strike';
+    else if (gathering) g = 'cast';
     else if (b.leap) g = b.leap.glide ? 'strike' : 'cast';
     else if (look.strike > 0 || DASHES.has(b.pattern)) g = 'strike';
     else if (b.pattern || b.armLive > 0 || b.armWarn > 0) g = 'cast';
@@ -298,7 +318,8 @@ export function animateBoss(s: GameScene, e: Enemy, dt: number) {
   sp.setRotation(angle);
 
   // Shake in place while a charge is being wound up.
-  const jitter = e.kind === 'boar' && e.state === 'windup' ? Math.round(Math.sin(e.t2 * 80) * 2) : gathering ? Math.round(rand(-1, 1) * look.sq * 6) : 0;
+  const jitter =
+    look.roaring > 0.2 ? Math.round(rand(-1.5, 1.5)) : e.kind === 'boar' && e.state === 'windup' ? Math.round(Math.sin(e.t2 * 80) * 2) : gathering ? Math.round(rand(-1, 1) * look.sq * 6) : 0;
   sp.setPosition(Math.round(e.x + jitter), Math.round(e.y - (b.air ?? 0) - lift - bob));
   const up = lift + bob + (e.kind === 'guardian' ? (b.air ?? 0) : 0);
   e.shadow.setScale(4 * (1 - Math.min(0.5, up / 120)), 3 * (1 - Math.min(0.5, up / 120)));
@@ -330,14 +351,42 @@ function boarPose(e: Enemy, look: BossLook): string {
   return 'boss-boar';
 }
 
+/** It touches down: the floor cracks in a ring, dust flies, and a moment later it roars. */
 function land(s: GameScene, e: Enemy, look: BossLook) {
   look.landed = true;
-  look.sq = look.float ? 0.12 : 0.34;
-  s.fx.ring(e.x, e.y, 80, look.accent, 420, 3);
-  s.fx.dust(e.x, e.y, look.float ? 8 : 22);
-  s.fx.shake(look.float ? 0.2 : 0.65);
-  s.light.flash(e.x, e.y - 20, 120, look.accent, 0.3);
-  if (!look.float) audio.explode(true);
+  look.sq = look.float ? 0.14 : 0.38;
+  s.fx.ring(e.x, e.y, 90, look.accent, 460, 3);
+  s.fx.ring(e.x, e.y, 54, E.white, 300, 2);
+  s.fx.dust(e.x, e.y, look.float ? 10 : 26);
+  s.fx.sparks(e.x, e.y - 4, look.float ? 8 : 16, 'white');
+  s.fx.shake(look.float ? 0.25 : 0.7);
+  s.light.flash(e.x, e.y - 20, 130, look.accent, 0.35);
+  audio.bossLand(!look.float);
+  look.roarIn = 0.32;
+}
+
+/**
+ * The roar: it rears up in its striking pose and shakes, three shockwaves roll out over the room with light rays
+ * behind it, its name comes up, and when the roar dies down the fight starts.
+ */
+function roar(s: GameScene, e: Enemy, look: BossLook) {
+  const b = e.boss!;
+  look.roaring = 0.9;
+  look.sq = -0.28;
+  b.intro = 0.75;
+  const [x, y] = [e.x, e.y - 22];
+  s.fx.burstRays(x, y, 150, look.accent, 1000);
+  [0, 140, 280].forEach((ms, i) => s.time.delayedCall(ms, () => {
+    if (e.dead) return;
+    s.fx.ring(x, y, 110 + i * 50, i === 1 ? E.white : look.accent, 520, 3 - i);
+    s.fx.shake(0.45 - i * 0.1);
+  }));
+  s.fx.flash(look.accent, 0.18, 260);
+  s.light.flash(x, y, 160, look.accent, 0.5);
+  audio.roar();
+  // The guardian is the style's subtitle come to life, so its banner says it again.
+  const boar = e.kind === 'boar';
+  ui.banner(boar ? '宿 敌' : '守 卫', b.name, boar ? 'THE BOAR' : 'THE GUARDIAN', boar ? '那头撞死阿多尼斯的野猪' : `「${s.kit.subtitle}」`, 1800);
 }
 
 function footfall(s: GameScene, e: Enemy, look: BossLook) {

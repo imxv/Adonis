@@ -178,6 +178,13 @@ export class Lighting {
       if (e.boss) add(e.x, e.y - 12, 90, danger, 0.45);
       else if (e.elite) add(e.x, e.y - 4, 34, danger, 0.5);
     }
+    // Summons light up the floor round them as they load, so they read even in the darkest styles.
+    for (const t of s.telegraphs) {
+      if (t.kind !== 'spawn') continue;
+      const k = Math.min(1, t.t / t.dur);
+      if (t.tier === 5) add(t.x, t.y - 20, 90 + 80 * k, t.color ?? danger, 0.4 + 0.5 * k);
+      else add(t.x + (t.ox ?? 0), t.y - 8, 26 + 26 * k, t.color ?? danger, 0.25 + 0.5 * k);
+    }
     for (const pk of s.pickups) if ((pk.kind === 'chest' || pk.kind === 'wchest') && !pk.dead) add(pk.x, pk.y - 4, 40, hexToNum(pk.kind === 'chest' ? E.yellow : E.cyan), 0.6);
     for (let i = this.flashes.length - 1; i >= 0; i--) {
       const f = this.flashes[i];
