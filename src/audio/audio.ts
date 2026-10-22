@@ -63,6 +63,9 @@ class AudioEngine {
   private intensity = 0;
   private scaleMidi: number[] = [];
   private bar = 0;
+  /** The title screen wants its theme; it starts as soon as the first touch unlocks audio. */
+  private homeWanted = false;
+  private home?: { gain: Tone.Gain; nodes: AnyInst[] };
 
   /** Music and effect volume, each 0-10. Safe to call before the audio context exists. */
   setVolumes(music: number, sfx: number) {
@@ -173,6 +176,7 @@ class AudioEngine {
 
     this.ready = true;
     if (this.kit) this.setStyle(this.kit);
+    else if (this.homeWanted) this.playHome();
   }
 
   private gate(key: string, ms: number): boolean {
@@ -504,6 +508,7 @@ class AudioEngine {
   // ---------- Music ----------
   setStyle(kit: StyleKit) {
     this.kit = kit;
+    this.homeWanted = false;
     if (!this.ready) return;
     this.stopMusic();
     const root = Tone.Frequency(kit.audio.root).toMidi();
@@ -585,6 +590,131 @@ class AudioEngine {
     }, '8n').start(0);
     this.loops.push(loop);
     transport.start();
+  }
+
+  /**
+   * The title screen's theme: a slow lyre and a glass melody over a warm pad in D minor, eight bars that loop.
+   * It fades in, and fades out when a run's music takes over.
+   */
+  playHome() {
+    this.homeWanted = true;
+    this.kit = undefined;
+    if (!this.ready || this.home) return;
+    this.stopMusic();
+    try {
+      this.startHome();
+    } catch {
+      // No theme is better than a broken menu.
+    }
+  }
+
+  private startHome() {
+    const transport = Tone.getTransport();
+    transport.bpm.value = 72;
+    const gain = new Tone.Gain(0).connect(this.music);
+    gain.gain.rampTo(1, 2.5);
+    const nodes: AnyInst[] = [gain];
+    this.home = { gain, nodes };
+
+    const lp = new Tone.Filter(2600, 'lowpass').connect(gain);
+    const pad = new Tone.PolySynth({
+      voice: Tone.Synth,
+      maxPolyphony: 8,
+      options: { oscillator: { type: 'triangle' }, envelope: { attack: 1.2, decay: 0.8, sustain: 0.55, release: 2.6 } },
+    } as any).connect(lp);
+    pad.volume.value = -24;
+    const lyre = [0, 1, 2].map(() => {
+      const p = new Tone.PluckSynth({ attackNoise: 0.8, dampening: 3200, resonance: 0.95 }).connect(lp);
+      p.volume.value = -12;
+      return p;
+    });
+    const glass = new Tone.PolySynth({
+      voice: Tone.FMSynth,
+      maxPolyphony: 4,
+      options: {
+        harmonicity: 3.01,
+        modulationIndex: 2.2,
+        oscillator: { type: 'sine' },
+        modulation: { type: 'sine' },
+        envelope: { attack: 0.02, decay: 1.6, sustain: 0.25, release: 1.8 },
+        modulationEnvelope: { attack: 0.01, decay: 0.5, sustain: 0.1, release: 0.6 },
+      },
+    } as any).connect(gain);
+    glass.volume.value = -19;
+    const bass = new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.08, decay: 0.6, sustain: 0.5, release: 1.4 } }).connect(gain);
+    bass.volume.value = -17;
+    nodes.push(lp, pad, ...lyre, glass, bass);
+
+    const midi = (n: string) => Tone.Frequency(n).toMidi();
+    const hz = (m: number) => Tone.Frequency(m, 'midi').toFrequency();
+    // Dm  Bb  F  C  Dm  Gm  Bb  A: each bar's chord, from its bass note up.
+    const bars = [
+      ['D2', 'D3', 'F3', 'A3'],
+      ['A#1', 'D3', 'F3', 'A#3'],
+      ['F2', 'C3', 'F3', 'A3'],
+      ['C2', 'C3', 'E3', 'G3'],
+      ['D2', 'D3', 'F3', 'A3'],
+      ['G1', 'D3', 'G3', 'A#3'],
+      ['A#1', 'D3', 'F3', 'A#3'],
+      ['A1', 'C#3', 'E3', 'A3'],
+    ].map((b) => b.map(midi));
+    // [eighth in the bar, note, length in eighths]
+    const melody: [number, string, number][][] = [
+      [[0, 'A4', 3], [3, 'D5', 1], [4, 'F5', 4]],
+      [[0, 'D5', 2], [2, 'C5', 2], [4, 'A#4', 4]],
+      [[0, 'A4', 3], [3, 'C5', 1], [4, 'F5', 2], [6, 'E5', 2]],
+      [[0, 'E5', 4], [4, 'C5', 2], [6, 'G4', 2]],
+      [[0, 'A4', 3], [3, 'D5', 1], [4, 'F5', 2], [6, 'A5', 2]],
+      [[0, 'G5', 3], [3, 'F5', 1], [4, 'D5', 4]],
+      [[0, 'F5', 2], [2, 'E5', 2], [4, 'D5', 2], [6, 'C5', 2]],
+      [[0, 'E5', 3], [3, 'D5', 1], [4, 'C#5', 4]],
+    ];
+    // The lyre walks the chord once per beat: low, middle, high, middle.
+    const walk = [1, 2, 3, 2];
+    const eighth = Tone.Time('8n').toSeconds();
+    let step = 0;
+    let pluck = 0;
+    const loop = new Tone.Loop((time) => {
+      try {
+        const bar = Math.floor(step / 8) % bars.length;
+        const beat = step % 8;
+        const chord = bars[bar];
+        // The first pass is the lyre and pad alone, so the melody enters on the second.
+        const sing = step >= 64;
+        if (beat === 0) {
+          pad.triggerAttackRelease(chord.slice(1).map((m) => hz(m + 12)), '1m', time, 0.5);
+          bass.triggerAttackRelease(hz(chord[0]), eighth * 7, time, 0.6);
+        }
+        if (beat % 2 === 0) {
+          const m = chord[walk[beat / 2]] + (beat === 4 ? 12 : 0);
+          lyre[pluck++ % lyre.length].triggerAttack(hz(m), time);
+        } else if (!sing && beat === 7) {
+          lyre[pluck++ % lyre.length].triggerAttack(hz(chord[1] + 12), time);
+        }
+        if (sing) {
+          for (const [at, n, len] of melody[bar]) if (at === beat) glass.triggerAttackRelease(n, eighth * len, time, 0.55);
+        }
+      } catch {
+        // An overdue step after a stall is dropped, as in the level music.
+      }
+      step++;
+    }, '8n').start(0);
+    this.loops.push(loop);
+    transport.start();
+  }
+
+  /** Let the title theme ring out under a fade; its loop has already stopped with the transport. */
+  private fadeHome() {
+    const home = this.home;
+    if (!home) return;
+    this.home = undefined;
+    try {
+      home.gain.gain.cancelScheduledValues(Tone.now());
+      home.gain.gain.rampTo(0, 0.8);
+    } catch {
+      // Disposed below either way.
+    }
+    setTimeout(() => home.nodes.forEach((n) => n.dispose()), 1500);
   }
 
   private makeLead(kit: StyleKit, out: Tone.ToneAudioNode): (idx: number, time: number) => void {
@@ -773,6 +903,7 @@ class AudioEngine {
     this.musicNodes.forEach((n) => n.dispose());
     this.musicNodes = [];
     this.bar = 0;
+    this.fadeHome();
   }
 }
 

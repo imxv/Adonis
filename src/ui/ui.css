@@ -1405,6 +1405,44 @@ canvas.bt {
   clip-path: polygon(2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px), 0 2px, 2px 2px);
 }
 
+/* The fusion tab hangs from the bottom edge of its card; the panel tightens to make room only when some card has one. */
+.picker.has-fuse {
+  gap: 4px;
+}
+
+.picker.has-fuse .pk-cards {
+  padding-bottom: 12px;
+}
+
+.pk-fuse {
+  position: absolute;
+  left: 50%;
+  top: calc(100% - 4px);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 4px;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  background: #514255;
+  box-shadow: inset 0 2px 0 #ab8ba4, inset 0 -2px 0 #2e2333;
+  clip-path: var(--pk-cut);
+}
+
+.pk-fuse.now {
+  animation: pkFuse 0.8s steps(2) infinite;
+}
+
+@keyframes pkFuse {
+  50% { background: #67515f; }
+}
+
+.pk-card.away .pk-fuse,
+.pk-card.chosen .pk-fuse {
+  opacity: 0;
+  transition: opacity 0.15s steps(3);
+}
+
 /* Rarity lives in the frame; a glossy diagonal sweep would break the matte pixel surface. */
 .pk-shine {
   display: none;

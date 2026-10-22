@@ -21,7 +21,7 @@ import { dropLevelToken, packLevelTokens, updateLevelTokens, type LevelToken } f
 import { interactNearby, updateInteractionHints, updateNearbyWeaponPreview, resetWeaponPreview } from './interactions';
 import { WEAPON_POWER } from './weaponMetrics';
 import { HEROES, type HeroId } from '../data/heroes';
-import { DIFFICULTIES, type DifficultyId } from '../data/difficulty';
+import { DIFFICULTIES, FLOOR_SCALING, HEART_DROPS, floorScale, type DifficultyId } from '../data/difficulty';
 import { T, collide, generateDungeon, enhanceDungeon, openSpot, randomFloorIn, raycast, roomAt, roomCenter, solidAt, type DRoom, type Dungeon } from './dungeon';
 import { updateEnemyAI } from './enemyAI';
 import { FlowField } from './flow';
@@ -48,7 +48,7 @@ import { Lighting } from './lighting';
 import { destroyPets, resetPets, syncPets, updatePets } from './pets';
 import { tryAscend } from './ascension';
 import { AscensionFx } from './ascensionFx';
-import { LEVELS, applyChoice, applyFusion, choiceValid, evolutionsReady, fusionsReady, newRun, restoreRun, rollChoices, snapshotRun, spellTaken, xpForLevel, type Choice, type RunState } from './run';
+import { LEVELS, applyChoice, applyFusion, choiceValid, fusionsReady, newRun, restoreRun, rollChestChoices, rollChoices, snapshotRun, spellTaken, xpForLevel, type Choice, type RunState } from './run';
 import type { FusionId } from '../data/spells';
 import { addScore, clearRun, loadRun, saveRun, scoreOf, type SavedRun } from '../save';
 import { buildCodex } from '../ui/codex';
@@ -309,6 +309,7 @@ export class GameScene extends Phaser.Scene {
   showTitle() {
     this.mode = 'title';
     ui.showHud(false);
+    audio.playHome();
     ui.title({
       save: () => loadRun(),
       initialDifficulty: () => DIFFICULTIES[this.params.get('diff') as DifficultyId]?.id ?? settings.get().diff,
@@ -788,7 +789,7 @@ export class GameScene extends Phaser.Scene {
     const budget = (9 + level * 5 + depth * 1.5) * this.run.diff.enemies;
     const waveCount = depth >= 3 || level >= 2 ? 3 : 2;
     const kinds = this.enemyKinds();
-    let elites = rng.chance(0.12 + level * 0.1 + depth * 0.03) ? 1 : 0;
+    let elites = rng.chance(0.12 + level * (0.1 + FLOOR_SCALING.elites) + depth * 0.03) ? 1 : 0;
     this.waves = [];
     for (let w = 0; w < waveCount; w++) {
       let left = Math.round((budget * (0.85 + w * 0.2)) / waveCount);
@@ -913,7 +914,7 @@ export class GameScene extends Phaser.Scene {
     // Monsters toughen with the floor and with the knight's own growth, so a stack of level-ups never turns a room
     // into something the spells clear on their own.
     const growth = 1 + 0.015 * Math.max(0, this.run.xpLevel - 5);
-    const scaleHp = (1.65 + level * 1.05 + depth * 0.12) * growth * (mini ? 0.5 : 1) * this.run.diff.hp;
+    const scaleHp = (1.65 + level * 1.05 + depth * 0.12) * growth * (mini ? 0.5 : 1) * this.run.diff.hp * floorScale(FLOOR_SCALING.hp, level);
     const affix: Affix | undefined = elite ? rng.pick(Object.keys(AFFIXES) as Affix[]) : undefined;
     // Elites take x4: with the sturdier base that is what they had before, so only the rank and file got tougher.
     const hp = def.hp * scaleHp * (elite ? 4 : 1) * (affix === 'tough' ? 1.4 : 1);
@@ -1118,7 +1119,7 @@ export class GameScene extends Phaser.Scene {
       const x = this.run.rng.next();
       if (x < 0.15) this.dropChest(cx, cy, true);
       else if (x < 0.3) this.dropChest(cx, cy);
-      else if (x < 0.5) this.dropHeart(cx, cy);
+      else if (x < 0.3 + HEART_DROPS.roomClear) this.dropHeart(cx, cy);
     }
   }
 
@@ -2478,8 +2479,8 @@ export class GameScene extends Phaser.Scene {
     this.dropGem(e.x, e.y, Math.max(1, Math.round(e.xp)));
     if (e.elite) {
       this.dropChest(e.x, e.y);
-      this.dropHeart(e.x + 8, e.y);
-    } else if (Math.random() < 0.015) this.dropHeart(e.x, e.y);
+      if (Math.random() < HEART_DROPS.elite) this.dropHeart(e.x + 8, e.y);
+    } else if (Math.random() < HEART_DROPS.kill) this.dropHeart(e.x, e.y);
     if (!environmental && run.mods.healOnKill > 0 && Math.random() < run.mods.healOnKill) this.heal(1, e.x, e.y);
     if (!environmental && run.mods.explodeOnKill > 0) this.explode(e.x, e.y, 30, e.maxHp * run.mods.explodeOnKill, { src: '连锁殉爆', small: true, volume: 0.35 });
     if (e.kind === 'bomber') this.explode(e.x, e.y, 36, 18, { src: '炸弹怪', hurtsPlayer: 1, volume: 0.6, environmental });
@@ -2555,7 +2556,7 @@ export class GameScene extends Phaser.Scene {
       else {
         this.fx.burst(o.x, o.y, 8);
         this.fx.dust(o.x, o.y, 6);
-        if (Math.random() < 0.25) this.dropHeart(o.x, o.y);
+        if (Math.random() < HEART_DROPS.crate) this.dropHeart(o.x, o.y);
         else this.dropGem(o.x, o.y, 2);
       }
     }
@@ -2565,7 +2566,9 @@ export class GameScene extends Phaser.Scene {
     const p = this.player;
     if (this.mode !== 'play' || p.iframes > 0 || this.god || this.fusing) return false;
     const run = this.run;
-    let left = n;
+    // Deeper floors hit harder; the fractional part of the scaled damage is rolled.
+    const scaled = n * floorScale(FLOOR_SCALING.damage, run.level);
+    let left = Math.floor(scaled) + (Math.random() < scaled % 1 ? 1 : 0);
     const guard = Math.min(0.24, run.mods.petGuard * run.pets.length);
     if (guard > 0 && Math.random() < guard) {
       p.iframes = 0.4;
@@ -2960,22 +2963,17 @@ export class GameScene extends Phaser.Scene {
     this.stop(0.08);
     audio.levelUp();
     const run = this.run;
-    const evo = evolutionsReady(run);
-    let c: Choice;
-    if (evo.length) c = evo[0];
-    else {
-      const ups = run.spells.filter((s) => s.level < 5 && !SPELLS[s.id].fusion).map((s) => ({ type: 'spell-up', id: s.id }) as Choice);
-      c = ups.length && run.rng.chance(0.6) ? run.rng.pick(ups) : rollChoices(run, 'rare')[0];
-    }
-    this.chooseReward(c, (taken) => {
-      ui.chestReward(taken, run);
-      this.mode = 'play';
-    }, () => {
-      // A reward chest is already open: cancelling a weapon swap leaves its reward on the floor.
-      if (c.type === 'weapon-new') this.dropWeapon(c.instance ?? { def: WEAPONS[c.id], cd: 0 });
-      this.mode = 'play';
-      this.saveProgress();
-    });
+    const items = rollChestChoices(run);
+    const show = () => {
+      this.mode = 'choose';
+      ui.choices('技能宝箱', '选择一项奖励', items, run, (i) => {
+        this.chooseReward(items[i], (taken) => {
+          ui.chestReward(taken, run);
+          this.mode = 'play';
+        }, show);
+      }, { tag: 'CHEST' });
+    };
+    show();
   }
 
   /** Treasure room: three items on pedestals; take one and the others crumble. */
