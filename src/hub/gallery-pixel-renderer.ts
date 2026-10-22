@@ -2,11 +2,13 @@ import { drawPixelPaintings } from './gallery-pixel-paintings';
 import { drawPixelDecorBack, drawPixelDecorFront } from './gallery-pixel-decor';
 import { drawPixelFloor } from './gallery-pixel-floor';
 
-/** All dimensions below are source pixels. The public room remains 1672 × 941. */
-const W = 836;
+/** All dimensions below are source pixels; the walkable room is drawn at exactly twice that size. */
+const W = 1254;
 const H = 471;
-const WORLD_W = 1672;
-const WORLD_H = 941;
+const WORLD_W = W * 2;
+const WORLD_H = H * 2;
+/** The size of the hall the visitor walks through, in world units. */
+export const GALLERY_WORLD = { width: WORLD_W, height: WORLD_H } as const;
 const TAU = Math.PI * 2;
 const STONE = ['#393949', '#514a59', '#726878', '#8d8290', '#b3a599', '#d5c5aa'];
 const GOLD = ['#392c2b', '#60442e', '#aa783d', '#d5a75c', '#eac77b', '#fff0b5'];
@@ -111,7 +113,7 @@ function masonry(c: Ctx) {
   box(c, 0, 0, W, 269, '#403f50');
   for (let row = 0; row < 11; row++) {
     const yy = row * 24 - 4;
-    for (let col = -1; col < 19; col++) {
+    for (let col = -1; col * 49 < W; col++) {
       const xx = col * 49 + (row % 2) * 23;
       const tone = hash(col, row) % 4;
       box(c, xx, yy, 47, 22, ['#474654', '#4e4b59', '#58515f', '#514d5b'][tone]);
@@ -192,54 +194,69 @@ function banner(c: Ctx, x: number, y: number, w: number, h: number, flipped = fa
   line(c, x + w / 2, y + h - 3, x + w - 2, y + h - 9, GOLD[3]);
   box(c, x + (flipped ? w - 1 : 0), y, 1, h - 9, GOLD[4]);
 }
-function statue(c: Ctx, x: number, y: number, mirror: number) {
-  // Small winged stone attendants flank the recessed celestial instrument.
-  poly(c, [[x, y + 12], [x - mirror * 19, y - 8], [x - mirror * 23, y + 2], [x - mirror * 18, y + 26], [x - mirror * 4, y + 36]], '#756b7b');
-  for (let i = 0; i < 5; i++) line(c, x - mirror * 20, y + i * 4, x - mirror * (4 + i), y + 27 + i, i % 2 ? '#b8ad9c' : '#8a8090');
-  oval(c, x, y, 6, 8, '#bcb09e');
-  box(c, x - 5, y - 7, 10, 3, '#ddd0b2'); box(c, x + mirror * 3, y, 2, 5, '#7f7585');
-  poly(c, [[x - 5, y + 10], [x + 7, y + 10], [x + 11, y + 48], [x - 10, y + 48]], '#a99c97');
-  for (let i = -5; i <= 6; i += 3) line(c, x + i / 2, y + 17, x + i, y + 45, i % 2 ? '#dbccb0' : '#726c80');
-  line(c, x + mirror * 5, y + 13, x + mirror * 11, y + 24, '#c4b6a0', 3);
-  line(c, x + mirror * 11, y + 24, x + mirror * 20, y + 12, '#b2a595', 3);
-  box(c, x - 12, y + 48, 26, 4, '#ddd0b3'); box(c, x - 10, y + 52, 23, 17, '#7f7582');
-  box(c, x - 7, y + 54, 16, 12, '#a19390'); box(c, x - 14, y + 69, 30, 4, '#c7b6a0');
-}
-function sanctuary(c: Ctx) {
-  arch(c, 359, 107, 118, 157, '#26283b');
-  arch(c, 365, 111, 106, 151, '#8a7d80');
-  arch(c, 369, 115, 98, 147, '#343346');
-  arch(c, 374, 121, 88, 140, '#18253c');
-  arch(c, 379, 126, 78, 135, '#1d2e45');
-  for (let i = 0; i <= 11; i++) {
-    const ang = Math.PI + i / 11 * Math.PI;
-    line(c, 418 + Math.cos(ang) * 51, 163 + Math.sin(ang) * 51, 418 + Math.cos(ang) * 59, 163 + Math.sin(ang) * 59, '#494756');
-    box(c, 418 + Math.cos(ang) * 56, 163 + Math.sin(ang) * 56, 2, 1, '#d1baa1');
-  }
-  // Static engraved celestial dial. Moving details are added separately.
-  for (const r of [17, 28, 41]) ring(c, 418, 178, r, r, GOLD[r === 41 ? 2 : 3]);
-  ring(c, 418, 178, 39, 39, GOLD[1]);
-  for (let i = 0; i < 24; i++) {
-    const a = i / 24 * TAU;
-    line(c, 418 + Math.cos(a) * 36, 178 + Math.sin(a) * 36, 418 + Math.cos(a) * 40, 178 + Math.sin(a) * 40, GOLD[i % 3 ? 2 : 4]);
-    if (i % 3 === 0) {
-      box(c, 418 + Math.cos(a) * 45, 178 + Math.sin(a) * 45, 2, 2, GOLD[3]);
-      line(c, 418 + Math.cos(a) * 43, 178 + Math.sin(a) * 43, 418 + Math.cos(a) * 47, 178 + Math.sin(a) * 47, GOLD[2]);
+/** The nave's deep recess. Its fluted conch radiates from the painting so every line leads to it. */
+const APSE = { x: 462, y: -2, w: 330, h: 272 };
+function apse(c: Ctx) {
+  const { x, y, w, h } = APSE;
+  arch(c, x - 5, y - 4, w + 10, h + 4, '#262b40');
+  arch(c, x, y, w, h, '#8d8290');
+  arch(c, x + 4, y + 4, w - 8, h - 4, '#3b3a4f');
+  // Scanline spans of alternating flutes, centred on the painting's crest.
+  const inner = { x: x + 9, y: y + 9, w: w - 18, h: h - 9 };
+  const rx = inner.w / 2, crown = inner.y + rx, cx = inner.x + rx, cy = 150;
+  for (let row = Math.max(0, inner.y); row < inner.y + inner.h; row++) {
+    const half = row < crown ? Math.floor(rx * Math.sqrt(Math.max(0, 1 - ((row - crown) / rx) ** 2))) : rx;
+    let start = Math.ceil(cx - half), band = -1;
+    for (let col = start; col <= cx + half; col++) {
+      const angle = Math.atan2(row - cy, col - cx);
+      const next = row > cy + 70 ? 2 : Math.floor((angle + Math.PI) / (Math.PI / 14)) % 2;
+      if (next !== band) {
+        if (band >= 0) box(c, start, row, col - start, 1, ['#1c2238', '#242a43', '#2a2236'][band]);
+        start = col; band = next;
+      }
     }
+    box(c, start, row, cx + half - start + 1, 1, ['#1c2238', '#242a43', '#2a2236'][band]);
   }
-  line(c, 377, 178, 459, 178, GOLD[2]); line(c, 418, 137, 418, 219, GOLD[2]);
-  ring(c, 418, 178, 34, 12, GOLD[3]);
-  line(c, 397, 204, 440, 150, GOLD[3]);
-  oval(c, 418, 178, 5, 5, GOLD[2]); oval(c, 416, 176, 3, 3, GOLD[4]); box(c, 415, 175, 2, 2, GOLD[5]);
-  // Plinth, urn and decorative relief remain behind the player's repair stand.
-  oval(c, 418, 260, 34, 5, '#171e30');
-  box(c, 399, 242, 38, 19, '#8c7c80'); box(c, 395, 238, 46, 4, '#d5c3a4'); box(c, 396, 259, 44, 4, '#c5b194');
-  box(c, 403, 245, 30, 12, '#454051');
-  for (let i = 0; i < 3; i++) ring(c, 411 + i * 7, 251, 5, 5, GOLD[2]);
-  box(c, 412, 221, 12, 16, GOLD[1]); box(c, 409, 233, 18, 3, GOLD[3]);
-  poly(c, [[403, 215], [433, 215], [429, 225], [423, 228], [412, 228], [406, 225]], GOLD[2]);
-  line(c, 403, 215, 433, 215, GOLD[4]); box(c, 415, 217, 4, 9, GOLD[3]);
-  statue(c, 368, 151, -1); statue(c, 468, 151, 1);
+  // Voussoirs and a carved rim keep the vault's thickness legible.
+  for (let i = 0; i <= 26; i++) {
+    const a = Math.PI + i / 26 * Math.PI;
+    const ox = x + w / 2, oy = y + w / 2;
+    line(c, ox + Math.cos(a) * (w / 2 - 9), oy + Math.sin(a) * (w / 2 - 9), ox + Math.cos(a) * (w / 2 + 1), oy + Math.sin(a) * (w / 2 + 1), '#454352');
+    box(c, ox + Math.cos(a) * (w / 2 - 3), oy + Math.sin(a) * (w / 2 - 3), 2, 1, '#d1baa1');
+  }
+  for (const side of [x + 4, x + w - 8]) {
+    box(c, side, y + w / 2, 4, h - w / 2 - 4, '#a59794');
+    box(c, side + (side < x + w / 2 ? 0 : 3), y + w / 2, 1, h - w / 2 - 4, '#d5c5aa');
+  }
+  // Crimson curtains are tied back on both sides, opening the stage.
+  for (const dir of [-1, 1]) {
+    const edge = dir < 0 ? inner.x + 2 : inner.x + inner.w - 2;
+    const drape: number[][] = [[edge, 40], [edge - dir * 34, 44], [edge - dir * 21, 120], [edge - dir * 10, 168], [edge - dir * 16, 214], [edge - dir * 22, 262], [edge, 262]];
+    poly(c, drape, '#4d1a2c');
+    poly(c, [[edge, 44], [edge - dir * 26, 46], [edge - dir * 15, 122], [edge - dir * 6, 166], [edge, 168]], '#7a2438');
+    for (let i = 0; i < 4; i++) line(c, edge - dir * (6 + i * 6), 48, edge - dir * (3 + i * 2), 160, i % 2 ? '#9a3346' : '#5f1d31');
+    box(c, Math.min(edge, edge - dir * 18), 164, 18, 4, GOLD[2]);
+    box(c, Math.min(edge, edge - dir * 18), 164, 18, 1, GOLD[4]);
+    line(c, edge - dir * 9, 168, edge - dir * 11, 182, GOLD[3], 2);
+    box(c, edge - dir * 11 - 2, 182, 5, 4, GOLD[2]);
+    box(c, Math.min(edge, edge - dir * 40) - 2, 36, 44, 5, '#3d2034');
+    box(c, Math.min(edge, edge - dir * 40) - 2, 36, 44, 1, GOLD[3]);
+  }
+}
+/** A standing bronze fire basket; its flame is animated separately. */
+function brazier(c: Ctx, x: number, base: number) {
+  oval(c, x, base + 1, 15, 3, '#1a1d2c');
+  line(c, x - 10, base, x - 3, base - 30, GOLD[1], 2);
+  line(c, x + 10, base, x + 3, base - 30, GOLD[1], 2);
+  line(c, x - 9, base - 1, x - 3, base - 28, GOLD[3]);
+  box(c, x - 1, base - 30, 3, 30, GOLD[2]); box(c, x, base - 30, 1, 30, GOLD[4]);
+  box(c, x - 13, base - 1, 7, 2, GOLD[2]); box(c, x + 7, base - 1, 7, 2, GOLD[2]);
+  box(c, x - 5, base - 34, 11, 4, GOLD[3]); box(c, x - 5, base - 34, 11, 1, GOLD[5]);
+  poly(c, [[x - 16, base - 48], [x + 16, base - 48], [x + 11, base - 36], [x - 10, base - 36]], GOLD[1]);
+  box(c, x - 14, base - 46, 28, 3, GOLD[2]); box(c, x - 12, base - 43, 23, 2, GOLD[3]);
+  line(c, x - 16, base - 48, x + 16, base - 48, GOLD[4]);
+  for (let i = -12; i <= 10; i += 6) box(c, x + i, base - 46, 2, 2, GOLD[5]);
+  box(c, x - 12, base - 51, 24, 3, '#3a1c1c'); box(c, x - 9, base - 52, 6, 2, '#a3382c'); box(c, x + 2, base - 52, 7, 2, '#c4532f');
 }
 function torch(c: Ctx, x: number, y: number) {
   oval(c, x, y + 23, 16, 3, '#232637');
@@ -248,69 +265,84 @@ function torch(c: Ctx, x: number, y: number) {
   poly(c, [[x - 12, y], [x + 12, y], [x + 7, y + 8], [x - 6, y + 8]], GOLD[1]);
   line(c, x - 12, y, x + 12, y, GOLD[4]); box(c, x - 5, y + 2, 8, 2, GOLD[2]);
 }
+/** Wall sconces flank the side exhibits; the two braziers stand on the nave's top stair. */
+const TORCHES = [[186, 228], [384, 228], [887, 236], [1051, 236]] as const;
+const BRAZIERS = [[456, 284], [798, 284]] as const;
+/** Column centres: they divide the wings, the two side halls and the nave. */
+const COLUMNS = [150, 420, 834, 1104] as const;
 function architecture(c: Ctx) {
   masonry(c);
+  // Both wings and the left hall open onto the night garden, so the room reads as part of a larger place.
   nightWindow(c, 57, -16, 101, 154, false);
-  nightWindow(c, 681, -16, 104, 154, false);
-  nightWindow(c, 355, -20, 126, 123, true);
-  sanctuary(c);
-  for (const [x, y, w, h, f] of [[171, 88, 13, 143, 0], [327, 87, 12, 138, 1], [498, 85, 12, 141, 0], [654, 85, 13, 140, 1]]) banner(c, x, y, w, h, !!f);
-  // Middle arcade columns separate each painting from the sanctuary.
-  for (const [x, top, bottom, w, left] of [[150, 15, 278, 26, 1], [344, 12, 271, 23, 0], [492, 12, 271, 23, 1], [680, 15, 278, 26, 0]]) column(c, x, top, bottom, w, !!left);
-  // Upper arch bands, built from stepped wedges, keep the vault legible.
-  for (const [cx, radius] of [[246, 100], [418, 83], [586, 99]]) {
-    for (let i = 0; i <= 62; i++) {
-      const a = Math.PI + i / 62 * Math.PI;
-      const x = cx + Math.cos(a) * radius, y = 103 + Math.sin(a) * radius;
+  nightWindow(c, 1099, -16, 104, 154, false);
+  nightWindow(c, 205, -18, 160, 206, true);
+  apse(c);
+  for (const [x, y, w, h, f] of [[439, 58, 12, 164, 0], [803, 58, 12, 164, 1], [881, 85, 13, 143, 0], [1045, 85, 13, 143, 1]]) banner(c, x, y, w, h, !!f);
+  for (const [i, x] of COLUMNS.entries()) column(c, x, 12, 278, 26, i % 2 === 0);
+  // Tall vault bands run off the top of the view: the ceiling continues above the visitor.
+  for (const [cx, rx, ry] of [[285, 135, 100], [627, 207, 108], [969, 135, 100]]) {
+    const steps = Math.round(rx * .6);
+    for (let i = 0; i <= steps; i++) {
+      const a = Math.PI + i / steps * Math.PI;
+      const x = cx + Math.cos(a) * rx, y = 103 + Math.sin(a) * ry;
       box(c, x, y, 4, 5, STONE[i % 7 ? 3 : 4]);
-      box(c, cx + Math.cos(a) * (radius + 6), 103 + Math.sin(a) * (radius + 6), 4, 4, STONE[1]);
-      if (i % 5 === 0) line(c, x, y, cx + Math.cos(a) * (radius + 10), 103 + Math.sin(a) * (radius + 10), '#292d40');
+      box(c, cx + Math.cos(a) * (rx + 6), 103 + Math.sin(a) * (ry + 6), 4, 4, STONE[1]);
+      if (i % 5 === 0) line(c, x, y, cx + Math.cos(a) * (rx + 10), 103 + Math.sin(a) * (ry + 10), '#292d40');
     }
   }
-  for (const [x, y, len, side] of [[163, 0, 90, 1], [339, -12, 70, -1], [478, -15, 95, 1], [666, -10, 80, -1], [37, 20, 152, 1], [792, 15, 165, -1]]) swag(c, x, y, len, side);
-  for (const [x, y] of [[174, 225], [325, 244], [510, 244], [663, 225], [418, 218]]) torch(c, x, y);
+  for (const [x, y, len, side] of [[163, 0, 90, 1], [407, -12, 74, -1], [847, -12, 74, 1], [1091, -10, 90, -1], [37, 20, 152, 1], [1210, 15, 165, -1]]) swag(c, x, y, len, side);
+  for (const [x, y] of TORCHES) torch(c, x, y);
+  for (const [x, base] of BRAZIERS) brazier(c, x, base);
+}
+/** Drawn under the main painting so only its surround catches the warm red light. */
+function portalGlow(c: Ctx) {
+  arch(c, 492, 18, 270, 254, '#c8404812');
+  arch(c, 504, 28, 246, 240, '#ff6a5412');
 }
 function frontArchitecture(c: Ctx) {
   // Near piers are genuinely in front of the visitor, not painted into the rear.
-  column(c, 24, -10, 428, 45, true); column(c, 810, -10, 428, 45, false);
+  column(c, 24, -10, 428, 45, true); column(c, W - 24, -10, 428, 45, false);
   box(c, 0, 421, 58, 10, '#b6a38b'); box(c, 0, 431, 64, 12, '#6e6373'); box(c, 0, 443, 73, 9, '#c9b697');
-  box(c, 777, 421, 59, 10, '#b6a38b'); box(c, 770, 431, 66, 12, '#6e6373'); box(c, 761, 443, 75, 9, '#c9b697');
-  swag(c, 12, 0, 208, 1); swag(c, 826, 10, 215, -1);
+  box(c, W - 59, 421, 59, 10, '#b6a38b'); box(c, W - 66, 431, 66, 12, '#6e6373'); box(c, W - 75, 443, 75, 9, '#c9b697');
+  swag(c, 12, 0, 208, 1); swag(c, W - 10, 10, 215, -1);
 }
 function architecturalLighting(c: Ctx) {
   // Finite, static light planes preserve the underlying pixel clusters. No blur,
   // gradient or full-scene colour wash is involved.
-  for (const [x, y] of [[174, 225], [325, 244], [510, 244], [663, 225]]) {
+  for (const [x, y] of TORCHES) {
     poly(c, [[x - 14, y - 5], [x - 10, y - 25], [x, y - 36], [x + 10, y - 24], [x + 15, y - 4], [x + 9, y + 17], [x - 8, y + 17]], '#e3a55b12');
     poly(c, [[x - 8, y - 3], [x - 5, y - 18], [x, y - 25], [x + 6, y - 17], [x + 9, y], [x + 4, y + 10], [x - 5, y + 10]], '#ffc77918');
   }
-  for (const [faceX, y, dir] of [[157, 225, 1], [335, 244, -1], [500, 244, 1], [670, 225, -1]]) {
+  for (const [x, base] of BRAZIERS) {
+    const y = base - 52;
+    poly(c, [[x - 24, y + 4], [x - 17, y - 26], [x, y - 44], [x + 17, y - 26], [x + 24, y + 4], [x + 14, y + 30], [x - 14, y + 30]], '#e3a55b12');
+    poly(c, [[x - 13, y + 2], [x - 9, y - 20], [x, y - 30], [x + 9, y - 20], [x + 13, y + 2], [x + 7, y + 16], [x - 7, y + 16]], '#ffc77918');
+  }
+  // Each column face turned towards a flame is lit, along with its base mouldings.
+  for (const [faceX, y, dir] of [[157, 228, 1], [413, 228, -1], [427, 232, 1], [827, 232, -1], [841, 236, 1], [1097, 236, -1]]) {
     poly(c, [[faceX, y - 29], [faceX + dir * 5, y - 16], [faceX + dir * 5, 257], [faceX, 262]], '#ab9083');
     box(c, faceX, y - 16, 2, 32, '#c8aa8f');
     box(c, faceX + dir * 2, y - 9, 1, 19, '#e7c89c');
     line(c, faceX - 2, 258, faceX + 4, 257, '#756473');
     line(c, faceX - 2, 259, faceX + 4, 258, '#d8b793');
   }
-  // Warm catches sit on the actual capital/base edges beside each brazier.
-  for (const [x, bottom] of [[150, 278], [344, 271], [492, 271], [680, 278]]) {
-    box(c, x - 11, bottom - 7, 20, 1, '#d7b78f');
-    box(c, x - 14, bottom - 1, 25, 1, '#e4c79a');
-    box(c, x - 12, bottom + 4, 22, 1, '#877263');
+  for (const x of COLUMNS) {
+    box(c, x - 11, 271, 20, 1, '#d7b78f');
+    box(c, x - 14, 277, 25, 1, '#e4c79a');
+    box(c, x - 12, 282, 22, 1, '#877263');
   }
-  for (const [x, y, direction] of [[188, 218, 1], [322, 241, -1], [512, 241, 1], [647, 218, -1]]) {
+  // Flame light catches the nearest gilt edges of each frame.
+  for (const [x, y, direction] of [[902, 222, 1], [1035, 222, -1], [521, 226, 1], [733, 226, -1]]) {
     line(c, x, y - 14, x, y + 18, '#f3cb79');
     box(c, x + direction, y - 2, 1, 13, '#ffe3a0');
     box(c, x + direction * 3, y + 10, 1, 5, '#d29d50');
   }
-  // Moonlight catches the sill, central arch edge and attendant shoulders.
-  box(c, 352, 102, 132, 1, '#9dbfc5');
-  box(c, 365, 108, 104, 1, '#738f9e');
-  for (let i = 0; i < 16; i++) {
-    const a = Math.PI + i / 18 * Math.PI;
-    box(c, 418 + Math.cos(a) * 52, 163 + Math.sin(a) * 52, 2, 1, '#a1b6ba');
-  }
-  box(c, 364, 149, 2, 9, '#c7d0c5'); box(c, 464, 149, 2, 9, '#b6c8c7');
-  line(c, 362, 168, 359, 194, '#a4b8bc'); line(c, 463, 167, 467, 193, '#a4b8bc');
+  // Moonlight from the tall window catches its sill and the stone below it.
+  box(c, 199, 191, 172, 1, '#9dbfc5');
+  box(c, 205, 196, 160, 1, '#738f9e');
+  // The painting's red light spills down the stair it stands on.
+  poly(c, [[548, 266], [706, 266], [736, 312], [518, 312]], '#ff604012');
+  poly(c, [[576, 266], [678, 266], [694, 312], [560, 312]], '#ff7a5a12');
 }
 function makeCanvas() {
   const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
@@ -375,6 +407,7 @@ export function createGalleryPixelRenderer(): GalleryPixelRenderer {
   box(back.ctx, 0, 0, W, H, '#101c35');
   drawPixelFloor(back.ctx);
   architecture(back.ctx);
+  portalGlow(back.ctx);
   drawPixelPaintings(back.ctx);
   drawPixelDecorBack(back.ctx);
   architecturalLighting(back.ctx);
@@ -390,23 +423,36 @@ export function createGalleryPixelRenderer(): GalleryPixelRenderer {
       ctx.save(); ctx.scale(WORLD_W / W, WORLD_H / H);
       // Only a few integer clusters animate; room structure is never regenerated.
       const phase = reducedMotion ? 0 : Math.floor(clock * 7);
-      for (const [i, [x, y]] of [[174, 225], [325, 244], [510, 244], [663, 225], [418, 218], [720, 147], [777, 275], [151, 253]].entries()) {
+      for (const [i, [x, y]] of [...TORCHES, [1138, 147], [1195, 275], [151, 253]].entries()) {
         const flicker = hash(i, phase) % 3;
         box(ctx, x - 2, y - 7 - flicker, 4, 7 + flicker, '#b35b36');
         box(ctx, x - 1, y - 6, 3, 5, '#e4a44d');
         box(ctx, x, y - 4 - flicker, 1, 5 + flicker, '#ffe7a0');
         box(ctx, x - 3, y + 1, 6, 1, '#e4a44d');
       }
+      for (const [i, [x, base]] of BRAZIERS.entries()) {
+        const y = base - 51, flicker = hash(i + 9, phase) % 4, sway = hash(i + 3, phase) % 3 - 1;
+        box(ctx, x - 10, y - 9, 20, 9, '#b35b36');
+        box(ctx, x - 7 + sway, y - 17 - flicker, 14, 10 + flicker, '#b35b36');
+        box(ctx, x - 3 + sway, y - 24 - flicker, 6, 8, '#b35b36');
+        box(ctx, x - 7, y - 8, 14, 8, '#e4a44d');
+        box(ctx, x - 4 + sway, y - 15 - flicker, 8, 8 + flicker, '#e4a44d');
+        box(ctx, x - 2, y - 8, 4, 7, '#ffe7a0');
+        box(ctx, x - 1 + sway, y - 13 - flicker, 2, 6, '#ffe7a0');
+      }
       for (const [i, [x, y]] of [[69, 304], [115, 311], [145, 304]].entries()) {
         const drift = reducedMotion ? 0 : Math.floor(clock * 3 + i * 2) % 5;
         box(ctx, x + drift, y, 5 + i % 3 * 2, 1, i % 2 ? '#7bbab7' : '#bed1bd');
       }
-      const angle = reducedMotion ? .5 : clock * .13;
-      const sx = 418 + Math.cos(angle) * 34, sy = 178 + Math.sin(angle) * 12;
-      box(ctx, sx - 1, sy - 1, 3, 3, GOLD[3]); box(ctx, sx, sy - 1, 1, 1, GOLD[5]);
-      for (let i = 0; i < 9; i++) {
-        const x = 352 + (i * 43) % 132, y = 92 + (i * 47 + (reducedMotion ? 0 : Math.floor(clock * (1 + i % 2)))) % 146;
-        if (reducedMotion || Math.sin(clock * .7 + i * 2) > .35) box(ctx, x, y, 1, 1, i % 2 ? '#b7ac84' : '#738d9b');
+      // Embers rise out of the main painting and drift up the recess around it.
+      const time = reducedMotion ? 0 : clock;
+      for (let i = 0; i < 18; i++) {
+        const inside = i < 11;
+        const x = inside ? 548 + (i * 53) % 158 : 486 + (i * 71) % 282;
+        const y = 256 - (time * (5 + i % 4 * 3) + i * 37) % (inside ? 186 : 220);
+        if (inside && y < 147 && Math.abs(x - 627) > 95 * Math.sqrt(Math.max(0, 1 - ((y - 147) / 95) ** 2)) - 4) continue;
+        if (!inside && x > 512 && x < 742) continue;
+        box(ctx, x, y, i % 3 ? 1 : 2, 1, ['#ffb070', '#ff6a54', '#ffe6a2'][i % 3]);
       }
       ctx.restore();
     },

@@ -1,7 +1,10 @@
 import './gallery.css';
-import { Grid, pxText } from '../pixel/draw';
+import { Grid } from '../pixel/draw';
 import { ADONIS_A, ADONIS_B } from '../pixel/sprites';
-import { createGalleryPixelRenderer, createPixelRepairDisplay } from './gallery-pixel-renderer';
+import { GALLERY_WORLD, createGalleryPixelRenderer, createPixelRepairDisplay } from './gallery-pixel-renderer';
+import { createGalleryStations, drawStation } from './gallery-pixel-stations';
+import { createCommissionNpcFrames } from '../sidegames/commissions/pixel-art-npcs';
+import { createSign, drawSignChevron, type SignIcon, type SignStyle } from './gallery-signs';
 
 export type GalleryAction = 'adventure' | 'continue' | 'garden' | 'world3d' | 'collection' | 'fishing' | 'kitchen' | 'commissions' | 'repair';
 export interface GalleryRepair {
@@ -33,17 +36,31 @@ export interface GalleryOptions extends GalleryState {
 type Point = { x: number; y: number };
 type Destination = {
   action: GalleryAction; title: string; subtitle: string; number: string;
+  /** Where the visitor stands to use it. */
   point: Point; hit: { x: number; y: number; w: number; h: number };
+  /** Its name plate. Free-standing signs and the repair plaque are depth-sorted with the visitor. */
+  sign: { style: SignStyle; x: number; y: number; mark?: SignIcon; depth?: number };
 };
+const WORLD_W = GALLERY_WORLD.width;
+const WORLD_H = GALLERY_WORLD.height;
+const WORLD_CENTER = WORLD_W / 2;
+/** The repair easel's top-left corner; it stands in the right wing, in front of the stair. */
+const REPAIR_AT = { x: 1700, y: 582 } as const;
+// The main painting owns the nave. Everyday activities gather in the left wing around the fountain,
+// and the other journeys and the collection fill the right. Small stations come first so their
+// click areas win over the large paintings and planters around them.
 const DESTINATIONS: Destination[] = [
-  { action: 'adventure', title: '画中轮回', subtitle: '开启新的五层冒险', number: 'I', point: { x: 500, y: 610 }, hit: { x: 375, y: 125, w: 270, h: 440 } },
-  { action: 'world3d', title: '爱琴海岸', subtitle: '走进立体的神话世界', number: 'II', point: { x: 1150, y: 610 }, hit: { x: 1025, y: 115, w: 275, h: 450 } },
-  { action: 'garden', title: '月桂花园', subtitle: '种植、收获与出征补给', number: 'III', point: { x: 420, y: 760 }, hit: { x: 28, y: 500, w: 360, h: 360 } },
-  { action: 'collection', title: '珍藏陈列', subtitle: '收藏旅途中的发现', number: 'IV', point: { x: 1310, y: 760 }, hit: { x: 1400, y: 330, w: 272, h: 550 } },
-  { action: 'repair', title: '回廊修复', subtitle: '让旧陈列重新焕发光彩', number: 'V', point: { x: 835, y: 748 }, hit: { x: 763, y: 582, w: 144, h: 152 } },
+  { action: 'repair', title: '回廊修复', subtitle: '让旧陈列重新焕发光彩', number: 'V', point: { x: REPAIR_AT.x + 72, y: 752 }, hit: { x: REPAIR_AT.x, y: REPAIR_AT.y, w: 144, h: 152 }, sign: { style: 'brass', x: REPAIR_AT.x + 72, y: REPAIR_AT.y + 126, depth: REPAIR_AT.y + 152.5 } },
+  { action: 'kitchen', title: '归途厨房', subtitle: '用鱼和草木烹出征补给', number: 'VII', point: { x: 716, y: 712 }, hit: { x: 660, y: 528, w: 112, h: 144 }, sign: { style: 'hanging', x: 818, y: 470, mark: 'pot' } },
+  { action: 'commissions', title: '居民委托', subtitle: '去庭院帮涅柔斯和达芙妮的忙', number: 'VIII', point: { x: 760, y: 866 }, hit: { x: 770, y: 690, w: 170, h: 170 }, sign: { style: 'board', x: 845, y: 796, depth: 796 } },
+  { action: 'fishing', title: '湖畔钓鱼', subtitle: '去苇影湖钓鱼，做菜和委托都用得上', number: 'VI', point: { x: 458, y: 705 }, hit: { x: 110, y: 470, w: 320, h: 232 }, sign: { style: 'post', x: 470, y: 650, mark: 'fish', depth: 650 } },
+  { action: 'adventure', title: '画中轮回', subtitle: '开启新的五层冒险', number: 'I', point: { x: WORLD_CENTER, y: 630 }, hit: { x: WORLD_CENTER - 224, y: 60, w: 448, h: 550 }, sign: { style: 'ribbon', x: WORLD_CENTER, y: 522 } },
+  { action: 'world3d', title: '爱琴海岸', subtitle: '走进立体的神话世界', number: 'II', point: { x: 1938, y: 640 }, hit: { x: 1790, y: 100, w: 300, h: 450 }, sign: { style: 'brass', x: 1938, y: 556 } },
+  { action: 'garden', title: '月桂花园', subtitle: '种植、收获与出征补给', number: 'III', point: { x: 440, y: 830 }, hit: { x: 0, y: 712, w: 400, h: 229 }, sign: { style: 'post', x: 300, y: 806, mark: 'leaf', depth: 806 } },
+  { action: 'collection', title: '珍藏陈列', subtitle: '收藏旅途中的发现', number: 'IV', point: { x: 2140, y: 800 }, hit: { x: 2236, y: 330, w: 272, h: 550 }, sign: { style: 'brass', x: 2366, y: 700 } },
 ];
-const WORLD_W = 1672;
-const WORLD_H = 941;
+/** Two residents wait beside their notice board, on the left of the mosaic. */
+const RESIDENTS = [{ id: 'nereus', x: 800, y: 852 }, { id: 'daphne', x: 890, y: 846 }] as const;
 const GOLD = '#e7bf76';
 const IVORY = '#ead4aa';
 const TAU = Math.PI * 2;
@@ -52,7 +69,7 @@ const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
 /** Keep feet on the central paving, in front of the stairs and inside the foreground planting. */
 const floorPoint = (point: Point): Point => {
   const y = clamp(point.y, 600, 870);
-  return { x: clamp(point.x, 370 + (y - 600) * 0.2, 1370 - (y - 600) * 0.25), y };
+  return { x: clamp(point.x, 370 + (y - 600) * 0.2, WORLD_W - 302 - (y - 600) * 0.25), y };
 };
 
 /** A self-contained, walkable safe area. It owns no Phaser, audio or saved-run state. */
@@ -68,6 +85,8 @@ export function mountGallery(options: GalleryOptions): GalleryHandle {
   let height = 1;
   let pixelRatio = 1;
   let scale = 1;
+  /** CSS pixels of the room hidden under the shortcut dock on small screens. */
+  let bottomCover = 0;
   let camera = { x: 0, y: 0 };
   let target: Point | null = null;
   let pending: Destination | null = null;
@@ -79,7 +98,8 @@ export function mountGallery(options: GalleryOptions): GalleryHandle {
   let pointerStart: Point | null = null;
   let hovered: Destination | null = null;
   let triggerTime = -1000;
-  const character: Point = { x: 835, y: 785 };
+  // Arrive in front of the mosaic, out of reach of every station, so no prompt greets the visitor.
+  const character: Point = { x: WORLD_CENTER, y: 800 };
   const keys = new Set<string>();
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   const root = document.createElement('section');
@@ -87,14 +107,13 @@ export function mountGallery(options: GalleryOptions): GalleryHandle {
   root.dataset.renderer = 'procedural-pixel-v3';
   root.setAttribute('aria-label', '万象画廊大厅');
   root.innerHTML = `
-    <div class="ag-hub-stage"><canvas class="ag-hub-canvas" tabindex="0" aria-label="可步行的万象画廊。WASD 或方向键移动，靠近画作按 F 或 Enter 进入。点击画作会自动走到入口。下方可直接前往钓鱼、厨房、居民委托和花园。"></canvas></div>
+    <div class="ag-hub-stage"><canvas class="ag-hub-canvas" tabindex="0" aria-label="可步行的万象画廊。WASD 或方向键移动，靠近画作、钓竿、铜锅或居民后按 F 或 Enter 进入。点击它们会自动走过去。"></canvas></div>
     <header class="ag-hub-header">
       <div class="ag-hub-brand"><span class="ag-hub-emblem" aria-hidden="true">✦</span><div><p class="ag-hub-eyebrow">ADONIS</p><h1 class="ag-hub-title">万象画廊</h1></div></div>
       <div class="ag-hub-profile" aria-label="画廊收藏与补给"><div class="ag-hub-resources"></div><p class="ag-hub-supply"></p></div>
     </header>
-    <aside class="ag-hub-repair" aria-label="回廊修复" hidden><div><p class="ag-hub-repair-eyebrow">回廊修复</p><p class="ag-hub-repair-name"></p><p class="ag-hub-repair-status" aria-live="polite"></p></div><button type="button" class="ag-hub-repair-button" data-action="repair">修复陈列</button></aside>
-    <div class="ag-hub-near" hidden><span class="ag-hub-near-number"></span><div><p class="ag-hub-near-title"></p><p class="ag-hub-near-copy"></p></div><button class="ag-hub-interact" type="button"><kbd>F</kbd> 进入</button></div>
-    <footer class="ag-hub-footer"><p class="ag-hub-controls"><kbd>WASD</kbd> 走动 <span>·</span> 点击画作探索</p><nav class="ag-hub-actions ag-hub-life-actions" aria-label="生活玩法快捷入口"><button type="button" class="ag-hub-action ag-hub-action-life" data-action="fishing">湖畔钓鱼</button><button type="button" class="ag-hub-action ag-hub-action-life" data-action="kitchen">回廊厨房</button><button type="button" class="ag-hub-action ag-hub-action-life" data-action="commissions">居民委托</button><button type="button" class="ag-hub-action ag-hub-action-life" data-action="garden">月桂花园</button></nav><nav class="ag-hub-actions ag-hub-journey-actions" aria-label="旅程与收藏快捷入口"><button type="button" class="ag-hub-action ag-hub-action-primary" data-action="adventure"><span aria-hidden="true">Ⅰ</span> 画中轮回</button><button type="button" class="ag-hub-action ag-hub-action-continue" data-action="continue">继续旅程</button><button type="button" class="ag-hub-action" data-action="world3d">爱琴海岸</button><button type="button" class="ag-hub-action" data-action="collection">珍藏陈列</button></nav></footer>
+    <div class="ag-hub-near" aria-live="polite" hidden><span class="ag-hub-near-number"></span><div><p class="ag-hub-near-title"></p><p class="ag-hub-near-copy"></p></div><button class="ag-hub-interact" type="button"><kbd>F</kbd> 进入</button></div>
+    <footer class="ag-hub-footer"><p class="ag-hub-controls"><span class="ag-hub-controls-keys"><kbd>WASD</kbd> 走动 <span>·</span> 靠近按 <kbd>F</kbd> <span>·</span> 点击直接走过去</span><span class="ag-hub-controls-touch">点地面走过去 <span>·</span> 下方按钮直达</span></p><nav class="ag-hub-actions ag-hub-life-actions" aria-label="生活玩法快捷入口"><button type="button" class="ag-hub-action ag-hub-action-life" data-action="fishing">湖畔钓鱼</button><button type="button" class="ag-hub-action ag-hub-action-life" data-action="kitchen">归途厨房</button><button type="button" class="ag-hub-action ag-hub-action-life" data-action="commissions">居民委托</button><button type="button" class="ag-hub-action ag-hub-action-life" data-action="garden">月桂花园</button></nav><nav class="ag-hub-actions ag-hub-journey-actions" aria-label="旅程与收藏快捷入口"><button type="button" class="ag-hub-action ag-hub-action-primary" data-action="adventure"><span aria-hidden="true">Ⅰ</span> 画中轮回</button><button type="button" class="ag-hub-action ag-hub-action-continue" data-action="continue">继续旅程</button><button type="button" class="ag-hub-action" data-action="world3d">爱琴海岸</button><button type="button" class="ag-hub-action" data-action="collection">珍藏陈列</button></nav></footer>
     <p class="ag-hub-warning" role="status" hidden></p>`;
   options.container.append(root);
   const canvas = root.querySelector<HTMLCanvasElement>('.ag-hub-canvas')!;
@@ -114,10 +133,6 @@ export function mountGallery(options: GalleryOptions): GalleryHandle {
   const supply = root.querySelector<HTMLElement>('.ag-hub-supply')!;
   const warning = root.querySelector<HTMLElement>('.ag-hub-warning')!;
   const continueButton = root.querySelector<HTMLButtonElement>('[data-action="continue"]')!;
-  const repairPanel = root.querySelector<HTMLElement>('.ag-hub-repair')!;
-  const repairName = root.querySelector<HTMLElement>('.ag-hub-repair-name')!;
-  const repairStatus = root.querySelector<HTMLElement>('.ag-hub-repair-status')!;
-  const repairButton = root.querySelector<HTMLButtonElement>('[data-action="repair"]')!;
   const abort = new AbortController();
   const listenerOptions = { signal: abort.signal };
 
@@ -150,11 +165,13 @@ export function mountGallery(options: GalleryOptions): GalleryHandle {
     if (nextAction === lastNearAction && !force) return;
     lastNearAction = nextAction;
     nearPanel.hidden = !near;
+    if (near) root.dataset.near = near.action;
+    else delete root.dataset.near;
     if (near) {
       nearNumber.textContent = near.number;
       const repair = near.action === 'repair' ? state.profile?.repair : undefined;
-      nearTitle.textContent = repair?.name ?? near.title;
-      nearCopy.textContent = repair ? repair.completed ? '陈列已修复，欢迎驻足欣赏' : repair.disabledReason ?? repair.costLabel : near.subtitle;
+      nearTitle.textContent = repair ? `${near.title} · ${repair.name}` : near.title;
+      nearCopy.textContent = repair ? repair.completed ? '陈列已修复，欢迎驻足欣赏' : repair.disabledReason ? `${repair.costLabel}（${repair.disabledReason}）` : repair.costLabel : near.subtitle;
       interact.disabled = near.action === 'repair' && repairUnavailable();
       interact.innerHTML = near.action === 'repair' ? repair?.completed ? '<kbd>F</kbd> 欣赏修复' : '<kbd>F</kbd> 查看修复' : '<kbd>F</kbd> 进入';
     }
@@ -162,6 +179,7 @@ export function mountGallery(options: GalleryOptions): GalleryHandle {
   function updateState(next: GalleryState) {
     state = next;
     continueButton.hidden = !state.hasSave;
+    root.toggleAttribute('data-has-save', state.hasSave);
     const profile = state.profile;
     resources.replaceChildren();
     const amounts: [string, number][] = [['碎片', profile?.fragments ?? 0], ['发现', profile?.discoveries ?? 0]];
@@ -178,16 +196,9 @@ export function mountGallery(options: GalleryOptions): GalleryHandle {
     warning.hidden = !profile?.warning;
     warning.textContent = profile?.warning ?? '';
     const repair = profile?.repair;
-    repairPanel.hidden = !repair;
-    repairButton.disabled = repairUnavailable();
     root.dataset.repairStatus = repair?.completed ? 'completed' : repair ? 'unrepaired' : 'unavailable';
-    if (repair) {
-      root.dataset.repairId = repair.id;
-      repairName.textContent = repair.name;
-      repairStatus.textContent = repair.completed ? '已修复 · 展架重新亮起' : repair.disabledReason ? `${repair.costLabel} · ${repair.disabledReason}` : repair.costLabel;
-      repairButton.textContent = repair.completed ? '欣赏修复' : '查看修复';
-      repairButton.setAttribute('aria-label', repair.completed ? `欣赏${repair.name}修复结果` : `查看${repair.name}修复详情，${repair.costLabel}${repair.disabledReason ? `，${repair.disabledReason}` : ''}`);
-    } else delete root.dataset.repairId;
+    if (repair) root.dataset.repairId = repair.id;
+    else delete root.dataset.repairId;
     updateNear(true);
     if (!animation && !disposed) draw();
   }
@@ -201,6 +212,8 @@ export function mountGallery(options: GalleryOptions): GalleryHandle {
     canvas.height = Math.round(height * pixelRatio);
     // Small screens explore the room with a camera instead of shrinking its contents.
     scale = Math.max(width / WORLD_W, height / WORLD_H, 0.58);
+    const dock = root.querySelector<HTMLElement>('.ag-hub-footer')!;
+    bottomCover = root.querySelector<HTMLElement>('.ag-hub-life-actions')!.offsetParent ? Math.max(0, rect.bottom - dock.getBoundingClientRect().top) : 0;
     context.imageSmoothingEnabled = false;
     moveCamera(true);
     draw();
@@ -209,8 +222,11 @@ export function mountGallery(options: GalleryOptions): GalleryHandle {
     const viewportW = width / scale;
     const viewportH = height / scale;
     const desiredX = viewportW >= WORLD_W ? (WORLD_W - viewportW) / 2 : clamp(character.x - viewportW / 2, 0, WORLD_W - viewportW);
-    // Keep the paintings ahead of the visitor visible on portrait and short displays.
-    const desiredY = viewportH >= WORLD_H ? (WORLD_H - viewportH) / 2 : clamp(character.y - viewportH * 0.79, 0, WORLD_H - viewportH);
+    // Keep the paintings ahead of the visitor visible on portrait and short displays, and let the floor
+    // scroll up past the shortcut dock so the visitor is never hidden beneath it.
+    const coverH = bottomCover / scale;
+    const maxY = WORLD_H - viewportH + coverH;
+    const desiredY = maxY <= 0 ? maxY / 2 : clamp(character.y - (viewportH - coverH) * 0.79, 0, maxY);
     const ease = immediate || reducedMotion.matches ? 1 : 0.1;
     camera.x += (desiredX - camera.x) * ease;
     camera.y += (desiredY - camera.y) * ease;
@@ -286,7 +302,7 @@ export function mountGallery(options: GalleryOptions): GalleryHandle {
   function step(now: number) {
     animation = 0;
     if (!isActive()) return;
-    const dt = lastTime ? Math.min((now - lastTime) / 1000, 0.05) : 0;
+    const dt = lastTime ? Math.max(0, Math.min((now - lastTime) / 1000, 0.05)) : 0;
     lastTime = now;
     clock += dt;
     let dx = Number(keys.has('d') || keys.has('arrowright')) - Number(keys.has('a') || keys.has('arrowleft'));
@@ -329,8 +345,10 @@ export function mountGallery(options: GalleryOptions): GalleryHandle {
 
   // Reuse the game's actual two-frame hero artwork. The gallery owns only these small canvases.
   const heroFrames = [ADONIS_A, ADONIS_B].map((frame) => Grid.ascii(frame.rows, frame.mirror).render());
-  const labels = new Map(DESTINATIONS.map((destination) => [destination.action,
-    pxText(destination.title, { color: IVORY, outline: '#181425' })]));
+  const signs = new Map(DESTINATIONS.map((destination) => [destination.action,
+    createSign(destination.sign.style, destination.title, destination.sign.mark)]));
+  const stations = createGalleryStations();
+  const residentFrames = createCommissionNpcFrames();
   // One local display, rendered once per state. The saved repair flag is its only state source.
   // Its stand sits on the central paving; neither hall artwork nor walkable bounds are changed.
   const repairDisplays = [createPixelRepairDisplay(false), createPixelRepairDisplay(true)];
@@ -340,33 +358,35 @@ export function mountGallery(options: GalleryOptions): GalleryHandle {
   function ellipse(x: number, y: number, rx: number, ry: number, fill: string) {
     context.beginPath(); context.ellipse(x, y, rx, ry, 0, 0, TAU); context.fillStyle = fill; context.fill();
   }
-  function drawLabel(destination: Destination) {
-    if (destination.action === 'repair' && !state.profile?.repair) return;
-    const selected = near === destination || hovered === destination;
-    const picture = labels.get(destination.action)!;
-    const labelScale = Math.max(1, Math.ceil(1 / scale));
-    const labelX = destination.action === 'garden' ? 290 : destination.action === 'collection' ? 1405 : destination.point.x;
-    const labelY = destination.action === 'garden' || destination.action === 'collection' ? 718 : 565;
-    const w = picture.width * labelScale;
-    const h = picture.height * labelScale;
-    const x = Math.round(labelX - w / 2), y = Math.round(labelY - h / 2);
-    context.fillStyle = selected ? '#181425ee' : '#181425c9';
-    context.fillRect(x - 10, y - 5, w + 20, h + 10);
-    context.fillStyle = selected ? GOLD : '#856b46';
-    context.fillRect(x - 10, y - 5, w + 20, 1);
-    context.fillRect(x - 10, y + h + 4, w + 20, 1);
-    context.fillRect(x - 10, y - 5, 1, h + 10);
-    context.fillRect(x + w + 9, y - 5, 1, h + 10);
-    context.drawImage(picture, x, y, w, h);
-    if (selected) {
-      const p = destination.point;
-      context.strokeStyle = '#e7bf76aa'; context.lineWidth = 2;
-      context.beginPath(); context.ellipse(p.x, p.y + 4, 26, 8, 0, 0, TAU); context.stroke();
-      for (const offset of [-1, 1]) {
-        context.fillStyle = GOLD;
-        context.fillRect(Math.round(p.x + offset * 31) - 2, Math.round(p.y), 4, 4);
-      }
+  function available(destination: Destination) {
+    return destination.action !== 'repair' || !!state.profile?.repair;
+  }
+  function isSelected(destination: Destination) {
+    return near === destination || hovered === destination;
+  }
+  function drawSign(destination: Destination) {
+    const art = signs.get(destination.action)!;
+    const lit = Number(isSelected(destination));
+    const picture = art.frames[lit];
+    const { x, y } = destination.sign;
+    context.drawImage(picture, Math.round(x - (art.ax + lit) * 2), Math.round(y - (art.ay + lit) * 2), picture.width * 2, picture.height * 2);
+  }
+  /** A ring where the visitor will stand, painted on the floor under every figure. */
+  function drawStandingRing(destination: Destination) {
+    const p = destination.point;
+    context.strokeStyle = '#e7bf76aa'; context.lineWidth = 2;
+    context.beginPath(); context.ellipse(p.x, p.y + 4, 26, 8, 0, 0, TAU); context.stroke();
+    for (const offset of [-1, 1]) {
+      context.fillStyle = GOLD;
+      context.fillRect(Math.round(p.x + offset * 31) - 2, Math.round(p.y), 4, 4);
     }
+  }
+  /** A bobbing chevron above the highlighted sign, drawn last so nothing in the room covers it. */
+  function drawSignMarker(destination: Destination) {
+    const art = signs.get(destination.action)!;
+    const { x, y } = destination.sign;
+    const bob = reducedMotion.matches ? 0 : Math.round((Math.sin(clock * 5) + 1) * 1.5) * 2;
+    drawSignChevron(context, Math.round(x + (art.cx - art.ax) * 2), Math.round(y + (art.top - art.ay) * 2) - 6 - bob, 2);
   }
   function draw() {
     context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
@@ -374,7 +394,10 @@ export function mountGallery(options: GalleryOptions): GalleryHandle {
     context.fillStyle = '#12121e'; context.fillRect(0, 0, width, height);
     context.save(); context.scale(scale, scale); context.translate(-camera.x, -camera.y);
     pixelRenderer.drawBackground(context, clock, reducedMotion.matches);
-    if (state.profile?.repair) context.drawImage(repairDisplays[Number(state.profile.repair.completed)], 763, 582);
+    const selected = DESTINATIONS.filter((destination) => available(destination) && isSelected(destination));
+    // Plates fixed to walls, frames and the stair are part of the room behind every figure.
+    for (const destination of DESTINATIONS) if (available(destination) && destination.sign.depth === undefined) drawSign(destination);
+    selected.forEach(drawStandingRing);
     if (target) {
       const pulse = reducedMotion.matches ? 0.7 : 0.55 + Math.sin(clock * 6) * 0.15;
       context.globalAlpha = pulse;
@@ -383,20 +406,39 @@ export function mountGallery(options: GalleryOptions): GalleryHandle {
       context.fillStyle = IVORY; context.fillRect(Math.round(target.x) - 2, Math.round(target.y) - 1, 4, 2);
       context.globalAlpha = 1;
     }
-    const frame = moving && !reducedMotion.matches ? Math.floor(clock * 9) % 2 : 0;
+    const still = reducedMotion.matches;
+    const frame = moving && !still ? Math.floor(clock * 9) % 2 : 0;
     const hero = heroFrames[frame];
     // Integer scaling in source pixels keeps the established sprite crisp and present at every viewport.
     const spriteScale = Math.max(2, Math.round(70 / (hero.height * scale)));
-    const spriteW = hero.width * spriteScale, spriteH = hero.height * spriteScale;
-    const px = Math.round(character.x), py = Math.round(character.y);
-    ellipse(px, py + 1, spriteW * 0.36, spriteH * 0.085, '#090a167d');
-    ellipse(px, py, spriteW * 0.25, spriteH * 0.045, '#090a16a6');
-    const bounce = moving && !reducedMotion.matches ? frame * spriteScale : 0;
-    context.save(); context.translate(px, py - bounce); context.scale(facing, 1);
-    context.drawImage(hero, -Math.round(spriteW / 2), -spriteH, spriteW, spriteH);
-    context.restore();
+    const drawFigure = (sprite: HTMLCanvasElement, x: number, y: number, face: number, lift = 0) => {
+      const spriteW = sprite.width * spriteScale, spriteH = sprite.height * spriteScale;
+      const px = Math.round(x), py = Math.round(y);
+      ellipse(px, py + 1, spriteW * 0.36, spriteH * 0.085 * 17 / sprite.height, '#090a167d');
+      ellipse(px, py, spriteW * 0.25, spriteH * 0.045 * 17 / sprite.height, '#090a16a6');
+      context.save(); context.translate(px, py - lift); context.scale(face, 1);
+      context.drawImage(sprite, -Math.round(spriteW / 2), -spriteH, spriteW, spriteH);
+      context.restore();
+    };
+    // Props and figures are painted back to front so the visitor can walk around them.
+    const greeting = near?.action === 'commissions';
+    const repair = state.profile?.repair;
+    const layers: { y: number; paint(): void }[] = [
+      ...(repair ? [{ y: REPAIR_AT.y + 152, paint: () => context.drawImage(repairDisplays[Number(repair.completed)], REPAIR_AT.x, REPAIR_AT.y) }] : []),
+      ...DESTINATIONS.filter((destination) => available(destination) && destination.sign.depth !== undefined)
+        .map((destination) => ({ y: destination.sign.depth!, paint: () => drawSign(destination) })),
+      { y: stations.fishing.baseY, paint: () => drawStation(context, stations.fishing, still ? 0 : Math.floor(clock / 0.7)) },
+      { y: stations.kitchen.baseY, paint: () => drawStation(context, stations.kitchen, still ? 0 : Math.floor(clock / 0.16)) },
+      ...RESIDENTS.map((resident, index) => ({ y: resident.y, paint: () => {
+        const frames = residentFrames[resident.id];
+        const pose = still ? 0 : resident.id === 'nereus' ? greeting ? Math.floor(clock * 3) % 2 : 0 : Math.floor(clock / 0.9 + index) % 2;
+        drawFigure(frames[pose], resident.x, resident.y, character.x < resident.x ? -1 : 1);
+      } })),
+      { y: character.y + 0.5, paint: () => drawFigure(hero, character.x, character.y, facing, moving && !still ? frame * spriteScale : 0) },
+    ];
+    layers.sort((a, b) => a.y - b.y).forEach((layer) => layer.paint());
     pixelRenderer.drawForeground(context);
-    for (const destination of DESTINATIONS) drawLabel(destination);
+    selected.forEach(drawSignMarker);
     context.restore();
   }
 
@@ -424,9 +466,12 @@ export function mountGallery(options: GalleryOptions): GalleryHandle {
       abort.abort();
       observer.disconnect();
       pixelRenderer.dispose();
+      stations.dispose();
+      Object.values(residentFrames).flat().forEach((frame) => { frame.width = frame.height = 1; });
       heroFrames.forEach((frame) => { frame.width = frame.height = 1; });
       repairDisplays.forEach((frame) => { frame.width = frame.height = 1; });
-      labels.clear();
+      signs.forEach((art) => art.frames.forEach((frame) => { frame.width = frame.height = 1; }));
+      signs.clear();
       root.remove();
       // Resetting releases the canvas backing store on mobile browsers.
       canvas.width = canvas.height = 1;

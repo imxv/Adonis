@@ -1,12 +1,14 @@
 /**
- * The gallery's fixed, code-drawn 836 × 471 floor layer.
+ * The gallery's fixed, code-drawn 1254 × 471 floor layer.
  * All marks are integer pixel clusters; this module owns no state or clock.
  */
 type FloorPoint = readonly [number, number];
 
-const FLOOR_WIDTH = 836;
+const FLOOR_WIDTH = 1254;
 const FLOOR_HEIGHT = 471;
-const HORIZON: FloorPoint = [418, 190];
+const HORIZON: FloorPoint = [627, 190];
+/** The tall left-hall window that carries the moon; its cool light falls on this axis. */
+const MOON_AXIS = 285;
 
 const STONE = ['#817d8b', '#938b94', '#aaa0a1', '#b9ada6', '#c8b8a0'];
 const SEAM = '#514a59';
@@ -83,13 +85,13 @@ export function drawPixelFloor(ctx: CanvasRenderingContext2D): void {
   ];
 
   // Broad stone colour planes are fixed bands, with a separate bevel on each tile.
-  rect(0, 269, 836, 202, '#8d8290');
+  rect(0, 269, FLOOR_WIDTH, 202, '#8d8290');
   const tileRows = [298, 309, 324, 345, 373, 413, 471];
   for (let row = 0; row < tileRows.length - 1; row += 1) {
     const top = tileRows[row];
     const bottom = tileRows[row + 1];
     const stagger = row % 2 ? 52 : 0;
-    for (let column = -7; column < 15; column += 1) {
+    for (let column = -11; column < 24; column += 1) {
       const left = column * 104 + stagger;
       const right = left + 104;
       const a = project(left, top);
@@ -121,9 +123,9 @@ export function drawPixelFloor(ctx: CanvasRenderingContext2D): void {
     }
   }
 
-  // Recessed side aisles and the two inlaid processional borders.
+  // Recessed wing aisles and the two inlaid processional borders that converge on the nave.
   polygon([[0, 299], [206, 299], [93, 471], [0, 471]], '#6c6b80');
-  polygon([[630, 299], [836, 299], [836, 471], [743, 471]], '#77717d');
+  polygon([[1048, 299], [1254, 299], [1254, 471], [1161, 471]], '#77717d');
   const borderLane = (left: number, right: number): void => {
     polygon([project(left - 5, 299), project(right + 5, 299), project(right + 5, 471), project(left - 5, 471)], GOLD_DARK);
     polygon([project(left, 299), project(right, 299), project(right, 471), project(left, 471)], '#c6a46b');
@@ -146,14 +148,14 @@ export function drawPixelFloor(ctx: CanvasRenderingContext2D): void {
       for (let n = 1; n < path.length; n += 1) line(path[n - 1], path[n], i < 3 ? GOLD : GOLD_LIGHT);
     }
   };
-  borderLane(130, 165);
-  borderLane(671, 706);
+  borderLane(404, 436);
+  borderLane(818, 850);
 
-  // A transverse runner joins both aisles behind the central medallion.
-  polygon([project(126, 338), project(710, 338), project(710, 346), project(126, 346)], GOLD_DARK);
-  polygon([project(133, 339), project(703, 339), project(703, 344), project(133, 344)], '#b99967');
-  line(project(133, 340), project(703, 340), '#e0c58e');
-  for (let x = 150; x < 700; x += 28) {
+  // A transverse runner crosses the whole hall behind the central medallion.
+  polygon([project(-560, 338), project(1814, 338), project(1814, 346), project(-560, 346)], GOLD_DARK);
+  polygon([project(-553, 339), project(1807, 339), project(1807, 344), project(-553, 344)], '#b99967');
+  line(project(-553, 340), project(1807, 340), '#e0c58e');
+  for (let x = -540; x < 1800; x += 28) {
     line(project(x, 341), project(x + 16, 341), '#3f4f63');
     line(project(x + 16, 341), project(x + 16, 344), '#3f4f63');
   }
@@ -174,12 +176,11 @@ export function drawPixelFloor(ctx: CanvasRenderingContext2D): void {
       rect(left + 3 + (i % 2), y + 1, Math.max(3, Math.floor(width * 0.43)), i < 3 ? 2 : 1, '#e0bf83');
     }
   };
-  warmReflection(174, 1);
-  warmReflection(325, 2);
-  warmReflection(510, 3);
-  warmReflection(663, 4);
-  // The central window leaves a cool axis across the warm stone. It stays
-  // inside x390..446 and uses individual, joint-separated planes, not a gradient.
+  for (const [i, x] of [186, 384, 456, 798, 887, 1051].entries()) warmReflection(x, i + 1);
+  // The moon window leaves a cool axis across the warm stone. It uses
+  // individual, joint-separated planes, not a gradient.
+  ctx.save();
+  ctx.translate(MOON_AXIS - 418, 0);
   polygon([[409, 298], [425, 298], [428, 310], [406, 310]], '#91a6b5');
   polygon([[405, 312], [430, 312], [433, 323], [402, 323]], '#9aafbc');
   polygon([[401, 326], [433, 326], [437, 338], [398, 338]], '#8da5b8');
@@ -195,9 +196,10 @@ export function drawPixelFloor(ctx: CanvasRenderingContext2D): void {
     rect(418 - width / 2 + offset, y, width, height, i % 3 === 0 ? '#bdc8cb' : '#a5b5bf');
     rect(418 + width / 2 + offset + 4, y + 1, 4 + i % 4, 1, '#9eabb8');
   }
+  ctx.restore();
 
   // Elliptical mosaic: tessellated border, a laurel wreath, and sixteen-point wind rose.
-  const cx = 418;
+  const cx = 627;
   const cy = 399;
   const rx = 180;
   const ry = 52;
@@ -291,16 +293,24 @@ export function drawPixelFloor(ctx: CanvasRenderingContext2D): void {
     line(polar(a, 0.58), polar(a, 0.61), '#777e80');
     line(polar(a, 0.88), polar(a, 0.895), '#e0c894');
   }
-  rect(394, 435, 17, 1, '#c7cbc7');
-  rect(422, 440, 23, 1, '#b5c4ca');
-  rect(409, 446, 13, 1, '#dbd6bf');
-  // A handful of cool tesserae pick up the same window light on the medallion.
-  rect(404, 351, 9, 1, '#b8c9d1');
-  rect(418, 353, 7, 1, '#b8c9d1');
-  rect(410, 359, 7, 2, '#b2c5d0');
-  rect(424, 365, 6, 1, '#b8c9d1');
-  rect(402, 370, 8, 1, '#9cb7c8');
-  rect(415, 374, 7, 1, '#a5bfcc');
+  rect(cx - 24, 435, 17, 1, '#c7cbc7');
+  rect(cx + 4, 440, 23, 1, '#b5c4ca');
+  rect(cx - 9, 446, 13, 1, '#dbd6bf');
+
+  // A crimson runner leads from the medallion straight up to the main painting.
+  const runner = (half: number, top: number, bottom: number, color: string): void =>
+    polygon([project(cx - half, top), project(cx + half, top), project(cx + half, bottom), project(cx - half, bottom)], color);
+  runner(86, 299, 349, GOLD_DARK);
+  runner(82, 299, 347, '#d5a75c');
+  runner(78, 299, 346, '#5f1a2b');
+  runner(74, 299, 345, '#8f2639');
+  runner(54, 299, 345, '#7a2034');
+  for (const y of [304, 316, 330]) {
+    const [x] = project(cx, y);
+    polygon([[x, y - 3], [x + 6, y], [x, y + 3], [x - 6, y]], '#c49343');
+    polygon([[x, y - 1], [x + 3, y], [x, y + 1], [x - 3, y]], '#ffe6a2');
+  }
+  for (const side of [-1, 1]) line(project(cx + side * 79, 299), project(cx + side * 79, 346), '#ffe6a2');
 
   // Two broad, shallow stair flights. Upper tread, riser, lip, and contact shadow
   // remain distinct at one internal pixel and do not need an antialiased stroke.
@@ -317,34 +327,47 @@ export function drawPixelFloor(ctx: CanvasRenderingContext2D): void {
     }
   };
   rect(0, 269, 836, 3, '#514a59');
-  stair(118, 718, 269, 13, 6);
-  stair(103, 733, 282, 15, 9);
+  stair(118, 1136, 269, 13, 6);
+  stair(103, 1151, 282, 15, 9);
+  // The nave stair takes one more, projecting step towards the visitor.
+  stair(452, 802, 296, 12, 8);
   // Slightly taller side plinths support the columns and conceal their rear edge.
   polygon([[0, 270], [115, 270], [98, 297], [0, 303]], '#6f6879');
-  polygon([[721, 270], [836, 270], [836, 303], [738, 297]], '#736b7a');
+  polygon([[1139, 270], [1254, 270], [1254, 303], [1156, 297]], '#736b7a');
   line([0, 274], [112, 274], '#afa291');
-  line([724, 274], [835, 274], '#b9aa94');
+  line([1142, 274], [1253, 274], '#b9aa94');
   line([98, 297], [0, 303], '#383d54', 2);
-  line([738, 297], [835, 303], '#383d54', 2);
+  line([1156, 297], [1253, 303], '#383d54', 2);
   // Each column presses a short, hard-edged contact shadow into both treads.
-  for (const x of [150, 344, 492, 680]) {
+  for (const x of [150, 420, 834, 1104]) {
     polygon([[x - 13, 280], [x + 12, 280], [x + 17, 283], [x - 17, 283]], '#34394f');
     rect(x - 12, 283, 24, 3, '#48465a');
     polygon([[x - 12, 286], [x + 12, 286], [x + 17, 289], [x - 16, 289]], '#60596a');
   }
-  rect(115, 281, 606, 1, '#3c3e53');
-  rect(94, 297, 648, 2, '#3c3e53');
-  // Thin reflections in the treads line up with the flame columns and moon.
-  for (const x of [174, 325, 510, 663]) {
+  rect(115, 281, 1024, 1, '#3c3e53');
+  rect(94, 297, 358, 2, '#3c3e53');
+  rect(802, 297, 358, 2, '#3c3e53');
+  // Thin reflections in the treads line up with the flames and the moon.
+  for (const x of [186, 384, 887, 1051]) {
     rect(x - 2, 271, 4, 1, '#ddbe87');
     rect(x - 3, 284, 7, 1, '#d0b485');
     rect(x - 4, 290, 8, 2, '#b69d7b');
     rect(x - 5, 293, 11, 3, '#c6aa78');
     rect(x - 2, 293, 4, 1, '#e0bf83');
   }
-  rect(411, 271, 14, 1, '#d4cfc4');
-  rect(407, 284, 22, 1, '#c1c2be');
-  rect(401, 295, 34, 1, '#bdc1c1');
+  rect(MOON_AXIS - 7, 271, 14, 1, '#d4cfc4');
+  rect(MOON_AXIS - 11, 284, 22, 1, '#c1c2be');
+  rect(MOON_AXIS - 17, 295, 34, 1, '#bdc1c1');
+  // The runner continues up every tread and riser of the nave stair.
+  for (const [y, height] of [[269, 13], [282, 15], [296, 12]]) {
+    rect(cx - 31, y, 62, height - 1, '#5f1a2b');
+    rect(cx - 29, y, 58, 4, '#a3304a');
+    rect(cx - 29, y + 4, 58, height - 6, '#7a2034');
+    rect(cx - 29, y + 4, 58, 1, '#c24a5a');
+    rect(cx - 30, y, 1, height - 1, '#d5a75c');
+    rect(cx + 29, y, 1, height - 1, '#d5a75c');
+    rect(cx - 6, y + 1, 12, 1, '#ffe6a2');
+  }
 
   ctx.restore();
 }

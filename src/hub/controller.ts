@@ -4,6 +4,7 @@ import type { LifeCost, MetaProfile, ProfileState } from '../meta/life';
 import type { PlantId } from '../meta/profile';
 import { loadRun, topSupplyScores } from '../save';
 import { mountGallery, type GalleryAction, type GalleryHandle } from './gallery';
+import { createPixelRepairDisplay } from './gallery-pixel-renderer';
 import './controller.css';
 import '../ui/visualTheme.css';
 
@@ -11,7 +12,7 @@ type Disposable = { dispose(): void; pause?(paused: boolean): void; resize?(): v
 type ExternalMode = 'garden' | 'fishing' | 'kitchen' | 'commissions' | 'world3d';
 type HubMode = 'gallery' | 'adventure-menu' | 'run' | 'loading' | ExternalMode | 'collection' | 'repair' | 'disposed';
 const EXTERNAL_NAMES: Record<ExternalMode, string> = {
-  garden: '月桂花园', fishing: '港湾钓鱼', kitchen: '归途厨房', commissions: '旅人委托', world3d: '爱琴海岸',
+  garden: '月桂花园', fishing: '苇影湖', kitchen: '归途厨房', commissions: '居民庭院', world3d: '爱琴海岸',
 };
 const restorationId = RESTORATION_IDS[0];
 
@@ -148,12 +149,13 @@ export class HubController {
     else void this.openExternal(action);
   }
 
-  private externalPage(mode: HubMode) {
+  /** `overHall` keeps the paused hall visible, dimmed, behind the hub's own pages. */
+  private externalPage(mode: HubMode, overHall = false) {
     this.releaseExternal();
     this.clearNotice();
     this.options.suspendGame();
     this.gallery.pause(true);
-    this.galleryHost.hidden = true;
+    this.galleryHost.hidden = !overHall;
     this.externalHost.hidden = false;
     this.externalHost.replaceChildren();
     this.setMode(mode);
@@ -167,6 +169,8 @@ export class HubController {
     const current = () => this.generation === token && this.mode !== 'disposed';
     const loading = document.createElement('div');
     loading.className = 'ag-mode-message';
+    const plate = document.createElement('div');
+    plate.className = 'ag-mode-panel';
     const heading = document.createElement('h2');
     heading.textContent = `走进${EXTERNAL_NAMES[kind]}`;
     const detail = document.createElement('p');
@@ -175,7 +179,8 @@ export class HubController {
     back.type = 'button';
     back.textContent = '返回画廊';
     back.addEventListener('click', () => { if (current()) this.show(); });
-    loading.append(heading, detail, back);
+    plate.append(heading, detail, back);
+    loading.append(plate);
     this.externalHost.append(loading);
     back.focus({ preventScroll: true });
     const container = document.createElement('div');
@@ -239,24 +244,28 @@ export class HubController {
   }
 
   private restoration() {
-    const token = this.externalPage('repair');
+    const token = this.externalPage('repair', true);
     const current = () => this.generation === token && this.mode === 'repair';
     const events = new AbortController();
     const definition = RESTORATIONS[restorationId];
     const page = document.createElement('section');
-    page.className = 'ag-restoration';
+    page.className = 'ag-mode-panel ag-restoration';
     page.setAttribute('aria-label', '画廊修复');
+    const eyebrow = document.createElement('p'); eyebrow.className = 'ag-mode-eyebrow'; eyebrow.textContent = 'RESTORATION';
     const heading = document.createElement('h1'); heading.textContent = definition.name;
     const description = document.createElement('p'); description.textContent = definition.description;
+    // The same pixel display that stands in the hall, so the page shows exactly what the repair changes.
     const artwork = document.createElement('div'); artwork.className = 'ag-restoration-art';
     artwork.setAttribute('role', 'img');
-    artwork.innerHTML = '<span class="ag-mosaic-sun"></span><span class="ag-mosaic-sail"></span><span class="ag-mosaic-sea"></span><span class="ag-mosaic-cover"></span>';
+    let artworkRestored: boolean | undefined;
+    const body = document.createElement('div'); body.className = 'ag-restoration-body';
+    const info = document.createElement('div'); info.className = 'ag-restoration-info';
     const status = document.createElement('p'); status.setAttribute('role', 'status');
     const list = document.createElement('ul'); list.className = 'ag-restoration-materials';
     const warning = document.createElement('p'); warning.className = 'ag-restoration-warning'; warning.setAttribute('role', 'status');
     const feedback = document.createElement('p'); feedback.className = 'ag-restoration-feedback'; feedback.setAttribute('role', 'status');
-    const actions = document.createElement('div'); actions.className = 'ag-restoration-actions';
-    const repair = document.createElement('button'); repair.type = 'button';
+    const actions = document.createElement('div'); actions.className = 'ag-mode-actions';
+    const repair = document.createElement('button'); repair.type = 'button'; repair.className = 'is-primary';
     const garden = document.createElement('button'); garden.type = 'button'; garden.textContent = '去花园备料';
     const commissions = document.createElement('button'); commissions.type = 'button'; commissions.textContent = '去看看委托';
     const back = document.createElement('button'); back.type = 'button'; back.textContent = '返回画廊';
@@ -266,6 +275,10 @@ export class HubController {
       const state = loadProfile(), profile = state.profile;
       const completed = profile.life.restored.includes(restorationId);
       const failure = getRestorationFailure(profile, restorationId);
+      if (artworkRestored !== completed) {
+        artworkRestored = completed;
+        artwork.replaceChildren(createPixelRepairDisplay(completed));
+      }
       artwork.classList.toggle('is-restored', completed);
       artwork.setAttribute('aria-label', completed ? '已修复：金色日光、帆船与蓝色海港镶嵌画' : '待修复：布罩下缺损的海港镶嵌画');
       status.textContent = completed ? '海港的画面已经回到大厅，修复不会重复扣料。' : '备齐材料，拼回这幅归航的画面。修复不会增加永久战力。';
@@ -273,6 +286,7 @@ export class HubController {
       for (const item of costItems(profile, definition.cost)) {
         const row = document.createElement('li');
         row.textContent = `${item.name}：现有 ${item.owned} · 修复需要 ${item.need}${!completed && item.owned < item.need ? ` · 还缺 ${item.need - item.owned}` : ''}`;
+        row.classList.toggle('is-missing', !completed && item.owned < item.need);
         list.append(row);
       }
       repair.textContent = completed ? '已经修复' : failure === 'insufficient' ? '材料还未备齐' : '消耗材料并修复';
@@ -294,7 +308,9 @@ export class HubController {
     commissions.addEventListener('click', () => { if (current()) void this.openExternal('commissions'); }, { signal: events.signal });
     back.addEventListener('click', () => { if (current()) this.show(); }, { signal: events.signal });
     actions.append(repair, garden, commissions, back);
-    page.append(heading, description, artwork, status, list, warning, feedback, actions);
+    info.append(status, list, warning, feedback);
+    body.append(artwork, info);
+    page.append(eyebrow, heading, description, body, actions);
     this.externalHost.append(page);
     this.refreshPage = render;
     this.external = { dispose: () => { events.abort(); page.remove(); } };
@@ -303,11 +319,14 @@ export class HubController {
   }
 
   private collection() {
-    this.externalPage('collection');
+    this.externalPage('collection', true);
     const state = loadProfile();
     const page = document.createElement('section');
-    page.className = 'ag-collection';
+    page.className = 'ag-mode-panel ag-collection';
     page.setAttribute('aria-label', '画廊收藏');
+    const eyebrow = document.createElement('p');
+    eyebrow.className = 'ag-mode-eyebrow';
+    eyebrow.textContent = 'COLLECTION';
     const heading = document.createElement('h1');
     heading.textContent = '旅人的收藏室';
     const intro = document.createElement('p');
@@ -330,16 +349,19 @@ export class HubController {
     });
     if (!state.profile.discoveries.length) {
       const empty = document.createElement('p');
+      empty.className = 'ag-collection-empty';
       empty.textContent = '走进爱琴海岸的画作，发现将成为这里的第一件收藏。';
       list.append(empty);
     }
     const scores = topSupplyScores();
     if (scores.length) {
       const heading = document.createElement('h2');
+      heading.className = 'ag-collection-section';
       heading.textContent = '携补给冒险 · 本机记录';
       list.append(heading);
       scores.slice(0, 5).forEach((score, index) => {
         const row = document.createElement('p');
+        row.className = 'ag-collection-score';
         row.textContent = `${index + 1}. ${score.score} 分 · 第 ${score.floor} 层 · ${score.supply?.name ?? '花园补给'}`;
         list.append(row);
       });
@@ -354,9 +376,12 @@ export class HubController {
     back.textContent = '返回画廊';
     back.type = 'button';
     back.addEventListener('click', () => this.show());
-    const restore = document.createElement('button'); restore.type = 'button'; restore.textContent = `查看${RESTORATIONS[restorationId].name}`;
+    const restore = document.createElement('button'); restore.type = 'button'; restore.className = 'is-primary';
+    restore.textContent = `查看${RESTORATIONS[restorationId].name}`;
     restore.addEventListener('click', () => this.restoration());
-    page.append(heading, intro, list, restore, back);
+    const actions = document.createElement('div'); actions.className = 'ag-mode-actions';
+    actions.append(restore, back);
+    page.append(eyebrow, heading, intro, list, actions);
     this.externalHost.append(page);
     back.focus({ preventScroll: true });
   }

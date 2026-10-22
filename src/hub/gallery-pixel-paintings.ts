@@ -1,5 +1,5 @@
 /**
- * The two gallery thresholds, painted at the hall's native 836 × 471 resolution.
+ * The two gallery thresholds, painted at the hall's native source resolution.
  * All marks are integer pixel clusters; no source image is loaded at runtime.
  * Draw once into the static rear layer, before furniture and the live character.
  */
@@ -99,17 +99,33 @@ function cloud(ctx: CanvasRenderingContext2D, x: number, y: number, width: numbe
   rect(ctx, x + 1, y + 7, width - 2, 2, '#d2e1da');
 }
 
-/** Local coordinates are constrained to the 112 × 175 opening by a rectangle clip. */
+/**
+ * The scene is composed for a 112 × 180 opening. A wider or taller canvas keeps that core
+ * centred on its lower edge and fills the flanks with more hills, ruins and cypresses.
+ */
 function redMoonLandscape(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number): void {
   ctx.save();
   ctx.beginPath(); ctx.rect(x, y, width, height); ctx.clip();
   const local = (px: number, py: number, w: number, h: number, color: string): void => rect(ctx, x + px, y + py, w, h, color);
   const shape = (points: readonly PixelPoint[], color: string): void => poly(ctx, points.map(p => [p[0] + x, p[1] + y]), color);
+  const ox = Math.max(0, Math.round((width - 112) / 2)), oy = Math.max(0, height - 180);
   local(0, 0, width, height, '#271b36');
-  local(0, 20, width, 28, '#45213e');
-  local(0, 48, width, 25, '#67263f');
-  local(0, 73, width, 25, '#4c2940');
-  local(0, 98, width, height - 98, '#242534');
+  local(0, 20 + oy, width, 28, '#45213e');
+  local(0, 48 + oy, width, 25, '#67263f');
+  local(0, 73 + oy, width, 25, '#4c2940');
+  local(0, 98 + oy, width, height - 98 - oy, '#242534');
+  for (let i = 0; i < Math.round(width * height / 900); i++) {
+    const px = hash(i * 7 + 3) % width, py = hash(i * 7 + 5) % (60 + oy);
+    if (px < ox || px > ox + 112) local(px, py, i % 5 === 0 ? 2 : 1, 1, '#aa5c68');
+  }
+  x += ox; y += oy; width = 112; height -= oy;
+  const right = 112 + ox;
+  if (ox) {
+    shape([[-ox, 76], [-ox + 13, 64], [-ox + 25, 70], [-8, 80], [0, 88], [0, 140], [-ox, 140]], '#382a3d');
+    shape([[112, 82], [120, 72], [133, 62], [right - 10, 74], [right, 70], [right, 140], [112, 140]], '#382a3d');
+    shape([[-ox, 100], [-ox + 16, 92], [-12, 98], [0, 106], [0, height], [-ox, height]], '#33323f');
+    shape([[112, 104], [124, 94], [138, 99], [right, 90], [right, height], [112, height]], '#33323f');
+  }
   oval(ctx, x + 52, y + 35, 24, 24, '#763044');
   oval(ctx, x + 52, y + 35, 21, 21, '#b63647');
   oval(ctx, x + 52, y + 35, 18, 19, '#db424c');
@@ -174,7 +190,98 @@ function redMoonLandscape(ctx: CanvasRenderingContext2D, x: number, y: number, w
   // Two tiny amber votives make the stair's depth readable against cool stone.
   local(27, 128, 3, 4, '#6e3734'); local(28, 125, 1, 4, '#ffc47c');
   local(44, 136, 2, 3, '#f6a365'); local(44, 139, 3, 1, '#5f4147');
+  if (ox) {
+    // Broken colonnades on both flanks echo the hilltop temple.
+    for (const [px, top] of [[-30, 110], [-19, 121], [123, 106], [134, 118], [145, 128]] as const) {
+      local(px, top, 5, 150 - top, '#55424e');
+      local(px, top, 1, 150 - top, '#986064');
+      local(px + 4, top, 1, 150 - top, '#302e3f');
+      local(px - 1, top - 2, 7, 2, '#85606a');
+    }
+    local(-36, 148, 26, 3, '#6f5760'); local(118, 148, 34, 3, '#6f5760');
+    cypress(ctx, x - 22, y + 166, 118, '#0e1a28');
+    cypress(ctx, x - 9, y + 150, 74, '#182333');
+    cypress(ctx, x + 112 + 24, y + 164, 122, '#101b28');
+    cypress(ctx, x + 112 + 10, y + 146, 66, '#1e2833');
+    for (const [px, py, radius] of [[-24, 172, 17], [-7, 180, 12], [-34, 160, 9], [134, 174, 18], [118, 181, 11], [146, 160, 9]] as const) {
+      shrub(ctx, x + px, y + py, radius, false, true);
+    }
+    local(-15, 158, 3, 4, '#6e3734'); local(-14, 155, 1, 4, '#ffc47c');
+    local(126, 154, 3, 4, '#6e3734'); local(127, 151, 1, 4, '#ffc47c');
+  }
   ctx.restore();
+}
+
+/** Arch-topped span fill: semicircle over straight sides. */
+function archFill(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, color: string): void {
+  const rx = width / 2, crown = y + rx;
+  for (let row = Math.floor(y); row < y + height; row++) {
+    const half = row < crown ? Math.floor(rx * Math.sqrt(Math.max(0, 1 - ((row - crown) / rx) ** 2))) : Math.floor(rx);
+    if (half > 0) rect(ctx, Math.ceil(x + rx - half), row, half * 2, 1, color);
+  }
+}
+
+/** The opening of the main painting; it is the gallery's entrance to the run. */
+const PORTAL = { x: 532, y: 52, width: 190, height: 206 } as const;
+
+function portalPainting(ctx: CanvasRenderingContext2D): void {
+  const { x, y, width, height } = PORTAL;
+  const band = (inset: number, color: string, dx = 0, dy = 0): void =>
+    archFill(ctx, x - inset + dx, y - inset + dy, width + inset * 2, height + inset + Math.round(inset * .7), color);
+  band(17, '#171a28', 3, 3);
+  band(16, GOLD.dark);
+  band(15, GOLD.shine);
+  band(14, GOLD.bronze, 1, 1);
+  band(12, GOLD.light);
+  band(11, GOLD.mid, 1, 1);
+  band(8, GOLD.shade);
+  band(7, GOLD.light, 1, 1);
+  band(6, GOLD.bronze);
+  band(4, GOLD.inset);
+  // Rosettes ride the frame's broad band; beading runs along the inner lip.
+  const cx = x + width / 2, cy = y + width / 2;
+  for (let i = 0; i <= 12; i++) {
+    const a = Math.PI + i / 12 * Math.PI;
+    const px = cx + Math.cos(a) * (width / 2 + 10), py = cy + Math.sin(a) * (width / 2 + 10);
+    rect(ctx, px - 1, py - 1, 3, 3, GOLD.shine); rect(ctx, px, py, 1, 1, GOLD.dark);
+  }
+  for (let i = 0; i <= 40; i++) {
+    const a = Math.PI + i / 40 * Math.PI;
+    if (i % 2 === 0) rect(ctx, cx + Math.cos(a) * (width / 2 + 5), cy + Math.sin(a) * (width / 2 + 5), 1, 1, GOLD.shine);
+  }
+  for (const px of [x - 11, x + width + 9]) {
+    for (let py = cy + 8; py < y + height; py += 12) {
+      rect(ctx, px, py, 3, 3, GOLD.shine); rect(ctx, px + 1, py + 1, 1, 1, GOLD.dark);
+    }
+    rect(ctx, px - 5, cy - 3, 11, 5, GOLD.dark); rect(ctx, px - 4, cy - 3, 9, 2, GOLD.light);
+  }
+  // A crest with the red moon caps the arch.
+  laurel(ctx, cx - 17, y - 16, -1); laurel(ctx, cx + 17, y - 16, 1);
+  oval(ctx, cx, y - 22, 17, 16, GOLD.dark);
+  oval(ctx, cx, y - 23, 15, 14, GOLD.light);
+  oval(ctx, cx, y - 23, 13, 12, '#2a1830');
+  oval(ctx, cx, y - 23, 8, 8, '#b63647');
+  oval(ctx, cx - 1, y - 24, 6, 6, '#e94e51');
+  rect(ctx, cx - 4, y - 28, 2, 2, '#f37a67');
+  for (let i = 0; i < 12; i++) {
+    const a = i * Math.PI / 6;
+    line(ctx, cx + Math.cos(a) * 10, y - 23 + Math.sin(a) * 10, cx + Math.cos(a) * 12, y - 23 + Math.sin(a) * 12, GOLD.mid);
+  }
+  poly(ctx, [[cx - 4, y - 8], [cx, y - 3], [cx + 4, y - 8]], GOLD.light);
+  // The scene is painted once, then copied in whole-pixel spans clipped to the arch.
+  const art = document.createElement('canvas'); art.width = width; art.height = height;
+  const a = art.getContext('2d')!; a.imageSmoothingEnabled = false;
+  redMoonLandscape(a, 0, 0, width, height);
+  const rx = width / 2;
+  for (let row = 0; row < height; row++) {
+    const half = row < rx ? Math.floor(rx * Math.sqrt(Math.max(0, 1 - ((row - rx) / rx) ** 2))) : rx;
+    const left = Math.ceil(rx - half), span = half * 2;
+    if (span <= 0) continue;
+    ctx.drawImage(art, left, row, span, 1, x + left, y + row, span, 1);
+    rect(ctx, x + left, y + row, 1, 1, '#2a1424');
+    rect(ctx, x + left + span - 1, y + row, 1, 1, '#2a1424');
+  }
+  art.width = art.height = 1;
 }
 
 function aegeanLandscape(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number): void {
@@ -325,9 +432,8 @@ export function drawPixelPaintings(ctx: CanvasRenderingContext2D): void {
   ctx.save();
   ctx.imageSmoothingEnabled = false;
   // The bevel's solid backing is behind the clipped openings, never over the art.
-  goldFrame(ctx, 188, 62, 137, 207, false);
-  goldFrame(ctx, 512, 58, 139, 211, true);
-  redMoonLandscape(ctx, 200, 74, 110, 180);
-  aegeanLandscape(ctx, 524, 70, 112, 184);
+  portalPainting(ctx);
+  goldFrame(ctx, 900, 58, 139, 211, true);
+  aegeanLandscape(ctx, 912, 70, 112, 184);
   ctx.restore();
 }

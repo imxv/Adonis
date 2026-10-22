@@ -1,4 +1,8 @@
-/** Static side-room furnishings. All coordinates belong to the 836 × 471 pixel scene. */
+/**
+ * Static side-room furnishings in source pixels. The right wing is authored as if the room
+ * ended at x = 836 and shifted to the far wall of the wider hall.
+ */
+const RIGHT_WING = 418;
 const P = {
   ink: '#101c35', midnight: '#17263d', blue: '#243858',
   stoneDark: '#514a59', stone: '#8d8290', stoneLight: '#c8b8a0', ivory: '#e8d8b7',
@@ -421,6 +425,12 @@ export function drawPixelDecorBack(ctx: CanvasRenderingContext2D): void {
   candle(ctx, 151, 286, 25);
   shrub(ctx, 10, 322, 22, 47, 0);
   shrub(ctx, 173, 340, 14, 23, 5, true);
+  // Laurel planters frame the foot of the nave stair.
+  for (const [x, flip] of [[438, true], [816, false]] as const) {
+    terracotta(ctx, x, 318, 18, 26, true);
+    shrub(ctx, x, 293, 19, 34, x % 5, flip);
+  }
+  ctx.translate(RIGHT_WING, 0);
   cabinet(ctx);
   terracotta(ctx, 709, 350, 14, 23);
   shrub(ctx, 707, 330, 17, 31, 4, true);
@@ -464,6 +474,7 @@ export function drawPixelDecorFront(ctx: CanvasRenderingContext2D): void {
   shrub(ctx, 73, 480, 35, 32, 2);
   for (const [x, y] of [[95, 399], [116, 420], [148, 426], [171, 448], [36, 457]]) flower(ctx, x, y);
   // Right foreground pier mirrors the visual weight without covering the walkway.
+  ctx.translate(RIGHT_WING, 0);
   polygon(ctx, '#192237', [[836, 355], [812, 360], [787, 380], [753, 394], [722, 416], [704, 447], [700, 471], [836, 471]]);
   polygon(ctx, '#65616f', [[836, 365], [812, 368], [786, 389], [751, 404], [720, 426], [711, 471], [836, 471]]);
   const rightTops: readonly [number, number, number, number][] = [[809, 359, 27, 13], [781, 377, 32, 13], [748, 392, 36, 14], [717, 412, 35, 14], [702, 438, 23, 14]];
