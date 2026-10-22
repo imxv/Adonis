@@ -2,11 +2,26 @@ import * as Tone from 'tone';
 import type { StyleKit } from '../styles/types';
 import type { Delivery } from '../data/weapons';
 import type { SpawnStyle } from '../data/enemies';
+import { createBattleMusic } from './battleMusic';
 
 /* Soft, modern synthesis only: sine / triangle / FM / filtered noise.
    No square waves, no 8-bit arpeggios. Everything goes through a compressor and limiter. */
 
 type AnyInst = { dispose(): void };
+
+/** A floor's music: the calm layer for walking about and the fight layer for locked rooms, crossfaded on one transport. */
+interface LevelLayers {
+  calm: Tone.Gain;
+  battle: Tone.Gain;
+  calmLive: boolean;
+  battleLive: boolean;
+  timer: number;
+}
+
+/** Moments in the side games and the hall, which have no game scene of their own. */
+export type LifeSound = 'plant' | 'harvest' | 'craft' | 'cook' | 'pack' | 'deliver' | 'restore' | 'discover' | 'portal' | 'error';
+/** The fishing round, cue by cue. */
+export type FishSound = 'cast' | 'nibble' | 'bite' | 'hook' | 'reel' | 'surge' | 'catch' | 'escape';
 
 class AudioEngine {
   ready = false;
@@ -72,7 +87,24 @@ class AudioEngine {
   private fuseFilter!: Tone.Filter;
   /** The music bus's low-pass: wide open, closed down while time slows. */
   private musicLP!: Tone.Filter;
+  /** A second low-pass and gain on the music, for the pause page; kept apart so bullet time can't undo it. */
+  private pauseLP!: Tone.Filter;
+  private musicDuck!: Tone.Gain;
   private fuseBell!: Tone.PolySynth;
+  /** Struck metal: gates, dropped guns, slides and latches. */
+  private metal!: Tone.FMSynth;
+  /** A soft falling blip for monster shots and a rising one for their wind-ups, kept off the player's own voices. */
+  private chirp!: Tone.Synth;
+  /** Glass and ice breaking. */
+  private shard!: Tone.NoiseSynth;
+  private shardFilter!: Tone.Filter;
+  /** The XP gem's tick: short enough that a stream of gems never runs out of voices. */
+  private tink!: Tone.PolySynth;
+  /** Menu clicks: a tiny tick of noise and a note in the key. */
+  private uiTick!: Tone.NoiseSynth;
+  private uiTone!: Tone.PolySynth;
+  /** When a menu last made a sound of its own, so the page-wide click doesn't double it. */
+  private uiAt = -1;
 
   private kit?: StyleKit;
   /** Bus gains; the settings' 0-10 sliders map onto these (defaults 7 and 8 give the original mix). */
@@ -82,6 +114,9 @@ class AudioEngine {
   private intensity = 0;
   private scaleMidi: number[] = [];
   private bar = 0;
+  private layers?: LevelLayers;
+  /** Bumped whenever different music starts, so a delayed hand-over can tell it has been overtaken. */
+  private musicGen = 0;
   /** The title screen wants its theme; it starts as soon as the first touch unlocks audio. */
   private homeWanted = false;
   private home?: { gain: Tone.Gain; nodes: AnyInst[] };
@@ -118,7 +153,9 @@ class AudioEngine {
     this.sfx = new Tone.Gain(this.vol.sfx).connect(master);
     this.sfx.connect(verbSend);
     this.musicLP = new Tone.Filter({ frequency: 18000, type: 'lowpass', rolloff: -12 }).connect(master);
-    this.music = new Tone.Gain(this.vol.music).connect(this.musicLP);
+    this.pauseLP = new Tone.Filter({ frequency: 18000, type: 'lowpass', rolloff: -12 }).connect(this.musicLP);
+    this.musicDuck = new Tone.Gain(1).connect(this.pauseLP);
+    this.music = new Tone.Gain(this.vol.music).connect(this.musicDuck);
     this.music.connect(verbSend);
 
     this.pop = new Tone.MembraneSynth({ pitchDecay: 0.018, octaves: 2.5, envelope: { attack: 0.001, decay: 0.07, sustain: 0, release: 0.03 } }).connect(this.sfx);
@@ -194,13 +231,51 @@ class AudioEngine {
     } as any).connect(this.sfx);
     this.fuseBell.volume.value = -13;
 
+    this.metal = new Tone.FMSynth({
+      harmonicity: 3.7,
+      modulationIndex: 18,
+      oscillator: { type: 'sine' },
+      modulation: { type: 'sine' },
+      envelope: { attack: 0.001, decay: 0.3, sustain: 0, release: 0.2 },
+      modulationEnvelope: { attack: 0.001, decay: 0.14, sustain: 0, release: 0.1 },
+    } as any).connect(this.sfx);
+    this.metal.volume.value = -17;
+    this.chirp = new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.002, decay: 0.09, sustain: 0, release: 0.03 } }).connect(this.hitFilter);
+    this.chirp.volume.value = -21;
+    this.shardFilter = new Tone.Filter({ frequency: 5200, type: 'highpass', rolloff: -12 }).connect(this.sfx);
+    this.shard = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.22, sustain: 0, release: 0.08 } }).connect(this.shardFilter);
+    this.shard.volume.value = -15;
+    this.tink = new Tone.PolySynth({
+      voice: Tone.FMSynth,
+      maxPolyphony: 6,
+      options: {
+        harmonicity: 4.01,
+        modulationIndex: 3,
+        oscillator: { type: 'sine' },
+        modulation: { type: 'sine' },
+        envelope: { attack: 0.001, decay: 0.12, sustain: 0, release: 0.08 },
+        modulationEnvelope: { attack: 0.001, decay: 0.05, sustain: 0, release: 0.04 },
+      },
+    } as any).connect(this.sfx);
+    this.tink.volume.value = -15;
+    const uiTickFilter = new Tone.Filter({ frequency: 3000, type: 'bandpass', Q: 1.5 }).connect(this.sfx);
+    this.uiTick = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.0005, decay: 0.012, sustain: 0, release: 0.005 } }).connect(uiTickFilter);
+    this.uiTick.volume.value = -17;
+    this.uiTone = new Tone.PolySynth({
+      voice: Tone.Synth,
+      maxPolyphony: 6,
+      options: { oscillator: { type: 'triangle' }, envelope: { attack: 0.001, decay: 0.07, sustain: 0, release: 0.05 } },
+    } as any).connect(this.sfx);
+    this.uiTone.volume.value = -15;
+
     this.ready = true;
     if (this.kit) this.setStyle(this.kit);
     else if (this.homeWanted) this.playHome();
   }
 
-  private gate(key: string, ms: number): boolean {
-    if (this.silentDepth || this.modeSuspensions.size) return false;
+  /** `ui` sounds belong to menus and pages, which keep working while a mode has silenced the game. */
+  private gate(key: string, ms: number, ui = false): boolean {
+    if (this.silentDepth || (!ui && this.modeSuspensions.size)) return false;
     const now = performance.now();
     if ((this.last[key] ?? 0) + ms > now) return false;
     this.last[key] = now;
@@ -231,8 +306,8 @@ class AudioEngine {
   }
 
   /** Audio must never break a game frame. */
-  private safe(fn: () => void) {
-    if (!this.ready || this.silentDepth || this.modeSuspensions.size) return;
+  private safe(fn: () => void, ui = false) {
+    if (!this.ready || this.silentDepth || (!ui && this.modeSuspensions.size)) return;
     try {
       fn();
     } catch {
@@ -363,9 +438,15 @@ class AudioEngine {
     });
   }
 
+  /** An XP gem soaked up: a glassy tick over a soft sparkle, climbing the scale while the gems keep coming. */
   pickup(streak: number) {
-    if (!this.gate('pickup', 34)) return;
-    this.safe(() => this.sparkle.triggerAttackRelease(this.note(streak % 12, 2), 0.08, Tone.now(), 0.7));
+    if (!this.gate('pickup', 30)) return;
+    this.safe(() => {
+      const t = Tone.now();
+      const f = this.note(2 + (streak % 10), 2);
+      this.tink.triggerAttackRelease(f, 0.05, t, 0.8);
+      this.sparkle.triggerAttackRelease(f, 0.08, t, 0.85);
+    });
   }
 
   /** Swapping guns: a short swish and a catch. */
@@ -436,16 +517,46 @@ class AudioEngine {
   }
 
   select() {
+    this.uiAt = performance.now();
     this.safe(() => {
       const t = Tone.now();
       this.bell.triggerAttackRelease(this.note(4, 1), 0.3, t, 0.5);
       this.bell.triggerAttackRelease(this.note(7, 1), 0.4, t + 0.06, 0.45);
-    });
+    }, true);
   }
 
   hover() {
-    if (!this.gate('hover', 60)) return;
-    this.safe(() => this.pop.triggerAttackRelease(this.note(4, 2), 0.03, this.at(this.pop), 0.3));
+    this.uiAt = performance.now();
+    if (!this.gate('hover', 60, true)) return;
+    this.safe(() => this.pop.triggerAttackRelease(this.note(4, 2), 0.03, this.at(this.pop), 0.3), true);
+  }
+
+  /** True when a menu has made a sound of its own since `perfMs`. */
+  uiSince(perfMs: number): boolean {
+    return this.uiAt >= perfMs;
+  }
+
+  /** Any button pressed: a crisp tick and a note in the key, lower for the ones that go back or close. */
+  uiClick(back = false) {
+    this.uiAt = performance.now();
+    if (!this.gate('ui-click', 45, true)) return;
+    this.safe(() => {
+      this.uiTick.triggerAttackRelease(0.01, this.at(this.uiTick), 0.9);
+      this.uiTone.triggerAttackRelease(this.note(back ? 0 : 4, 1), 0.05, Tone.now(), 0.55);
+      if (!back) this.uiTone.triggerAttackRelease(this.note(7, 1), 0.05, Tone.now() + 0.035, 0.35);
+    }, true);
+  }
+
+  /** A press that can't go through (no materials, not ready): two low notes that fall. */
+  uiError() {
+    this.uiAt = performance.now();
+    if (!this.gate('ui-error', 150, true)) return;
+    this.safe(() => {
+      const t = Tone.now();
+      this.uiTone.triggerAttackRelease(this.note(1, 0), 0.08, t, 0.6);
+      this.uiTone.triggerAttackRelease(this.note(0, -1), 0.12, t + 0.08, 0.6);
+      this.thump.triggerAttackRelease('C2', 0.06, this.at(this.thump), 0.3);
+    }, true);
   }
 
   dash() {
@@ -457,9 +568,16 @@ class AudioEngine {
     });
   }
 
-  hurt() {
+  /** The knight is hit. When the armor takes all of it, it cracks like glass instead of landing as a body blow. */
+  hurt(armorOnly = false) {
     if (!this.gate('hurt', 120)) return;
     this.safe(() => {
+      if (armorOnly) {
+        this.shard.triggerAttackRelease(0.12, this.at(this.shard), 0.8);
+        this.metal.triggerAttackRelease('E4', 0.08, this.at(this.metal), 0.35);
+        this.thump.triggerAttackRelease('A2', 0.08, this.at(this.thump), 0.6);
+        return;
+      }
       this.sub.triggerAttackRelease('E1', 0.3, this.at(this.sub), 0.9);
       const t = this.at(this.boomNoise);
       this.sweep(this.boomFilter, 700, 300, t, 0.2);
@@ -470,10 +588,30 @@ class AudioEngine {
     });
   }
 
+  /** The gates sink back into the floor: stone grinding down under a rising run. */
   door() {
     this.safe(() => {
       const t = Tone.now();
+      const w = this.at(this.whoosh);
+      this.sweep(this.whooshFilter, 1400, 260, w, 0.4);
+      this.whoosh.triggerAttackRelease(0.4, w, 0.5);
+      this.thump.triggerAttackRelease('D2', 0.15, this.at(this.thump), 0.45);
       [0, 4, 7, 11].forEach((d, i) => this.sparkle.triggerAttackRelease(this.note(d, 1), 0.3, t + i * 0.09, 0.6));
+    });
+  }
+
+  /**
+   * The gates slam shut on a fight: iron on stone, a deep hit and a spray of grit. It is also the downbeat the fight
+   * music comes in on.
+   */
+  lockdown() {
+    this.safe(() => {
+      this.metal.triggerAttackRelease('A1', 0.35, this.at(this.metal), 0.9);
+      this.metal.triggerAttackRelease('D2', 0.3, this.at(this.metal, 0.09), 0.55);
+      this.sub.triggerAttackRelease('D1', 0.5, this.at(this.sub), 1);
+      const t = this.at(this.boomNoise);
+      this.sweep(this.boomFilter, 2200, 200, t, 0.35);
+      this.boomNoise.triggerAttackRelease(0.3, t, 0.6);
     });
   }
 
@@ -497,21 +635,23 @@ class AudioEngine {
 
   /** Cards dealt onto the table: a soft flick for each, a beat apart. */
   deal(n: number) {
+    this.uiAt = performance.now();
     this.safe(() => {
       for (let i = 0; i < n; i++) {
         const t = this.at(this.whoosh, i * 0.09);
         this.sweep(this.whooshFilter, 1800, 4200, t, 0.06);
         this.whoosh.triggerAttackRelease(0.06, t, 0.45);
       }
-    });
+    }, true);
   }
 
   /** A card taken: a bright rising chime. */
   cardPick() {
+    this.uiAt = performance.now();
     this.safe(() => {
       const t = Tone.now();
       [0, 4, 7, 12].forEach((d, i) => this.sparkle.triggerAttackRelease(this.note(d, 2), 0.18, t + i * 0.05, 0.7));
-    });
+    }, true);
   }
 
   /** A heavy footfall. */
@@ -526,18 +666,35 @@ class AudioEngine {
   }
 
   // ---------- Music ----------
+  /**
+   * A floor's music, in two layers on one transport and tempo: the calm one (a pad and a sparse lead in the floor's
+   * key) while the knight walks about, and the fight one (see battleMusic.ts) while a room is locked. setIntensity
+   * crossfades between them; both keep the same bar, so the beat game never loses its clock.
+   */
   setStyle(kit: StyleKit) {
     this.kit = kit;
     this.homeWanted = false;
     if (!this.ready) return;
     this.stopMusic();
+    this.muffle(false, true);
     const root = Tone.Frequency(kit.audio.root).toMidi();
     this.scaleMidi = kit.audio.scale.map((s) => root + s);
     const transport = Tone.getTransport();
     transport.bpm.value = kit.audio.bpm;
 
+    const fight = this.intensity > 0;
+    const layers: LevelLayers = {
+      calm: new Tone.Gain(fight ? 0 : 1).connect(this.music),
+      battle: new Tone.Gain(fight ? 1 : 0).connect(this.music),
+      calmLive: !fight,
+      battleLive: fight,
+      timer: 0,
+    };
+    this.layers = layers;
+    this.musicNodes.push(layers.calm, layers.battle);
+
     const cutoff = 600 + 2600 * kit.audio.brightness;
-    const lp = new Tone.Filter(cutoff, 'lowpass').connect(this.music);
+    const lp = new Tone.Filter(cutoff, 'lowpass').connect(layers.calm);
     this.musicNodes.push(lp);
 
     const pad = new Tone.PolySynth({
@@ -551,64 +708,36 @@ class AudioEngine {
     const lead = this.makeLead(kit, lp);
     const n = kit.audio.scale.length;
     const progression = n >= 7 ? [0, 5, 3, 4] : [0, 3, 1, 4];
-
-    const kick = new Tone.MembraneSynth({ pitchDecay: 0.05, octaves: 5, envelope: { attack: 0.001, decay: 0.3, sustain: 0, release: 0.1 } }).connect(this.music);
-    kick.volume.value = -14;
-    const hatFilter = new Tone.Filter(7000, 'highpass').connect(this.music);
-    const hat = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.03, sustain: 0, release: 0.01 } }).connect(hatFilter);
-    hat.volume.value = -30;
-    const clapFilter = new Tone.Filter({ frequency: 1500, type: 'bandpass', Q: 0.8 }).connect(this.music);
-    const clap = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.002, decay: 0.12, sustain: 0, release: 0.05 } }).connect(clapFilter);
-    clap.volume.value = -20;
-    const clank = new Tone.FMSynth({ harmonicity: 1.41, modulationIndex: 8, envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.05 } }).connect(lp);
-    clank.volume.value = -26;
-    const bass = new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.3, release: 0.2 } }).connect(lp);
-    bass.volume.value = -14;
-    this.musicNodes.push(kick, hatFilter, hat, clapFilter, clap, clank, bass);
-
     const chordOf = (degree: number) => [0, 2, 4].map((s) => this.scaleMidi[(degree + s) % n] + (degree + s >= n ? 12 : 0) - 12);
     let step = 0;
-    const perc = kit.audio.perc;
 
     const loop = new Tone.Loop((time) => {
       try {
+        if (!layers.calmLive) return;
         const beat = step % 8;
         const degree = progression[this.bar % progression.length];
         if (beat === 0) {
           const chord = chordOf(degree).map((m) => Tone.Frequency(m, 'midi').toFrequency());
           pad.triggerAttackRelease(chord, '1m', time, 0.5);
         }
-        if (Math.random() < (this.intensity > 0 ? 0.62 : 0.4)) {
+        if (Math.random() < 0.4) {
           const chordTones = [0, 2, 4, 7, 9];
           const idx = degree + chordTones[Math.floor(Math.random() * chordTones.length)] + (Math.random() < 0.3 ? n : 0);
           lead(idx, time);
         }
-        if (this.intensity > 0) {
-          // The beat game needs a beat you can hear: a soft backbeat on 2 and 4 in every fight.
-          if ((beat === 2 || beat === 6) && perc !== 'claps') clap.triggerAttackRelease('16n', time, perc === 'none' ? 0.4 : 0.55);
-          if (perc === 'none' && (beat === 0 || beat === 4) && this.intensity === 1) kick.triggerAttackRelease('C2', '8n', time, 0.5);
-          if (perc === 'taiko') {
-            if (beat === 0 || beat === 3 || beat === 6) kick.triggerAttackRelease(beat === 0 ? 'C2' : 'G2', '8n', time, beat === 0 ? 1 : 0.6);
-          } else if (perc !== 'none') {
-            if (beat === 0 || beat === 4) kick.triggerAttackRelease('C2', '8n', time, 0.8);
-            if (beat % 2 === 1) hat.triggerAttackRelease('32n', time, 0.6);
-            if (perc === 'claps' && (beat === 2 || beat === 6)) clap.triggerAttackRelease('16n', time, 0.8);
-            if (perc === 'clank' && (beat === 3 || beat === 7)) clank.triggerAttackRelease(this.note(0, -1), '16n', time, 0.6);
-          }
-        }
-        if (this.intensity > 1) {
-          const rootMidi = chordOf(degree)[0] - 12;
-          bass.triggerAttackRelease(Tone.Frequency(rootMidi, 'midi').toFrequency(), '16n', time, beat % 2 ? 0.5 : 0.9);
-          if (perc === 'none' && beat % 4 === 0) kick.triggerAttackRelease('C2', '8n', time, 0.7);
-        }
       } catch {
         // After a stall the clock fires overdue steps all at "now", and a synth can't restart at its own start
         // time: that note is dropped.
+      } finally {
+        step++;
+        if (step % 8 === 0) this.bar++;
       }
-      step++;
-      if (step % 8 === 0) this.bar++;
     }, '8n').start(0);
     this.loops.push(loop);
+
+    const battle = createBattleMusic(kit, layers.battle, () => this.intensity, () => layers.battleLive);
+    this.musicNodes.push(...battle.nodes);
+    this.loops.push(battle.loop);
     if (!this.modeSuspensions.size) transport.start();
   }
 
@@ -619,8 +748,12 @@ class AudioEngine {
   playHome() {
     this.homeWanted = true;
     this.kit = undefined;
-    if (!this.ready || this.home) return;
+    if (!this.ready) return;
+    this.muffle(false, true);
+    if (this.home) return;
     this.stopMusic();
+    // Menu sounds borrow the theme's key, D minor.
+    this.scaleMidi = [62, 64, 65, 67, 69, 70, 72];
     try {
       this.startHome();
     } catch {
@@ -878,6 +1011,329 @@ class AudioEngine {
     });
   }
 
+  /** Every gem left on the floor lifts and streams to the knight: one long breath drawn in. */
+  magnet() {
+    this.safe(() => {
+      const t = this.at(this.whoosh, 0.05);
+      this.sweep(this.whooshFilter, 500, 4200, t, 0.45);
+      this.whoosh.triggerAttackRelease(0.45, t, 0.6);
+    });
+  }
+
+  /** A heart restored: a warm rising step and a shimmer over it. */
+  heal() {
+    if (!this.gate('heal', 150)) return;
+    this.safe(() => {
+      const t = Tone.now();
+      this.fuseBell.triggerAttackRelease(this.note(0, 1), 0.5, t, 0.45);
+      this.fuseBell.triggerAttackRelease(this.note(4, 1), 0.6, t + 0.08, 0.5);
+      [7, 9, 11].forEach((d, i) => this.sparkle.triggerAttackRelease(this.note(d, 1), 0.08, t + 0.14 + i * 0.05, 0.45));
+    });
+  }
+
+  /** Armor back: a crystal picked up rings out; the slow regeneration only ticks. */
+  armor(regen = false) {
+    if (!this.gate(regen ? 'armor-regen' : 'armor', regen ? 300 : 120)) return;
+    this.safe(() => {
+      const t = Tone.now();
+      this.tink.triggerAttackRelease(this.note(regen ? 7 : 9, 2), 0.06, t, regen ? 0.35 : 0.8);
+      if (regen) return;
+      this.metal.triggerAttackRelease('E5', 0.05, this.at(this.metal), 0.2);
+      this.tink.triggerAttackRelease(this.note(12, 2), 0.08, t + 0.07, 0.6);
+    });
+  }
+
+  /** Down to the last heart: a heartbeat under the fight. */
+  heartbeat() {
+    if (!this.gate('heartbeat', 900)) return;
+    this.safe(() => {
+      this.thump.triggerAttackRelease('A1', 0.12, this.at(this.thump), 0.75);
+      this.thump.triggerAttackRelease('G1', 0.1, this.at(this.thump, 0.2), 0.5);
+    });
+  }
+
+  /** The knight falls: a deep blow, the music sinks away, and a slow fall of notes. Then the calm theme returns. */
+  defeat() {
+    this.safe(() => {
+      const t = Tone.now();
+      this.sub.triggerAttackRelease('D1', 1.2, this.at(this.sub), 1);
+      this.slowmo(0.6, 1.5);
+      [7, 4, 2, 0].forEach((d, i) => this.fuseBell.triggerAttackRelease(this.note(d, 0), 1.4, t + 0.4 + i * 0.3, 0.5));
+    });
+    this.fadeOutLevel(1.4, 3.4);
+  }
+
+  /** The run is won: a deep hit under a climbing run and a big held chord, then the calm theme. */
+  victory() {
+    this.safe(() => {
+      const t = Tone.now();
+      this.sub.triggerAttackRelease('C1', 0.8, this.at(this.sub), 0.9);
+      [0, 2, 4, 7].forEach((d, i) => this.bell.triggerAttackRelease(this.note(d, 1), 0.4, t + i * 0.12, 0.6));
+      [0, 4, 7, 12].forEach((d, i) => this.fuseBell.triggerAttackRelease(this.note(d, 1), 2.4, t + 0.5 + i * 0.015, 0.6));
+      [7, 9, 12, 14].forEach((d, i) => this.sparkle.triggerAttackRelease(this.note(d, 2), 0.1, t + 0.65 + i * 0.07, 0.5));
+    });
+    this.fadeOutLevel(1, 3.6);
+  }
+
+  /** A gun hits the floor (one swapped out, or dropped for good): two knocks of metal and a dull thud. */
+  weaponDrop() {
+    this.safe(() => {
+      this.metal.triggerAttackRelease('E4', 0.08, this.at(this.metal), 0.45);
+      this.thump.triggerAttackRelease('A2', 0.08, this.at(this.thump), 0.55);
+      this.metal.triggerAttackRelease('B3', 0.1, this.at(this.metal, 0.11), 0.35);
+      this.metal.triggerAttackRelease('G3', 0.06, this.at(this.metal, 0.19), 0.2);
+    });
+  }
+
+  /** A gun taken up: a swish, then the slide racked back and home. */
+  weaponPickup() {
+    this.safe(() => {
+      const t = this.at(this.whoosh);
+      this.sweep(this.whooshFilter, 900, 3000, t, 0.1);
+      this.whoosh.triggerAttackRelease(0.09, t, 0.5);
+      this.metal.triggerAttackRelease('D5', 0.03, this.at(this.metal, 0.1), 0.3);
+      this.hitNoise.triggerAttackRelease(0.03, this.at(this.hitNoise, 0.1), 0.45);
+      this.metal.triggerAttackRelease('A4', 0.04, this.at(this.metal, 0.2), 0.4);
+      this.hitNoise.triggerAttackRelease(0.03, this.at(this.hitNoise, 0.2), 0.55);
+    });
+  }
+
+  /** A chest opens: the latch, the lid swinging up, and light spilling out (cooler and brighter for a weapon chest). */
+  chest(weapon = false) {
+    this.safe(() => {
+      const t = Tone.now();
+      this.metal.triggerAttackRelease(weapon ? 'C4' : 'G3', 0.05, this.at(this.metal), 0.4);
+      this.thump.triggerAttackRelease('G2', 0.1, this.at(this.thump), 0.5);
+      const w = this.at(this.whoosh, 0.05);
+      this.sweep(this.whooshFilter, 400, 1800, w, 0.25);
+      this.whoosh.triggerAttackRelease(0.25, w, 0.5);
+      (weapon ? [0, 4, 7, 11, 14] : [0, 2, 4, 7, 9]).forEach((d, i) => this.sparkle.triggerAttackRelease(this.note(d, 2), 0.12, t + 0.15 + i * 0.05, 0.6));
+      [0, 4, 7].forEach((d, i) => this.fuseBell.triggerAttackRelease(this.note(d, 1), 1, t + 0.18 + i * 0.012, 0.45));
+    });
+  }
+
+  /** Dual wield kicks in: a fast rise that lands on a bright hit. */
+  skill() {
+    this.safe(() => {
+      const t = this.at(this.whoosh);
+      this.sweep(this.whooshFilter, 300, 4800, t, 0.2);
+      this.whoosh.triggerAttackRelease(0.2, t, 0.8);
+      this.zap.triggerAttackRelease(this.note(0, 1), 0.18, this.at(this.zap, 0.18), 0.7);
+      this.thump.triggerAttackRelease('C2', 0.12, this.at(this.thump, 0.18), 0.7);
+      const t2 = Tone.now() + 0.18;
+      [0, 4, 7].forEach((d, i) => this.bell.triggerAttackRelease(this.note(d, 2), 0.3, t2 + i * 0.02, 0.5));
+    });
+  }
+
+  /** A crate splinters: a dry crack and wood tumbling. */
+  crate() {
+    if (!this.gate('crate', 60)) return;
+    this.safe(() => {
+      this.snap.triggerAttackRelease(0.02, this.at(this.snap), 0.9);
+      this.hitNoise.triggerAttackRelease(0.09, this.at(this.hitNoise), 0.9);
+      this.thump.triggerAttackRelease('D3', 0.06, this.at(this.thump), 0.6);
+      this.thump.triggerAttackRelease('A2', 0.05, this.at(this.thump, 0.07), 0.35);
+    });
+  }
+
+  /** A blow that does nothing (a guardian between forms, a shield shrugging it off): a thin metal ping. */
+  deflect() {
+    if (!this.gate('deflect', 110)) return;
+    this.safe(() => {
+      this.bell.triggerAttackRelease(this.note(11, 2), 0.05, Tone.now(), 0.3);
+      this.snap.triggerAttackRelease(0.015, this.at(this.snap), 0.5);
+    });
+  }
+
+  /** Something brittle breaks: an elite's elemental shield (big) or a frozen monster: a bright spray and falling chimes. */
+  glass(big = false) {
+    if (!this.gate('glass', 80)) return;
+    this.safe(() => {
+      const t = Tone.now();
+      this.shard.triggerAttackRelease(big ? 0.3 : 0.15, this.at(this.shard), big ? 1 : 0.6);
+      (big ? [12, 11, 9, 7, 4] : [11, 9, 7]).forEach((d, i) => this.sparkle.triggerAttackRelease(this.note(d, 2), 0.05, t + 0.02 + i * 0.035, 0.5));
+      if (big) this.thump.triggerAttackRelease('E2', 0.1, this.at(this.thump), 0.7);
+    });
+  }
+
+  /** A monster fires: a soft falling blip, well under the player's own guns, so a room tells you what's coming. */
+  enemyShot(big = false) {
+    if (!this.gate('enemy-shot', 90)) return;
+    this.safe(() => {
+      const t = this.at(this.chirp);
+      const f = big ? 330 : 620;
+      const d = big ? 0.13 : 0.07;
+      this.chirp.triggerAttackRelease(f, d, t, big ? 0.85 : 0.6);
+      this.chirp.frequency.exponentialRampToValueAtTime(f * 0.45, t + d);
+    });
+  }
+
+  /** A monster winds up a charge or takes aim: a short rising zip. */
+  windup() {
+    if (!this.gate('windup', 200)) return;
+    this.safe(() => {
+      const t = this.at(this.chirp);
+      this.chirp.triggerAttackRelease(380, 0.12, t, 0.5);
+      this.chirp.frequency.exponentialRampToValueAtTime(900, t + 0.12);
+    });
+  }
+
+  /** A trap arms (two dry ticks) and then goes off (a sharp swish and a clack). */
+  trap(live: boolean) {
+    if (!this.gate(live ? 'trap-live' : 'trap-warn', 150)) return;
+    this.safe(() => {
+      if (!live) {
+        this.metal.triggerAttackRelease('A5', 0.02, this.at(this.metal), 0.15);
+        this.metal.triggerAttackRelease('A5', 0.02, this.at(this.metal, 0.12), 0.12);
+        return;
+      }
+      const t = this.at(this.whoosh);
+      this.sweep(this.whooshFilter, 3000, 900, t, 0.12);
+      this.whoosh.triggerAttackRelease(0.12, t, 0.6);
+      this.metal.triggerAttackRelease('D3', 0.05, this.at(this.metal), 0.35);
+    });
+  }
+
+  /** Down the trapdoor: a long falling breath and a low chord. The last bloom rises and rings bright instead. */
+  descend(final = false) {
+    this.safe(() => {
+      const t = this.at(this.whoosh);
+      this.sweep(this.whooshFilter, final ? 600 : 3200, final ? 4800 : 260, t, 0.6);
+      this.whoosh.triggerAttackRelease(0.6, t, 0.8);
+      const t0 = Tone.now();
+      (final ? [0, 4, 7, 12] : [7, 4, 0]).forEach((d, i) => this.fuseBell.triggerAttackRelease(this.note(d, final ? 1 : 0), 1.2, t0 + i * 0.09, 0.5));
+    });
+  }
+
+  /** A new floor's title card: a low gong and a wash of air. */
+  floorIntro() {
+    this.safe(() => {
+      const t = Tone.now();
+      this.sub.triggerAttackRelease('C1', 0.9, this.at(this.sub), 0.6);
+      [0, 2, 4].forEach((d, i) => this.fuseBell.triggerAttackRelease(this.note(d, 0), 2, t + i * 0.02, 0.4));
+      const w = this.at(this.whoosh, 0.05);
+      this.sweep(this.whooshFilter, 4000, 500, w, 0.9);
+      this.whoosh.triggerAttackRelease(0.9, w, 0.4);
+    });
+  }
+
+  /** The hall and the side games: each finished action has a small sound of its own. */
+  life(kind: LifeSound) {
+    if (kind === 'error') {
+      this.uiError();
+      return;
+    }
+    this.uiAt = performance.now();
+    this.safe(() => {
+      const t = Tone.now();
+      switch (kind) {
+        case 'plant':
+          this.thump.triggerAttackRelease('E2', 0.08, this.at(this.thump), 0.5);
+          this.hitNoise.triggerAttackRelease(0.06, this.at(this.hitNoise), 0.35);
+          [2, 4].forEach((d, i) => this.sparkle.triggerAttackRelease(this.note(d, 2), 0.08, t + 0.08 + i * 0.06, 0.5));
+          break;
+        case 'harvest':
+          this.pop.triggerAttackRelease(this.note(0, 1), 0.06, this.at(this.pop), 0.7);
+          [0, 2, 4, 7].forEach((d, i) => this.sparkle.triggerAttackRelease(this.note(d, 2), 0.1, t + 0.06 + i * 0.05, 0.55));
+          break;
+        case 'craft':
+        case 'pack': {
+          const w = this.at(this.whoosh);
+          this.sweep(this.whooshFilter, 700, 2600, w, 0.14);
+          this.whoosh.triggerAttackRelease(0.14, w, 0.45);
+          this.metal.triggerAttackRelease('C5', 0.03, this.at(this.metal, 0.14), 0.2);
+          if (kind === 'craft') [0, 4, 7].forEach((d, i) => this.bell.triggerAttackRelease(this.note(d, 1), 0.4, t + 0.16 + i * 0.05, 0.45));
+          break;
+        }
+        case 'cook': {
+          // A sizzle, then the dish is up.
+          const w = this.at(this.whoosh);
+          this.sweep(this.whooshFilter, 5200, 3600, w, 0.5);
+          this.whoosh.triggerAttackRelease(0.5, w, 0.35);
+          [0, 4, 7, 12].forEach((d, i) => this.bell.triggerAttackRelease(this.note(d, 1), 0.45, t + 0.45 + i * 0.06, 0.5));
+          break;
+        }
+        case 'deliver':
+          this.cardPick();
+          this.thump.triggerAttackRelease('C2', 0.12, this.at(this.thump), 0.5);
+          break;
+        case 'restore':
+          this.sub.triggerAttackRelease('C1', 0.8, this.at(this.sub), 0.6);
+          [0, 2, 4, 7, 9, 12].forEach((d, i) => this.fuseBell.triggerAttackRelease(this.note(d, 1), 1.6, t + i * 0.1, 0.5));
+          break;
+        case 'discover':
+          [4, 7, 9, 12].forEach((d, i) => this.sparkle.triggerAttackRelease(this.note(d, 2), 0.14, t + i * 0.07, 0.6));
+          this.fuseBell.triggerAttackRelease(this.note(0, 1), 1.2, t + 0.28, 0.45);
+          break;
+        case 'portal': {
+          // Stepping into a painting: air rushing past and a chord opening up.
+          const w = this.at(this.whoosh);
+          this.sweep(this.whooshFilter, 300, 3600, w, 0.5);
+          this.whoosh.triggerAttackRelease(0.5, w, 0.6);
+          [0, 4, 7].forEach((d, i) => this.fuseBell.triggerAttackRelease(this.note(d, 1), 1, t + 0.25 + i * 0.03, 0.45));
+          break;
+        }
+      }
+    }, true);
+  }
+
+  /** The fishing round's cues: the cast, nibbles and the bite, the reel and the fish's runs, and how it ends. */
+  fish(kind: FishSound) {
+    if (!this.gate(`fish-${kind}`, kind === 'reel' ? 110 : 80, true)) return;
+    this.uiAt = performance.now();
+    this.safe(() => {
+      const t = Tone.now();
+      switch (kind) {
+        case 'cast': {
+          const w = this.at(this.whoosh);
+          this.sweep(this.whooshFilter, 2400, 700, w, 0.35);
+          this.whoosh.triggerAttackRelease(0.35, w, 0.6);
+          this.pop.triggerAttackRelease(this.note(0, 0), 0.1, this.at(this.pop, 0.45), 0.6);
+          this.hitNoise.triggerAttackRelease(0.08, this.at(this.hitNoise, 0.45), 0.4);
+          break;
+        }
+        case 'nibble':
+          this.pop.triggerAttackRelease(this.note(2, 1), 0.04, this.at(this.pop), 0.45);
+          break;
+        case 'bite': {
+          const b = this.at(this.boomNoise);
+          this.sweep(this.boomFilter, 1600, 300, b, 0.2);
+          this.boomNoise.triggerAttackRelease(0.16, b, 0.35);
+          this.bell.triggerAttackRelease(this.note(7, 1), 0.2, t, 0.6);
+          this.bell.triggerAttackRelease(this.note(9, 1), 0.25, t + 0.08, 0.6);
+          break;
+        }
+        case 'hook': {
+          const w = this.at(this.whoosh);
+          this.sweep(this.whooshFilter, 600, 3200, w, 0.12);
+          this.whoosh.triggerAttackRelease(0.12, w, 0.7);
+          this.thump.triggerAttackRelease('E2', 0.1, this.at(this.thump), 0.6);
+          break;
+        }
+        case 'reel':
+          this.uiTick.triggerAttackRelease(0.01, this.at(this.uiTick), 0.5);
+          break;
+        case 'surge':
+          this.chirp.triggerAttackRelease(300, 0.18, this.at(this.chirp), 0.6);
+          this.chirp.frequency.exponentialRampToValueAtTime(700, Tone.now() + 0.18);
+          break;
+        case 'catch': {
+          const b = this.at(this.boomNoise);
+          this.sweep(this.boomFilter, 2400, 400, b, 0.3);
+          this.boomNoise.triggerAttackRelease(0.25, b, 0.4);
+          [0, 4, 7, 12].forEach((d, i) => this.sparkle.triggerAttackRelease(this.note(d, 2), 0.16, t + 0.12 + i * 0.06, 0.65));
+          [0, 4, 7].forEach((d, i) => this.fuseBell.triggerAttackRelease(this.note(d, 1), 1, t + 0.36 + i * 0.012, 0.45));
+          break;
+        }
+        case 'escape':
+          this.pop.triggerAttackRelease(this.note(1, 0), 0.06, this.at(this.pop), 0.4);
+          this.uiTone.triggerAttackRelease(this.note(2, 0), 0.12, t + 0.05, 0.5);
+          this.uiTone.triggerAttackRelease(this.note(0, 0), 0.2, t + 0.17, 0.5);
+          break;
+      }
+    }, true);
+  }
+
   /** A melee finisher landed on the beat: a heavy hit and a bright chord on top. */
   finisher() {
     this.safe(() => {
@@ -910,8 +1366,82 @@ class AudioEngine {
     });
   }
 
+  /**
+   * 0 is walking about, 1 a fight, 2 a horde or a boss. Starting a fight cuts straight to the fight music; ending
+   * one lets it ring under the clear fanfare and brings the calm layer back over a few seconds.
+   */
   setIntensity(level: 0 | 1 | 2) {
+    const was = this.intensity > 0;
     this.intensity = level;
+    const l = this.layers;
+    if (!this.ready || !l || was === level > 0) return;
+    try {
+      const t = Tone.now();
+      clearTimeout(l.timer);
+      if (level > 0) {
+        l.battleLive = true;
+        this.fade(l.battle.gain, 1, t, 0.06);
+        this.fade(l.calm.gain, 0, t, 0.5);
+        l.timer = window.setTimeout(() => (l.calmLive = false), 800);
+      } else {
+        l.calmLive = true;
+        this.fade(l.battle.gain, 0, t + 0.5, 2.2);
+        this.fade(l.calm.gain, 1, t + 1.4, 2.6);
+        l.timer = window.setTimeout(() => (l.battleLive = false), 3000);
+      }
+    } catch {
+      // A missed crossfade must not break the room.
+    }
+  }
+
+  /** Hold a gain where it is now, then ramp it to `to` from `at` over `dur` seconds. */
+  private fade(p: Tone.Param<'gain'> | Tone.Param<'number'>, to: number, at: number, dur: number) {
+    const t = Tone.now();
+    const from = p.value;
+    p.cancelScheduledValues(t);
+    p.setValueAtTime(from, t);
+    if (at > t) p.setValueAtTime(from, at);
+    p.linearRampToValueAtTime(to, Math.max(at, t) + dur);
+  }
+
+  /** The pause page: the music sinks behind a closed door, and comes back out when play resumes. */
+  muffle(on: boolean, instant = false) {
+    if (!this.ready) return;
+    try {
+      const t = Tone.now();
+      const f = this.pauseLP.frequency;
+      f.cancelScheduledValues(t);
+      if (instant) {
+        f.setValueAtTime(on ? 700 : 18000, t);
+        this.musicDuck.gain.cancelScheduledValues(t);
+        this.musicDuck.gain.setValueAtTime(on ? 0.6 : 1, t);
+        return;
+      }
+      f.setValueAtTime(Math.max(200, Number(f.value)), t);
+      f.exponentialRampToValueAtTime(on ? 700 : 18000, t + (on ? 0.25 : 0.45));
+      this.fade(this.musicDuck.gain, on ? 0.6 : 1, t, on ? 0.25 : 0.45);
+    } catch {
+      // The menu works without it.
+    }
+  }
+
+  /** The run is over: the floor's music fades away, and a while later the calm theme takes over. */
+  private fadeOutLevel(sec: number, homeAfter: number) {
+    const l = this.layers;
+    const gen = this.musicGen;
+    if (this.ready && l) {
+      try {
+        const t = Tone.now();
+        clearTimeout(l.timer);
+        this.fade(l.calm.gain, 0, t, sec);
+        this.fade(l.battle.gain, 0, t, sec);
+      } catch {
+        // stopMusic below gets rid of it either way.
+      }
+    }
+    window.setTimeout(() => {
+      if (this.musicGen === gen) this.playHome();
+    }, homeAfter * 1000);
   }
 
   /** Final scene teardown also revokes a style waiting for asynchronous audio initialization. */
@@ -924,6 +1454,9 @@ class AudioEngine {
     transport.cancel();
     this.musicNodes.forEach((n) => n.dispose());
     this.musicNodes = [];
+    if (this.layers) clearTimeout(this.layers.timer);
+    this.layers = undefined;
+    this.musicGen++;
     this.bar = 0;
     this.fadeHome();
   }

@@ -16,6 +16,7 @@ import {
 } from './pixel-controls';
 import type { GardenPoint } from './pixel-controls';
 import { createGardenPixelRenderer } from './pixel-renderer';
+import { audio, type LifeSound } from '../../audio/audio';
 import '../../ui/visualTheme.css';
 import './garden.css';
 
@@ -181,11 +182,13 @@ export function mountGarden({ container, onExit }: GardenOptions): GardenHandle 
     keys.clear(); target = id; path = createGardenPath(player, item.approach);
     setMessage(`前往${item.name}，靠近后按交互。`); updateNearby();
   };
-  const perform = (action: () => MetaResult, successMessage: string) => {
+  const perform = (action: () => MetaResult, successMessage: string, sound: LifeSound) => {
     if (disposed || transacting || readOnly()) return;
     transacting = true;
     try {
       const result = action(); state = result;
+      if (result.applied) audio.life(sound);
+      else if (!result.duplicate) audio.life('error');
       messageError = (!result.applied && !result.duplicate) || result.storage === 'memory';
       message = result.applied ? successMessage : result.duplicate ? '这份选择已完成，无需重复操作。' : FAILURE_MESSAGES[result.reason ?? 'invalid'];
     } catch {
@@ -237,16 +240,16 @@ export function mountGarden({ container, onExit }: GardenOptions): GardenHandle 
     // Panel identity pins the transaction to the visible, nearby object.
     const bed = Number(button.dataset.bed);
     if ((action === 'plant' || action === 'harvest') && panel === `bed-${bed}` && GARDEN_BEDS.some(item => item.index === bed)) {
-      if (action === 'plant') perform(() => plantSeed(bed, selectedPlant), `${PLANTS[selectedPlant].name}已种下。`);
+      if (action === 'plant') perform(() => plantSeed(bed, selectedPlant), `${PLANTS[selectedPlant].name}已种下。`, 'plant');
       else {
         const plant = state.profile.beds[bed]?.plant;
-        perform(() => harvestPlant(bed), `收获${plant ? PLANTS[plant].name : '植物'}原料 ×1。`);
+        perform(() => harvestPlant(bed), `收获${plant ? PLANTS[plant].name : '植物'}原料 ×1。`, 'harvest');
       }
     }
     const supply = button.dataset.supply as SupplyId;
-    if (action === 'craft' && panel === 'craft' && SUPPLY_IDS.includes(supply)) perform(() => craftSupply(supply), `${SUPPLIES[supply].name}已调制完成。`);
-    if (action === 'pack' && panel === 'bag' && SUPPLY_IDS.includes(supply)) perform(() => packSupply(supply), `${SUPPLIES[supply].name}已装入，出征才会消耗。`);
-    if (action === 'unpack' && panel === 'bag') perform(() => packSupply(null), '补给已移出，库存未减少。');
+    if (action === 'craft' && panel === 'craft' && SUPPLY_IDS.includes(supply)) perform(() => craftSupply(supply), `${SUPPLIES[supply].name}已调制完成。`, 'craft');
+    if (action === 'pack' && panel === 'bag' && SUPPLY_IDS.includes(supply)) perform(() => packSupply(supply), `${SUPPLIES[supply].name}已装入，出征才会消耗。`, 'pack');
+    if (action === 'unpack' && panel === 'bag') perform(() => packSupply(null), '补给已移出，库存未减少。', 'pack');
   };
   const handlePointer = (event: PointerEvent) => {
     if (panel || disposed || !event.isPrimary || (event.pointerType === 'mouse' && event.button !== 0)) return;

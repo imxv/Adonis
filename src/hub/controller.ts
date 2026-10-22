@@ -3,6 +3,7 @@ import { FISH, FISH_IDS, RESTORATIONS, RESTORATION_IDS, getRestorationFailure, r
 import type { LifeCost, MetaProfile, ProfileState } from '../meta/life';
 import type { PlantId } from '../meta/profile';
 import { loadRun, topSupplyScores } from '../save';
+import { audio } from '../audio/audio';
 import { mountGallery, type GalleryAction, type GalleryHandle } from './gallery';
 import { createPixelRepairDisplay } from './gallery-pixel-renderer';
 import './controller.css';
@@ -138,6 +139,8 @@ export class HubController {
 
   private act(action: GalleryAction) {
     if (this.mode !== 'gallery') return;
+    // Walking into a painting or a world gets its own whoosh; the hall's own pages just click.
+    if (action !== 'collection' && action !== 'repair') audio.life('portal');
     if (action === 'adventure' || action === 'continue') {
       this.setMode('adventure-menu');
       this.gallery.pause(true);
@@ -219,6 +222,7 @@ export class HubController {
           onDiscover: (id) => {
             if (!current()) return;
             const result = claimDiscovery(id);
+            if (result.applied) audio.life('discover');
             if (result.warning) this.notice(result.warning);
             else if (!result.applied && !result.duplicate) this.notice(result.reason === 'capacity'
               ? '收藏记录已达上限，这次发现未领取奖励。' : '这次发现暂未收入收藏，请稍后重试。');
@@ -298,6 +302,8 @@ export class HubController {
       transacting = true;
       try {
         const result = restoreGallery(restorationId);
+        if (result.applied) audio.life('restore');
+        else if (!result.duplicate) audio.life('error');
         feedback.textContent = result.applied
           ? result.storage === 'memory' ? '本页已修复；存储不可用，刷新或关闭可能丢失。' : '修复完成。回到大厅看看归航的画面吧。'
           : result.duplicate ? '这幅画已修复，不会再次扣料。'

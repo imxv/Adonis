@@ -1,4 +1,5 @@
-import { cancelFishingRound, createFishingRound, stepFishingRound, type FishingRound, type FishingReason } from './rules';
+import { audio, type FishSound } from '../../audio/audio';
+import { cancelFishingRound, createFishingRound, stepFishingRound, type FishingPhase, type FishingRound, type FishingReason } from './rules';
 import { createFishingView, type FishingViewModel } from './view';
 
 /** A UI adapter to the shared life service. It contains no catalog, RNG for
@@ -14,6 +15,17 @@ export interface FishingEconomyPort {
 
 export interface FishingOptions { container: HTMLElement; onExit: () => void }
 export interface FishingHandle { dispose(): void }
+
+const PHASE_SOUND: Partial<Record<FishingPhase, FishSound>> = { waiting: 'cast', bite: 'bite', reeling: 'hook', success: 'catch', failed: 'escape' };
+
+/** One sound for each change the round goes through: the cast, a nibble, the bite, the hook, a run, and the end. */
+function cueSound(before: FishingRound, after: FishingRound, reeling: boolean) {
+  const phase = after.phase !== before.phase ? PHASE_SOUND[after.phase] : undefined;
+  if (phase) audio.fish(phase);
+  else if (after.bobberCue === 'nibble' && before.bobberCue !== 'nibble') audio.fish('nibble');
+  if (after.fishCue === 'surge-warning' && before.fishCue !== 'surge-warning') audio.fish('surge');
+  if (after.phase === 'reeling' && reeling) audio.fish('reel');
+}
 
 const FAILURE_COPY: Record<Exclude<FishingReason, 'landed' | 'cancelled' | null>, string> = {
   'short-cast': '抛得太近，鱼没有靠过来。下次多蓄一点力。',
@@ -211,7 +223,9 @@ export function mountFishingController({ container, onExit }: FishingOptions, ec
     if (round && !isTerminal(round)) {
       if (elapsed > 2) cancel('离开画面太久，这次尝试已取消。回来后可以重新抛竿。');
       else {
+        const before = round;
         round = stepFishingRound(round, elapsed, { held: held(), pressed, released });
+        cueSound(before, round, held());
         pressed = false; released = false;
         if (isTerminal(round)) {
           clearInput();
