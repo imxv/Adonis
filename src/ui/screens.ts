@@ -515,7 +515,7 @@ export function openHelp(host: LayerHost) {
 
 // ---------------------------------------------------------------- settings
 
-type Row = { key: keyof Settings | 'reset'; label: string; note?: string };
+type Row = { key: keyof Settings | 'reset' | 'tutorial'; label: string; note?: string };
 const SETTING_ROWS: Row[] = [
   { key: 'diff', label: '难度', note: '下一局生效' },
   { key: 'music', label: '音乐音量' },
@@ -526,10 +526,12 @@ const SETTING_ROWS: Row[] = [
   { key: 'numbers', label: '伤害数字' },
   { key: 'reset', label: '恢复默认' },
 ];
+const TUTORIAL_ROW: Row = { key: 'tutorial', label: '新手教程', note: '从画廊重新走一遍' };
 const DIFF_ORDER: DifficultyId[] = ['easy', 'normal', 'hard'];
 
 function valueHtml(key: Row['key'], s: Settings) {
   if (key === 'reset') return '';
+  if (key === 'tutorial') return `${px('重新开始', E.white)}${px('▶', DIM)}`;
   const v = s[key];
   if (key === 'music' || key === 'sfx') {
     const n = v as number;
@@ -539,23 +541,32 @@ function valueHtml(key: Row['key'], s: Settings) {
   return `${px('◀', DIM)}${px(text, v === false ? DIM : E.white)}${px('▶', DIM)}`;
 }
 
-export function openSettings(host: LayerHost) {
+export function openSettings(host: LayerHost, opts: { onTutorial?: () => void } = {}) {
   const ov = frame('SETTINGS', '设置', 'settings');
   const body = ov.querySelector('.fbody') as HTMLElement;
   ov.querySelector('.fsub')!.innerHTML = px(isTouchBrowser() ? '轻触左侧减少 · 右侧增加' : '↑↓ 选择　← → 调整', DIM);
-  body.innerHTML = `<div class="st-list">${SETTING_ROWS.map((r) => `<div class="st-row" data-k="${r.key}">${diamond()}<div class="sl">${px(r.label, E.white)}</div><div class="sv"></div>${r.note ? px(r.note, DIM) : ''}</div>`).join('')}</div>`;
+  // Replaying the tutorial leaves the current page, so it is offered only where the caller can do that.
+  const list = opts.onTutorial ? [...SETTING_ROWS.slice(0, -1), TUTORIAL_ROW, ...SETTING_ROWS.slice(-1)] : SETTING_ROWS;
+  body.innerHTML = `<div class="st-list${list.length > SETTING_ROWS.length ? ' tight' : ''}">${list.map((r) => `<div class="st-row" data-k="${r.key}">${diamond()}<div class="sl">${px(r.label, E.white)}</div><div class="sv"></div>${r.note ? px(r.note, DIM) : ''}</div>`).join('')}</div>`;
   const rows = [...body.querySelectorAll<HTMLElement>('.st-row')];
   let sel = 0;
   const paint = () => {
     const s = settings.get();
     rows.forEach((row, i) => {
       row.classList.toggle('sel', i === sel);
-      (row.querySelector('.sv') as HTMLElement).innerHTML = valueHtml(SETTING_ROWS[i].key, s);
+      (row.querySelector('.sv') as HTMLElement).innerHTML = valueHtml(list[i].key, s);
     });
   };
-  const change = (i: number, dir: number) => {
-    const key = SETTING_ROWS[i].key;
+  const change = (i: number, dir: number, click = false) => {
+    const key = list[i].key;
     const s = settings.get();
+    if (key === 'tutorial') {
+      // A row that leaves the page: Enter, → or a click, never ←.
+      if (dir < 0 && !click) return;
+      close();
+      opts.onTutorial?.();
+      return;
+    }
     if (key === 'reset') settings.set({ ...DEFAULT_SETTINGS });
     else if (key === 'diff') settings.set({ diff: DIFF_ORDER[(DIFF_ORDER.indexOf(s.diff) + dir + 3) % 3] });
     else if (key === 'music' || key === 'sfx') settings.set({ [key]: Math.max(0, Math.min(10, s[key] + dir)) });
@@ -572,11 +583,11 @@ export function openSettings(host: LayerHost) {
       sel = i;
       // Clicking the left half of a slider turns it down, the right half up.
       const r = row.getBoundingClientRect();
-      change(i, ev.clientX < r.left + r.width * 0.62 ? -1 : 1);
+      change(i, ev.clientX < r.left + r.width * 0.62 ? -1 : 1, true);
     });
   });
   paint();
-  openFrame(host, ov, (e) => {
+  const close = openFrame(host, ov, (e) => {
     if (isUp(e)) sel = (sel - 1 + rows.length) % rows.length;
     else if (isDown(e)) sel = (sel + 1) % rows.length;
     else if (isLeft(e)) return void change(sel, -1);

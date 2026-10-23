@@ -4,12 +4,22 @@
 
 ## 当前配置
 
-- Pages 项目：`adonis-game`（实际生产地址以 Cloudflare 部署输出为准）。
-- GitHub：`imxv/Adonis`，生产分支 `main`。
+- Pages 项目：`adonis-game`，生产地址：<https://adonis-game.pages.dev/>。
+- GitHub：`imxv/Adonis`，生产分支 `main`，开启自动生产部署；其他分支不自动部署。
 - 构建命令：`npm run build`；输出目录：`dist`；项目根目录：仓库根目录。
 - Node.js：22（至少 22.12）；依赖安装使用公共 npm 源。
 - D1 数据库：`adonis-scores`，绑定名 `DB`，迁移文件在 `migrations/`。
 - `wrangler.jsonc` 是 Pages Functions 和 D1 绑定的配置来源。数据库 UUID 不是密钥；不要提交 API token 或 `.dev.vars`。
+
+## 日常自动发布
+
+将代码推送或合并到 GitHub `main` 后，Cloudflare 会自动安装依赖、执行 `npm run build`，并发布 `dist/` 和 Pages Functions。无需在本机运行 Wrangler，也不需要上传构建产物。
+
+在仓库提交的 **Cloudflare Pages** 检查，或 Cloudflare 项目的 **Deployments** 页面查看构建结果和对应 commit。确认该 commit 的生产部署成功后，访问生产地址即可看到新版本。失败的构建不会替换当前成功部署。
+
+自动发布设置位于 **Workers & Pages → adonis-game → Settings → Builds & deployments → Configure Production deployments**：生产分支选择 `main`，勾选 **Enable automatic production branch deployments** 并保存。预览部署保持关闭。
+
+新增数据库迁移时，在发布依赖新表结构的代码前先运行 `wrangler d1 migrations apply adonis-scores --remote`；普通代码和资源更新直接推送 `main` 即可。
 
 ## 首次创建或恢复部署
 
@@ -36,7 +46,7 @@ wrangler d1 migrations apply adonis-scores --remote
 wrangler pages deploy dist --project-name adonis-game --branch main
 ```
 
-不要为同一个站点另建 Direct Upload 项目：该类型不能事后切换成 Git 集成。正常启用 Git 自动部署后，后续推送 `main` 会构建并发布。新增数据库迁移时，在发布依赖新表结构的代码前先应用对应远端迁移。
+不要为同一个站点另建 Direct Upload 项目：该类型不能事后切换成 Git 集成。
 
 ## 玩家身份与 GitHub 登录
 
@@ -64,7 +74,7 @@ wrangler pages deploy dist --project-name adonis-game --branch main
 
    也可以用命令行：`wrangler pages secret put GITHUB_CLIENT_ID --project-name adonis-game`，回车后粘贴值；`GITHUB_CLIENT_SECRET` 同理。
 5. 在部署新代码之前，先给线上数据库加表：`wrangler d1 migrations apply adonis-scores --remote`（会应用 `migrations/0002_players.sql`；旧成绩会按浏览器 ID 归到各自的游客名下）。
-6. 重新部署一次（推送 `main`，或在 Pages 的 **Deployments** 里对最新部署点 **Retry deployment**），新加的 secret 才会生效。
+6. 重新部署一次（合并或推送到 `main` 会自动部署；也可以在 Pages 的 **Deployments** 里对最新部署点 **Retry deployment**），新加的 secret 才会生效。
 7. 打开 `https://adonis-game.pages.dev`，身份选择里的「用 GitHub 登录」应该可以点；登录后画廊右上角显示 `GitHub · 你的用户名`。`/api/auth/me` 返回 `{"player": {...}, "github": true}`。
 
 GitHub OAuth App 只认一个回调地址，所以只有填写的那个域名能登录。以后绑定自己的域名时，把 Homepage URL 和回调地址改成新域名即可；Pages 的预览地址（`*.adonis-game.pages.dev`）上 GitHub 登录不可用，游客照常。

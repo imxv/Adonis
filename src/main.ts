@@ -2,12 +2,17 @@ import Phaser from 'phaser';
 import { DISPLAY_FONTS } from './fonts';
 import './ui/ui.css';
 import { GameScene } from './game/GameScene';
+import { WeaponTrainingScene } from './game/WeaponTrainingScene';
 import { KIT_BY_ID } from './styles/kits';
 import { HUD_FOOTER_H } from './ui/ui';
 import { installMobileViewport, isTouchBrowser, safeViewport, TOUCH_CONTROLS_HEIGHT } from './platform/mobile';
 import './ui/mobile.css';
 import { audio } from './audio/audio';
+import { provideWeaponTraining } from './ui/weaponDemo';
 import { startAccount } from './ui/signIn';
+
+// The nearby-weapon demo runs this subclass of GameScene; handing it over here keeps it in the main bundle.
+provideWeaponTraining((onReady, key) => new WeaponTrainingScene(onReady, key));
 
 const W = 480;
 const H = 270;
