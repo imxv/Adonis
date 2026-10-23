@@ -520,11 +520,13 @@ export class GameScene extends Phaser.Scene {
   openPause() {
     if (this.fusing || this.mode !== 'play') return;
     this.mode = 'pause';
+    audio.muffle(true);
     const fights = this.dungeon.rooms.filter((r) => r.type === 'combat' || r.type === 'horde' || r.type === 'boss');
     ui.pause(
       { run: this.run, floorName: this.kit.name, roomsCleared: fights.filter((r) => r.cleared).length, roomsTotal: fights.length, training: !!this.training, tutorial: !!this.tutorial },
       {
         onResume: () => {
+          audio.muffle(false);
           if (this.mode === 'pause') this.mode = 'play';
         },
         onQuit: () => this.quitToTitle(),
@@ -754,6 +756,7 @@ export class GameScene extends Phaser.Scene {
     this.player.sprite.setTexture(`${this.heroTex}-a`);
     if (this.run.ascended) (this.ascensionFx ??= new AscensionFx(this)).syncAura(true);
     ui.showHud(true);
+    audio.floorIntro();
     if (this.training) ui.banner('万象画廊', '训练场', 'TRAINING GROUND', '武器随便试，木桩随便打，不计分也不存档', 2400);
     else ui.banner(`第${['一', '二', '三', '四'][this.run.level]}层`, kit.name, kit.en, kit.subtitle, first ? 2400 : 2200);
     if (!first) cam.fadeIn(420, 255, 255, 255);
@@ -975,7 +978,7 @@ export class GameScene extends Phaser.Scene {
       p.x += Math.cos(a) * 20;
       p.y += Math.sin(a) * 20;
     }
-    audio.block();
+    audio.lockdown();
     this.fx.shake(0.1);
   }
 
@@ -1318,6 +1321,7 @@ export class GameScene extends Phaser.Scene {
     audio.stamp(['D', 'C', 'B', 'A', 'S', 'SS'].indexOf(grade.rank));
     this.telegraphs = this.telegraphs.filter((t) => t.kind !== 'spawn');
     audio.setIntensity(0);
+    if (this.pickups.some((p) => p.kind === 'gem' && !p.dead && !p.magnet)) audio.magnet();
     this.pickups.forEach((p) => p.kind === 'gem' && (p.magnet = true));
     if (this.run.pets.includes('dove')) this.heal(1, this.player.x, this.player.y);
     this.openGates();
@@ -1493,6 +1497,7 @@ export class GameScene extends Phaser.Scene {
     updateChallenge(this, dt);
     this.updateTelegraphs(dt);
     if (this.mode === 'play') this.updateRoom(dt);
+    if (this.mode === 'play' && this.active && this.run.hp <= 1) audio.heartbeat();
     this.comboT -= dt;
     if (this.comboT <= 0 && this.combo > 0) this.combo = 0;
     if (this.comboT < -2) this.run.frenzyStacks = Math.max(0, this.run.frenzyStacks - dt * 4);
@@ -1687,6 +1692,7 @@ export class GameScene extends Phaser.Scene {
       if (p.armorT <= 0) {
         p.armorT = 0.9;
         this.run.armor++;
+        audio.armor(true);
       }
     }
     const touchDashAt = this.touch?.consume('dash');
@@ -1758,7 +1764,7 @@ export class GameScene extends Phaser.Scene {
     const g = this.meleeHeld() ? this.beatAct(at) : 'miss';
     p.skillT = g === 'perfect' ? 6 : g === 'good' ? 5 : 4;
     p.skillCd = 14;
-    audio.levelUp();
+    audio.skill();
     this.fx.ring(p.x, p.y - 4, 34, E.cyan, 300);
     this.fx.callout(p.x, p.y - 28, '双持！', E.cyan);
   }
@@ -2195,6 +2201,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   spawnEnemyBullet(x: number, y: number, a: number, speed: number, big = false) {
+    audio.enemyShot(big);
     return this.spawnProj(big ? 'ebig' : 'ebullet', x, y, a, speed, 7, big ? 5 : 3, 1, 0, 0, 'enemy');
   }
 
@@ -2616,6 +2623,7 @@ export class GameScene extends Phaser.Scene {
     if (e.dead) return;
     if ((e.boss && e.boss.invuln > 0) || (e.kind === 'ghost' && e.state === 'fade')) {
       this.fx.sparks(e.x, e.y - 8, 2, 'white');
+      audio.deflect();
       return;
     }
     if (e.kind === 'angel' && e.state === 'stone') amount *= 0.5;
@@ -2651,7 +2659,13 @@ export class GameScene extends Phaser.Scene {
       sh.hp -= dmg * k;
       this.fx.sparks(e.x, e.y - 6, 3, sh.el);
       if (!o.quiet) this.fx.number(e.x, e.y - e.r * 2 - 4, dmg * k, { small: true, color: ELEMENT_COLOR[sh.el] });
-      if (sh.hp > 0) return;
+      if (sh.hp > 0) {
+        // The shield rings when it shrugs a hit off, and thuds when the counter element bites.
+        if (o.quiet) return;
+        if (k < 1) audio.deflect();
+        else audio.hit(false);
+        return;
+      }
       // Broken: a burst of the shield's colour, and the elite reels.
       e.eshield = undefined;
       st.stun = 2;
@@ -2659,7 +2673,7 @@ export class GameScene extends Phaser.Scene {
       this.fx.callout(e.x, e.y - e.r * 2 - 16, '护盾破碎', ELEMENT_COLOR[sh.el], true);
       this.fx.ring(e.x, e.y - 4, 36, ELEMENT_COLOR[sh.el], 320, 2);
       this.fx.sparks(e.x, e.y - 4, 14, sh.el);
-      audio.explode(false);
+      audio.glass(true);
       return;
     }
     if (st.frozen > 0 && (o.heavy || element === 'rock')) dmg += shatter(this, e, dmg);
@@ -2773,7 +2787,10 @@ export class GameScene extends Phaser.Scene {
       // An elite going down takes the world with it for a breath.
       if (!this.bt && !this.fusing && this.slowT <= 0 && !e.boss) this.slow(0.3, 0.2);
     }
-    if (this.combo > 0 && this.combo % 20 === 0) this.fx.callout(this.player.x, this.player.y - 32, `${this.combo}连杀！`, E.yellow);
+    if (this.combo > 0 && this.combo % 20 === 0) {
+      this.fx.callout(this.player.x, this.player.y - 32, `${this.combo}连杀！`, E.yellow);
+      audio.rankUp(Math.min(6, 1 + this.combo / 20));
+    }
     for (const s of environmental ? [] : run.spells) {
       if (s.id === 'aura' && s.evolved && dist2(e.x, e.y, this.player.x, this.player.y) < 60 * 60) {
         s.kills++;
@@ -2892,6 +2909,7 @@ export class GameScene extends Phaser.Scene {
       o.sprite.destroy();
       if (o.kind === 'barrel') this.explode(o.x, o.y, 44, 30, { src: '爆炸桶', hurtsPlayer: 2, knock: 160, volume: 0.5, environmental });
       else {
+        audio.crate();
         this.fx.burst(o.x, o.y, 8);
         this.fx.dust(o.x, o.y, 6);
         if (Math.random() < HEART_DROPS.crate) this.dropHeart(o.x, o.y);
@@ -2933,7 +2951,7 @@ export class GameScene extends Phaser.Scene {
     this.kick(a, left > 0 ? 6 : 3);
     this.fx.impact(p.x - Math.cos(a) * 4, p.y - 6 - Math.sin(a) * 4, left > 0 ? E.red : E.grey, true);
     this.fx.sparks(p.x, p.y - 6, 8, left > 0 ? 'accent' : 'white');
-    audio.hurt();
+    audio.hurt(left <= 0);
     this.fx.shake(left > 0 ? 0.45 : 0.25);
     this.fx.flash(left > 0 ? E.red : E.grey, left > 0 ? 0.3 : 0.18, 220);
     this.stop(left > 0 ? 0.08 : 0.04);
@@ -2948,6 +2966,7 @@ export class GameScene extends Phaser.Scene {
     const run = this.run;
     if (run.hp >= run.mods.maxHp) return;
     run.hp = Math.min(run.mods.maxHp, run.hp + n);
+    audio.heal();
     this.fx.number(x, y - 16, n, { text: `+${n}`, color: E.red });
   }
 
@@ -2963,6 +2982,7 @@ export class GameScene extends Phaser.Scene {
     this.player.gun.setVisible(false);
     this.player.gun2.setVisible(false);
     audio.setIntensity(0);
+    audio.defeat();
     const rec = this.recordRun(false);
     const generation = this.runGeneration;
     this.after(1400, () => {
@@ -3172,6 +3192,8 @@ export class GameScene extends Phaser.Scene {
     sprite.setData('glow', glow);
     const pickup: Pickup = { kind: 'weapon', weapon: { ...weapon }, chest, revealT: onChest && reveal ? 0.55 : 0, tier: 0, x, y, vx: 0, vy: 0, value: 0, t: 0, magnet: false, sprite, dead: false };
     if (chest && reveal) this.tweens.add({ targets: chest, scaleX: 1.12, scaleY: 0.88, duration: 100, yoyo: true });
+    // A gun swapped out clatters to the floor; one rising out of a chest has the chest's own sound.
+    if (reveal && !onChest) audio.weaponDrop();
     this.pickups.push(pickup);
     return pickup;
   }
@@ -3208,7 +3230,7 @@ export class GameScene extends Phaser.Scene {
     }
     this.chooseReward({ type: 'weapon-new', id: p.weapon.def.id, instance: p.weapon }, () => {
       this.removePickup(p);
-      audio.select();
+      audio.weaponPickup();
       this.mode = 'play';
     }, () => { this.mode = 'play'; });
   }
@@ -3226,7 +3248,7 @@ export class GameScene extends Phaser.Scene {
     const c = ELEMENT_COLOR[p.element ?? 'rock'];
     this.fx.ring(pl.x, pl.y - 6, 22, c, 280, 2);
     this.fx.callout(pl.x, pl.y - 26, `护甲 +${restored}`, c);
-    audio.select();
+    audio.armor();
   }
 
   updatePickups(dt: number) {
@@ -3290,10 +3312,11 @@ export class GameScene extends Phaser.Scene {
         p.dead = true;
         p.sprite.destroy();
         if (p.kind === 'heart') {
+          // heal() has its own sound; a heart taken at full health still ticks.
+          if (this.run.hp >= this.run.mods.maxHp) audio.pickup(0);
           this.heal(1, pl.x, pl.y);
           this.fx.ring(pl.x, pl.y - 6, 20, E.red, 260, 2);
           this.fx.sparks(pl.x, pl.y - 6, 8, 'accent');
-          audio.select();
         } else {
           this.gemStreak++;
           this.gemT = 0.4;
@@ -3322,7 +3345,7 @@ export class GameScene extends Phaser.Scene {
       this.fx.ring(p.x, p.y - 6, 36, E.cyan, 400);
       this.fx.sparks(p.x, p.y - 8, 10, 'ice');
       this.light.flash(p.x, p.y - 8, 65, E.cyan);
-      audio.select();
+      audio.chest(true);
       this.saveProgress();
       return;
     }
@@ -3336,7 +3359,7 @@ export class GameScene extends Phaser.Scene {
     this.fx.sparks(p.x, p.y - 8, 16, 'gold');
     this.light.flash(p.x, p.y - 8, 90, E.yellow);
     this.stop(0.08);
-    audio.levelUp();
+    audio.chest();
     const run = this.run;
     const items = rollChestChoices(run);
     const show = () => {
@@ -3447,7 +3470,7 @@ export class GameScene extends Phaser.Scene {
     this.trapdoor = undefined;
     // Gems still on the floor are not lost.
     for (const g of this.pickups) if (g.kind === 'gem' && !g.dead) this.gainXp(g.value);
-    audio.select();
+    audio.descend(td.final);
     const cam = this.cameras.main;
     cam.fadeOut(500, 255, 255, 255);
     cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
@@ -3706,6 +3729,8 @@ export class GameScene extends Phaser.Scene {
     if (this.mode === 'end' || this.mode === 'dead' || this.mode === 'title') return;
     this.mode = 'end';
     ui.showHud(false);
+    audio.setIntensity(0);
+    audio.victory();
     this.cameras.main.fadeIn(600, 255, 255, 255);
     const rec = this.recordRun(true);
     ui.end({ victory: true, run: this.run, ...rec }, () => this.restart(), () => this.endToTitle());

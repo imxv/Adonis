@@ -1,3 +1,4 @@
+import { audio } from '../audio/audio';
 import { angleDiff, clamp } from '../core/math';
 import { raycast } from './dungeon';
 import type { Enemy } from './entities';
@@ -57,6 +58,7 @@ export function updateEnemyAI(s: GameScene, e: Enemy, dt: number, slow: number) 
           e.facing = toP;
           const len = raycast(s.dungeon, e.x, e.y - 3, Math.cos(toP), Math.sin(toP), 210).len;
           s.telegraphs.push({ kind: 'line', x: e.x, y: e.y - 3, x2: e.x + Math.cos(toP) * len, y2: e.y - 3 + Math.sin(toP) * len, t: 0, dur: 60 / s.rhythm.bpm });
+          audio.windup();
         }
       } else if (e.state === 'windup') {
         e.vx = e.vy = 0;
@@ -99,6 +101,7 @@ export function updateEnemyAI(s: GameScene, e: Enemy, dt: number, slow: number) 
         // A short line shows where the shot will go on the next beat.
         const len = Math.min(44, raycast(s.dungeon, e.x, e.y - 6, Math.cos(e.facing), Math.sin(e.facing), 44).len);
         s.telegraphs.push({ kind: 'line', x: e.x, y: e.y - 6, x2: e.x + Math.cos(e.facing) * len, y2: e.y - 6 + Math.sin(e.facing) * len, t: 0, dur: 60 / s.rhythm.bpm });
+        audio.windup();
       }
       if (e.state === 'aim') {
         e.vx *= 0.2;

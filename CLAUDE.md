@@ -31,7 +31,7 @@ npm run build      # 类型检查 + 打包到 dist/
 - `src/game/`：玩法系统。`dungeon.ts` 生成元气骑士式地牢（异形房间 + 走廊 + 格子碰撞），`floor.ts` 是以撒式房间图，`GameScene.ts` 是主场景（镜头、锁门、波次、武器发射、伤害结算），`lighting.ts` 是光照层，`flow.ts` 是敌人绕障寻路用的距离场，`rhythm.ts` 是节奏玩法（拍子判定、连拍、风格评级、房间评分），`boss.ts` 是守卫和野猪的行为（换位跳跃、技能队列、二阶段），`bossSkills.ts` 是各画风守卫的专属技能，`bossAnim.ts` 是 Boss 的肢体动画（姿态切换、步伐和悬浮、倾斜、挤压拉伸、蓄力与出招、残影、二阶段法阵、碎裂死亡），另有 `enemyAI.ts`、`spells.ts`、`elements.ts`（原神式元素反应）、`pets.ts`、`fx.ts`、`run.ts`。地块有四种：空、地面、墙、立式装饰（`PROP`，像墙一样阻挡，但画成地面上的精灵）。
 - `src/ui/`：DOM 叠加层，与画布同为 480×270 并按同一倍率缩放；所有文字都栅格化成像素图片。`ui.ts` 是 HUD、主菜单、暂停页、结算页和三选一面板；`screens.ts` 是图鉴、游戏说明、设置、排行榜和确认框；`codex.ts` 从数据表和贴图生成图鉴内容；`weaponCards.ts` 是左下角叠放的枪卡；`beatBar.ts` 是底部的节拍条；`pxhtml.ts` 是像素文字和图片的 HTML 工具。HUD 自成一个层叠上下文，任何 HUD 元素都不会盖住面板和菜单。全屏界面走 `ui` 的图层栈，最上层独占键盘。
 - `src/settings.ts`：玩家设置（本机保存，改动即时通知）；`src/save.ts`：本局存档和本机排行榜。
-- `src/audio/`：Tone.js 合成的音效和音乐。
+- `src/audio/`：Tone.js 合成的音效和音乐。`audio.ts` 是引擎（音色、音效、大厅主题曲、每层的舒缓层和战斗层交叉淡入），`battleMusic.ts` 是战斗层，`uiSounds.ts` 给页面上所有按钮挂点击和悬停音。界面类音效（`select`、`hover`、`uiClick`、`life`、`fish`）不受大厅挂起游戏音效的影响。
 - `tools/playtest.js`：自动试玩脚本；`tools/artsheet.js`：把贴图放大并排显示，检查像素美术。都只在开发时用，不进打包产物。
 - 节拍时钟取自 Tone.js 走带在扬声器输出时刻的位置（`audio.beatPos`）；没有音乐时按帧计时，所以自动试玩里敌人的踩拍出手节奏和真实游戏一致。
 

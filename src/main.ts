@@ -8,6 +8,7 @@ import { HUD_FOOTER_H } from './ui/ui';
 import { installMobileViewport, isTouchBrowser, safeViewport, TOUCH_CONTROLS_HEIGHT } from './platform/mobile';
 import './ui/mobile.css';
 import { audio } from './audio/audio';
+import { installUiSounds } from './audio/uiSounds';
 import { provideWeaponTraining } from './ui/weaponDemo';
 
 // The nearby-weapon demo runs this subclass of GameScene; handing it over here keeps it in the main bundle.
@@ -52,6 +53,7 @@ async function boot() {
   };
   window.addEventListener('pointerdown', unlockAudio, { capture: true });
   window.addEventListener('keydown', unlockAudio);
+  const removeUiSounds = installUiSounds();
   // Pixel text is rasterised from the webfonts, so they must be loaded first.
   await Promise.race([Promise.allSettled(DISPLAY_FONTS.map(([f, size]) => document.fonts.load(`${size} "${f}"`, '像素ABC123'))), new Promise((r) => setTimeout(r, 4000))]);
   const initialViewport = fitViewport();
@@ -78,6 +80,7 @@ async function boot() {
   window.addEventListener('mobileviewportchange', resize);
   game.events.once('destroy', () => {
     removeViewport();
+    removeUiSounds();
     window.removeEventListener('mobileviewportchange', resize);
     window.removeEventListener('pointerdown', unlockAudio, true);
     window.removeEventListener('keydown', unlockAudio);

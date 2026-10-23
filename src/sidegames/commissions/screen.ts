@@ -1,3 +1,4 @@
+import { audio } from '../../audio/audio';
 import { renderCommissionDialogue } from './view';
 import type { CommissionPageView } from './view';
 import type { NpcId } from '../../meta/life';
@@ -149,6 +150,8 @@ export function mountCommissionScreen(
     transacting = true;
     try {
       const result = controller.deliver(id);
+      if (result.completed) audio.life('deliver');
+      else if (result.error) audio.life('error');
       feedback = result.message; feedbackError = result.error;
       if (result.completed) { feedbackNpc = selectedNpc; celebrationUntil = elapsed + 3; }
     } catch {
