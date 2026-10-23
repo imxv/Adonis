@@ -49,6 +49,11 @@ export interface WeaponDef {
   bounce?: number;
   /** Shots shatter into this many shards when they stop. */
   split?: number;
+  /**
+   * Shots fork in two when they hit an enemy or a wall, and each half forks again, one level per entry: the list holds
+   * the projectile texture of each level below, so its length is how deep the recursion goes.
+   */
+  fork?: string[];
   /** The fire rate climbs while the trigger is held, down to this cooldown. */
   spinTo?: number;
   /** What flies out of the gun on each shot. */
@@ -81,9 +86,13 @@ export const WEAPONS: Record<string, WeaponDef> = {
   gale: { id: 'gale', kind: 'flame', name: '风之扇', glyph: '风', desc: '扇出一阵狂风，把敌人吹开；带风元素，把敌人身上的火水雷冰扩散出去', damage: 1.4, cooldown: 0.08, count: 2, speed: 180, range: 76, size: 4, pierce: 99, knockback: 90, spreadDeg: 44, grip: [0.3, 0.5], proj: 'b-wind', element: 'wind', shake: 0.004 },
   quake: { id: 'quake', kind: 'mortar', name: '岩晶炮', glyph: '岩', desc: '抛出岩晶弹，落地爆炸；带岩元素，能结晶出护盾晶片，还能砸碎冻结的敌人', damage: 15, cooldown: 0.95, count: 1, speed: 1, range: 210, size: 30, pierce: 0, knockback: 140, spreadDeg: 0, grip: [0.3, 0.6], proj: 'b-rock', element: 'rock', shake: 0.05, mag: 5, reload: 1.6 },
   bramble: { id: 'bramble', kind: 'bolt', name: '藤种枪', glyph: '藤', desc: '射出草种，穿透一个敌人；附着草元素：遇火燃烧、遇水绽放、遇雷激化', damage: 5, cooldown: 0.24, count: 1, speed: 260, range: 240, size: 3, pierce: 1, knockback: 40, spreadDeg: 0, grip: [0.3, 0.5], proj: 'b-seed', element: 'grass', shake: 0.01, mag: 16, reload: 1.2 },
+  // The programmer's own: a code block that forks where it lands, the way a recursive call does, until it bottoms out.
+  keyboard: { id: 'keyboard', kind: 'bolt', name: '递归键盘', glyph: '码', desc: '敲出代码块，命中或撞墙后一分为二，分出的两块还会再各分一次', damage: 5.5, cooldown: 0.3, count: 1, speed: 270, range: 230, size: 3, pierce: 0, knockback: 40, spreadDeg: 0, grip: [0.25, 0.6], proj: 'b-code', fork: ['b-code-1', 'b-code-2'], shake: 0.01, mag: 10, reload: 1.1 },
 };
 
 export const WEAPON_ORDER = Object.keys(WEAPONS);
+/** Each level of a forking shot hits for this share of the level above it. */
+export const FORK_DAMAGE = 0.6;
 export const MAX_WEAPONS = 2;
 
 export interface WeaponInstance {

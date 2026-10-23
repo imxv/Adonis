@@ -1547,6 +1547,24 @@ canvas.bt {
   height: 218px;
 }
 
+/* Four or more heroes fan out across 466px, each card tucked under its neighbours; the selected one comes to the top. */
+.pk-cards.fanned .pk-card.hero + .pk-card.hero {
+  margin-left: calc((466px - var(--n) * 150px) / (var(--n) - 1) - 10px);
+}
+
+.pk-cards.fanned .pk-card.hero:not(.sel) .pk-face {
+  filter: brightness(0.8);
+}
+
+/* Upright phones have the height for full-size cards in a row that scrolls instead. */
+.touch-portrait .pk-cards.fanned .pk-card.hero + .pk-card.hero {
+  margin-left: 0;
+}
+
+.touch-portrait .pk-cards.fanned .pk-card.hero .pk-face {
+  filter: none;
+}
+
 .pk-card.hero .pk-art {
   height: 54px;
   margin-top: 1px;
