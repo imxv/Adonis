@@ -6,7 +6,7 @@ import { audio } from '../audio/audio';
 import { ENEMIES, AFFIXES, PETS, PET_ORDER, SPAWN_STYLE, type Affix, type EnemyKind, type SpawnStyle } from '../data/enemies';
 import { SPELLS, SPELL_ORDER } from '../data/spells';
 import { UPGRADE_BY_ID } from '../data/upgrades';
-import { MAX_WEAPONS, WEAPONS, WEAPON_ORDER, magSize, reloadTime, type MeleeMove, type MoveKind, type WeaponInstance } from '../data/weapons';
+import { FORK_DAMAGE, MAX_WEAPONS, WEAPONS, WEAPON_ORDER, magSize, reloadTime, type MeleeMove, type MoveKind, type WeaponInstance } from '../data/weapons';
 import { E } from '../pixel/palette';
 import { K, buildCommonTextures, buildKitTextures, buildLevel, textTexture } from '../styles/textures';
 import type { StyleKit } from '../styles/types';
@@ -1843,6 +1843,11 @@ export class GameScene extends Phaser.Scene {
           if (def.element) pr.element = def.element;
           if (def.bounce) pr.bounce = def.bounce;
           if (def.split) pr.split = def.split;
+          if (def.fork) {
+            // Code reads upright whichever way it flies.
+            pr.fork = def.fork;
+            pr.sprite.setRotation(0);
+          }
           if (def.id === 'shuriken') pr.spin = 26;
           if (def.tracer) {
             const len = raycast(this.dungeon, ox, oy, Math.cos(aa), Math.sin(aa), range).len;
@@ -2156,6 +2161,49 @@ export class GameScene extends Phaser.Scene {
     this.fx.ring(x, y, 14, E.cyan, 180, 1);
   }
 
+  /**
+   * A recursion keyboard shot forks in two where it stops, each half a level down: a smaller glyph, weaker and with half
+   * the reach. Through an enemy the halves fly on to either side and leave that enemy alone; off a wall, crate or barrel
+   * they glance back off its face.
+   */
+  forkShot(p: Proj, x: number, y: number, off?: 'wall' | Obstacle) {
+    const [tex, ...deeper] = p.fork ?? [];
+    p.fork = undefined;
+    if (!tex) return;
+    let [nx, ny] = [0, 0];
+    if (off === 'wall') {
+      // (x, y) is the last point outside the wall and the shot itself is inside it.
+      const hitX = solidAt(this.dungeon, p.x, y);
+      const hitY = solidAt(this.dungeon, x, p.y);
+      if (hitX || !hitY) nx = -Math.sign(p.vx);
+      if (hitY || !hitX) ny = -Math.sign(p.vy);
+    } else if (off) {
+      [nx, ny] = [x - off.x, y - off.y];
+      const d = Math.hypot(nx, ny) || 1;
+      x = off.x + (nx / d) * (off.r + p.r + 1);
+      y = off.y + (ny / d) * (off.r + p.r + 1);
+    }
+    let a0 = Math.atan2(p.vy, p.vx);
+    const nn = nx * nx + ny * ny;
+    if (nn > 0) {
+      const [ux, uy] = [Math.cos(a0), Math.sin(a0)];
+      const k = (2 * (ux * nx + uy * ny)) / nn;
+      a0 = Math.atan2(uy - k * ny, ux - k * nx);
+    }
+    const speed = Math.hypot(p.vx, p.vy);
+    for (const side of [-1, 1]) {
+      const c = this.spawnProj('bolt', x, y, a0 + side * 0.45, speed, (p.life0 ?? 0.8) * 0.5, p.r * 0.8, p.dmg * FORK_DAMAGE, 0, p.knock * 0.6, p.src, tex);
+      // The halves sweep from the fork, not from the player, at the parent's scale: the glyphs themselves get smaller.
+      c.px = x;
+      c.py = y;
+      c.sprite.setScale(p.sprite.scaleX).setRotation(0);
+      c.element = p.element;
+      if (deeper.length) c.fork = deeper;
+      for (const e of p.hit) c.hit.add(e);
+    }
+    this.fx.sparks(x, y, 4, 'grass');
+  }
+
   /** A spent casing kicks out of the gun, tumbles to the floor and fades. */
   ejectCasing(x: number, y: number, a: number, kind: 'brass' | 'shell') {
     if (this.casings >= 36) return;
@@ -2290,6 +2338,7 @@ export class GameScene extends Phaser.Scene {
         } else {
           if (p.kind !== 'flame') this.fx.sparks(p.x - p.vx * dt, p.y - p.vy * dt, 2, 'gold');
           if (p.split) this.shatter(p, p.x - p.vx * dt, p.y - p.vy * dt);
+          if (p.fork) this.forkShot(p, p.x - p.vx * dt, p.y - p.vy * dt, 'wall');
           this.killProj(p, true);
           continue;
         }
@@ -2309,6 +2358,7 @@ export class GameScene extends Phaser.Scene {
             continue;
           }
           if (o.kind !== 'pillar') this.damageObstacle(o, p.dmg);
+          if (p.fork) this.forkShot(p, p.x, p.y, o);
           this.killProj(p);
           continue;
         }
@@ -2341,6 +2391,7 @@ export class GameScene extends Phaser.Scene {
           continue;
         }
         if (p.split) this.shatter(p, p.x, p.y);
+        if (p.fork) this.forkShot(p, p.x, p.y);
         this.killProj(p);
         break;
       }
