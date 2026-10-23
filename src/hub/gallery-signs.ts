@@ -6,7 +6,7 @@ import { outlineCanvas, pxText } from '../pixel/draw';
  * Each is painted at the hall's source resolution and drawn at the same 2× as the room.
  */
 export type SignStyle = 'ribbon' | 'brass' | 'post' | 'board' | 'hanging';
-export type SignIcon = 'fish' | 'leaf' | 'pot';
+export type SignIcon = 'fish' | 'leaf' | 'pot' | 'sword';
 
 export interface SignArt {
   /** Resting art, and highlighted art that carries a one-pixel halo on every side. */
@@ -45,6 +45,15 @@ const ICONS: Record<SignIcon, string[]> = {
     '#######',
     '.#####.',
     '..###..',
+  ],
+  sword: [
+    '..#..',
+    '..#..',
+    '..#..',
+    '..#..',
+    '#####',
+    '..#..',
+    '.###.',
   ],
 };
 

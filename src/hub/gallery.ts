@@ -2,11 +2,11 @@ import './gallery.css';
 import { Grid } from '../pixel/draw';
 import { ADONIS_A, ADONIS_B } from '../pixel/sprites';
 import { GALLERY_WORLD, createGalleryPixelRenderer, createPixelRepairDisplay } from './gallery-pixel-renderer';
-import { createGalleryStations, drawStation } from './gallery-pixel-stations';
+import { TRAINING_AT, createGalleryStations, drawStation } from './gallery-pixel-stations';
 import { createCommissionNpcFrames } from '../sidegames/commissions/pixel-art-npcs';
 import { createSign, drawSignChevron, type SignIcon, type SignStyle } from './gallery-signs';
 
-export type GalleryAction = 'adventure' | 'continue' | 'garden' | 'world3d' | 'collection' | 'fishing' | 'kitchen' | 'commissions' | 'repair';
+export type GalleryAction = 'adventure' | 'continue' | 'training' | 'garden' | 'world3d' | 'collection' | 'fishing' | 'kitchen' | 'commissions' | 'repair';
 export interface GalleryRepair {
   id: string;
   name: string;
@@ -57,6 +57,7 @@ const DESTINATIONS: Destination[] = [
   { action: 'repair', title: '回廊修复', subtitle: '让旧陈列重新焕发光彩', number: 'V', point: { x: REPAIR_AT.x + 72, y: 752 }, hit: { x: REPAIR_AT.x, y: REPAIR_AT.y, w: 144, h: 152 }, sign: { style: 'brass', x: REPAIR_AT.x + 72, y: REPAIR_AT.y + 126, depth: REPAIR_AT.y + 152.5 } },
   { action: 'kitchen', title: '归途厨房', subtitle: '用鱼和草木烹出征补给', number: 'VII', point: { x: 716, y: 712 }, hit: { x: 660, y: 528, w: 112, h: 144 }, sign: { style: 'hanging', x: 818, y: 470, mark: 'pot' } },
   { action: 'commissions', title: '居民委托', subtitle: '去庭院帮涅柔斯和达芙妮的忙', number: 'VIII', point: { x: 760, y: 866 }, hit: { x: 770, y: 690, w: 170, h: 170 }, sign: { style: 'board', x: 845, y: 796, depth: 796 } },
+  { action: 'training', title: '训练场', subtitle: '试遍每一把武器，木桩随便打', number: 'IX', point: { x: TRAINING_AT.x + 84, y: TRAINING_AT.y + 158 }, hit: { x: TRAINING_AT.x - 4, y: TRAINING_AT.y - 24, w: 304, h: 150 }, sign: { style: 'post', x: TRAINING_AT.x + 234, y: TRAINING_AT.y + 66, mark: 'sword', depth: TRAINING_AT.y + 66 } },
   { action: 'fishing', title: '湖畔钓鱼', subtitle: '去苇影湖钓鱼，做菜和委托都用得上', number: 'VI', point: { x: 458, y: 705 }, hit: { x: 110, y: 470, w: 320, h: 232 }, sign: { style: 'post', x: 470, y: 650, mark: 'fish', depth: 650 } },
   { action: 'adventure', title: '画中轮回', subtitle: '开启新的五层冒险', number: 'I', point: { x: WORLD_CENTER, y: 630 }, hit: { x: WORLD_CENTER - 224, y: 60, w: 448, h: 550 }, sign: { style: 'ribbon', x: WORLD_CENTER, y: 522 } },
   { action: 'world3d', title: '爱琴海岸', subtitle: '走进立体的神话世界', number: 'II', point: { x: 1938, y: 640 }, hit: { x: 1790, y: 100, w: 300, h: 450 }, sign: { style: 'brass', x: 1938, y: 556 } },
@@ -113,13 +114,13 @@ export function mountGallery(options: GalleryOptions): GalleryHandle {
   root.dataset.renderer = 'procedural-pixel-v3';
   root.setAttribute('aria-label', '万象画廊大厅');
   root.innerHTML = `
-    <div class="ag-hub-stage"><canvas class="ag-hub-canvas" tabindex="0" aria-label="可步行的万象画廊。WASD 或方向键移动，靠近画作、钓竿、铜锅或居民后按 F 或 Enter 进入。点击它们会自动走过去。"></canvas></div>
+    <div class="ag-hub-stage"><canvas class="ag-hub-canvas" tabindex="0" aria-label="可步行的万象画廊。WASD 或方向键移动，靠近画作、钓竿、铜锅、武器架或居民后按 F 或 Enter 进入。点击它们会自动走过去。"></canvas></div>
     <header class="ag-hub-header">
       <div class="ag-hub-brand"><span class="ag-hub-emblem" aria-hidden="true">✦</span><div><p class="ag-hub-eyebrow">ADONIS</p><h1 class="ag-hub-title">万象画廊</h1></div></div>
       <div class="ag-hub-profile" aria-label="画廊收藏与补给"><div class="ag-hub-resources"></div><p class="ag-hub-supply"></p></div>
     </header>
     <div class="ag-hub-near" aria-live="polite" hidden><span class="ag-hub-near-number"></span><div><p class="ag-hub-near-title"></p><p class="ag-hub-near-copy"></p></div><button class="ag-hub-interact" type="button"><kbd>F</kbd> 进入</button></div>
-    <footer class="ag-hub-footer"><p class="ag-hub-controls"><span class="ag-hub-controls-keys"><kbd>WASD</kbd> 走动 <span>·</span> 靠近按 <kbd>F</kbd> <span>·</span> 点击直接走过去</span><span class="ag-hub-controls-touch">点地面走过去 <span>·</span> 下方按钮直达</span></p><nav class="ag-hub-actions ag-hub-life-actions" aria-label="生活玩法快捷入口"><button type="button" class="ag-hub-action ag-hub-action-life" data-action="fishing">湖畔钓鱼</button><button type="button" class="ag-hub-action ag-hub-action-life" data-action="kitchen">归途厨房</button><button type="button" class="ag-hub-action ag-hub-action-life" data-action="commissions">居民委托</button><button type="button" class="ag-hub-action ag-hub-action-life" data-action="garden">月桂花园</button></nav><nav class="ag-hub-actions ag-hub-journey-actions" aria-label="旅程与收藏快捷入口"><button type="button" class="ag-hub-action ag-hub-action-primary" data-action="adventure"><span aria-hidden="true">Ⅰ</span> 画中轮回</button><button type="button" class="ag-hub-action ag-hub-action-continue" data-action="continue">继续旅程</button><button type="button" class="ag-hub-action" data-action="world3d">爱琴海岸</button><button type="button" class="ag-hub-action" data-action="collection">珍藏陈列</button></nav></footer>
+    <footer class="ag-hub-footer"><p class="ag-hub-controls"><span class="ag-hub-controls-keys"><kbd>WASD</kbd> 走动 <span>·</span> 靠近按 <kbd>F</kbd> <span>·</span> 点击直接走过去</span><span class="ag-hub-controls-touch">点地面走过去 <span>·</span> 下方按钮直达</span></p><nav class="ag-hub-actions ag-hub-life-actions" aria-label="生活玩法快捷入口"><button type="button" class="ag-hub-action ag-hub-action-life" data-action="fishing">湖畔钓鱼</button><button type="button" class="ag-hub-action ag-hub-action-life" data-action="kitchen">归途厨房</button><button type="button" class="ag-hub-action ag-hub-action-life" data-action="commissions">居民委托</button><button type="button" class="ag-hub-action ag-hub-action-life" data-action="garden">月桂花园</button></nav><nav class="ag-hub-actions ag-hub-journey-actions" aria-label="旅程与收藏快捷入口"><button type="button" class="ag-hub-action ag-hub-action-primary" data-action="adventure"><span aria-hidden="true">Ⅰ</span> 画中轮回</button><button type="button" class="ag-hub-action ag-hub-action-continue" data-action="continue">继续旅程</button><button type="button" class="ag-hub-action" data-action="training">训练场</button><button type="button" class="ag-hub-action" data-action="world3d">爱琴海岸</button><button type="button" class="ag-hub-action" data-action="collection">珍藏陈列</button></nav></footer>
     <p class="ag-hub-warning" role="status" hidden></p>`;
   options.container.append(root);
   const canvas = root.querySelector<HTMLCanvasElement>('.ag-hub-canvas')!;
@@ -436,6 +437,7 @@ export function mountGallery(options: GalleryOptions): GalleryHandle {
         .map((destination) => ({ y: destination.sign.depth!, paint: () => drawSign(destination) })),
       { y: stations.fishing.baseY, paint: () => drawStation(context, stations.fishing, still ? 0 : Math.floor(clock / 0.7)) },
       { y: stations.kitchen.baseY, paint: () => drawStation(context, stations.kitchen, still ? 0 : Math.floor(clock / 0.16)) },
+      { y: stations.training.baseY, paint: () => drawStation(context, stations.training, still || near?.action !== 'training' ? 0 : Math.floor(clock / 0.35)) },
       ...RESIDENTS.map((resident, index) => ({ y: resident.y, paint: () => {
         const frames = residentFrames[resident.id];
         const pose = still ? 0 : resident.id === 'nereus' ? greeting ? Math.floor(clock * 3) % 2 : 0 : Math.floor(clock / 0.9 + index) % 2;

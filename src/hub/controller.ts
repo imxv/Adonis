@@ -37,6 +37,8 @@ interface HubOptions {
   suspendGame(): void;
   resumeGame(): void;
   showAdventure(action?: 'new' | 'continue'): void;
+  /** Opens the training ground inside the combat scene. */
+  showTraining(): void;
   /** The combat half of the beginner tutorial, after the hall tour reaches the main painting. */
   startTutorial(): void;
   releaseUI(): void;
@@ -196,7 +198,8 @@ export class HubController {
       // until the practice run really starts, so a cancelled phone-rotation prompt returns to it.
       if (tour === 'enter') this.options.startTutorial();
       else this.options.showAdventure(action === 'continue' ? 'continue' : 'new');
-    } else if (action === 'collection') this.collection();
+    } else if (action === 'training') this.options.showTraining();
+    else if (action === 'collection') this.collection();
     else if (action === 'repair') this.restoration();
     else void this.openExternal(action);
   }
