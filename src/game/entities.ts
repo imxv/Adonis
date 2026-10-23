@@ -134,6 +134,8 @@ export interface Enemy {
   anim: number;
   facing: number;
   flash: number;
+  /** Seconds since the last hit, while its body still wobbles from it. */
+  hurtT?: number;
   dead: boolean;
   scale: number;
   status: Status;
@@ -207,6 +209,9 @@ export interface Pickup {
   vy: number;
   value: number;
   t: number;
+  /** Height and upward speed while a dropped gem is still hopping. */
+  z?: number;
+  vz?: number;
   magnet: boolean;
   sprite: Img;
   dead: boolean;
