@@ -1,0 +1,54 @@
+/* The tutorial card hangs at the top of the hall between the brand and the resources, in the hall's own plate style. */
+.ag-tour {
+  position: absolute;
+  z-index: 5;
+  top: max(16px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(420px, calc(100% - 420px));
+  min-width: 300px;
+  gap: 4px;
+  padding: 8px 12px 10px;
+  pointer-events: auto;
+  transition: border-color 120ms steps(2);
+}
+.ag-tour-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ag-tour-count { margin: 0; }
+.ag-mode-panel .ag-tour-skip { min-height: 28px; padding: 0 8px; color: #c5c3c7; background: #1b2238; box-shadow: none; border-color: #4d4b61; }
+.ag-tour-title { color: #fff0d2; font-size: 24px; line-height: 1.25; text-shadow: 2px 2px #101426; }
+.ag-tour-text { color: #e9ddc3 !important; }
+.ag-tour-nudge { color: #f6d89d !important; }
+.ag-tour.is-done { border-color: #b4cda0; }
+.ag-tour.is-done .ag-tour-title::after { content: ' ✓'; color: #b4cda0; }
+.ag-tour.is-nudged { animation: ag-tour-nudge 240ms steps(4); }
+@keyframes ag-tour-nudge {
+  25% { transform: translateX(calc(-50% - 3px)); }
+  75% { transform: translateX(calc(-50% + 3px)); }
+}
+
+/* The first-visit question: a veil over the paused hall and one centred plate. */
+.ag-tour-veil {
+  position: absolute;
+  z-index: 6;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: #080f23a8;
+}
+.ag-tour-ask { width: min(440px, 100%); max-height: 100%; overflow: auto; padding: 16px 18px 18px; }
+.ag-tour-ask-note { color: #a9a6b3 !important; }
+.ag-tour-ask .ag-mode-actions button { flex: 1 1 auto; }
+
+@media (max-width: 900px) {
+  .ag-tour { top: max(76px, calc(env(safe-area-inset-top) + 66px)); width: calc(100% - 20px); min-width: 0; }
+  .ag-tour-title { font-size: 12px; }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .ag-tour { top: max(8px, env(safe-area-inset-top)); width: min(400px, calc(100% - 400px)); min-width: 260px; padding: 6px 10px 7px; }
+  .ag-tour-title { font-size: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ag-tour.is-nudged { animation: none; }
+}
