@@ -3,7 +3,6 @@ import { rand } from '../core/rng';
 import { audio } from '../audio/audio';
 import { K } from '../styles/textures';
 import { E } from '../pixel/palette';
-import { ui } from '../ui/ui';
 import { raycast } from './dungeon';
 import { freshStatus, type BossState, type Enemy } from './entities';
 import { DEPTH } from './fx';
@@ -47,6 +46,9 @@ export function spawnBoss(s: GameScene, kind: 'guardian' | 'boar'): Enemy {
     enraged: false,
     invuln: 1.2,
     name,
+    // Until it has landed and roared (bossAnim ends this early when the roar is over).
+    intro: 4,
+    bar: 0,
   };
   const e: Enemy = {
     id: s.nextId++,
@@ -78,13 +80,15 @@ export function spawnBoss(s: GameScene, kind: 'guardian' | 'boar'): Enemy {
     boss,
   };
   s.enemies.push(e);
-  // It falls in from above (or floats down) and lands with a slam.
+  // It breaks out of its summon just above the floor, drops (or floats down), lands and roars (see bossAnim).
   boss.look = initLook(s, e);
-  // The guardian is the style's subtitle come to life, so its banner says it again.
-  ui.banner(kind === 'boar' ? '宿 敌' : '守 卫', name, kind === 'boar' ? 'THE BOAR' : 'THE GUARDIAN', kind === 'boar' ? '那头撞死阿多尼斯的野猪' : `「${kit.subtitle}」`, 1800);
-  audio.roar();
-  s.fx.shake(0.6);
-  s.fx.flash(E.white, 0.35, 400);
+  const accent = boss.look.accent;
+  s.fx.flash(E.white, 0.55, 360);
+  s.fx.ring(x, y - 30, 120, accent, 420, 3);
+  s.fx.burst(x, y - 30, 24);
+  s.fx.sparks(x, y - 30, 20, 'white');
+  s.light.flash(x, y - 30, 160, accent, 0.4);
+  audio.bossBreak();
   return e;
 }
 
@@ -120,6 +124,14 @@ export function bossDeath(s: GameScene, e: Enemy) {
 
 export function updateBoss(s: GameScene, e: Enemy, dt: number, slow: number) {
   const b = e.boss!;
+  b.bar = Math.min(1, (b.bar ?? 1) + dt / 1.6);
+  if ((b.intro ?? 0) > 0) {
+    // Still arriving: it holds its ground and nothing hurts it.
+    b.intro! -= dt;
+    b.invuln = Math.max(b.invuln, 0.25);
+    e.vx = e.vy = 0;
+    return;
+  }
   b.invuln -= dt;
   e.t += dt;
   if (e.kind === 'guardian') guardian(s, e, b, dt * Math.max(0.35, slow));

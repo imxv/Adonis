@@ -35,6 +35,29 @@ export function floorScale(per: number, level: number) {
   return 1 + per * level;
 }
 
+/**
+ * How a combat room's waves come in. Each wave is summoned all at once and the next waits until it is dead, so
+ * waves no longer overlap; `budget` makes each one bigger to keep the pressure the overlap used to give.
+ * Wave size still grows with the floor and the room's depth (see planWaves) and with the difficulty's `enemies`.
+ */
+export const WAVE_RULES = {
+  /** Seconds after the gates shut before the first wave starts loading in. */
+  first: 0.45,
+  /** Seconds between the last monster of a wave falling and the next wave starting to load. */
+  gap: 1.1,
+  /** Seconds a wave takes to load in; every monster in it arrives at the end, on the same frame. */
+  summon: 1.35,
+  /** Seconds a monster summoned in the middle of a fight (horde, boss) takes to load in. */
+  quick: 0.85,
+  /** Seconds monsters hold still once they have arrived, before they move or hurt anyone. */
+  wake: 0.3,
+  /** Multiplier on each wave's enemy budget. */
+  budget: 1.25,
+  /** Every wave brings at least this many and at most this many monsters. */
+  minSize: 3,
+  maxSize: 12,
+};
+
 /** Heart drop chances. Hearts are the only way to recover health, so they stay scarce. */
 export const HEART_DROPS = {
   /** A cleared combat room, after the chest rolls. */

@@ -3,7 +3,7 @@ import { TAU, angleDiff, clamp, dist, dist2, hexToNum, lerp, segCircle } from '.
 import { Rng, rand } from '../core/rng';
 import type { Element } from '../core/stats';
 import { audio } from '../audio/audio';
-import { ENEMIES, AFFIXES, PETS, PET_ORDER, SPAWN_STYLE, type Affix, type EnemyKind, type SpawnStyle } from '../data/enemies';
+import { ENEMIES, AFFIXES, PETS, PET_ORDER, type Affix, type EnemyKind } from '../data/enemies';
 import { SPELLS, SPELL_ORDER } from '../data/spells';
 import { UPGRADE_BY_ID } from '../data/upgrades';
 import { FORK_DAMAGE, MAX_WEAPONS, WEAPONS, WEAPON_ORDER, magSize, reloadTime, type MeleeMove, type MoveKind, type WeaponInstance } from '../data/weapons';
@@ -16,13 +16,13 @@ import { beginMobileEntry, releaseMobileEntryDisplay } from '../ui/mobileEntry';
 import { settings } from '../settings';
 import { TouchControls } from '../input/touchControls';
 import { DIRS, DIR_VEC } from './dirs';
-import { bossDeath, spawnBoss, updateBoss } from './boss';
+import { bossDeath, updateBoss } from './boss';
 import { animateBoss } from './bossAnim';
 import { dropLevelToken, packLevelTokens, updateLevelTokens, type LevelToken } from './levelTokens';
 import { interactNearby, updateInteractionHints, updateNearbyWeaponPreview, resetWeaponPreview } from './interactions';
 import { WEAPON_POWER } from './weaponMetrics';
 import { HEROES, type HeroId } from '../data/heroes';
-import { DIFFICULTIES, FLOOR_SCALING, HEART_DROPS, floorScale, type DifficultyId } from '../data/difficulty';
+import { DIFFICULTIES, FLOOR_SCALING, HEART_DROPS, WAVE_RULES, floorScale, type DifficultyId } from '../data/difficulty';
 import { T, collide, generateDungeon, enhanceDungeon, openSpot, randomFloorIn, raycast, roomAt, roomCenter, solidAt, type DRoom, type Dungeon } from './dungeon';
 import { updateEnemyAI } from './enemyAI';
 import { FlowField } from './flow';
@@ -57,6 +57,7 @@ import { clearSpellVisuals, updateSpells, zap } from './spells';
 import { destroyTraps, populateTraps, settleTraps, updateTraps, grounded, type Trap } from './traps';
 import { currentPush, destroyCurrents, populateCurrents, updateCurrents, type Current } from './currents';
 import { challengeProgress, destroyChallenges, finishChallenge, populateChallenges, updateChallenge, type Challenge } from './challenge';
+import { clearSummons, drawSummon, entrance, queueSpawn, summonBoss, summonGroup, type SummonOrder } from './summon';
 import { HubController } from '../hub/controller';
 import { KIT_BY_ID } from '../styles/kits';
 import { TRAINING_KIT, hitDummy, holdDummy, setupTraining, takeTrainingWeapon, trainingDungeon, trainingSpawn, updateTraining, type TrainingState } from './training';
@@ -78,9 +79,6 @@ interface Pedestal {
   choice: Choice;
   room: DRoom;
 }
-
-/** How strong each enemy's summon looks: weak ones rise from a rune, strong ones step out of a rift. */
-const SPAWN_TIER: Record<EnemyKind, 1 | 2 | 3> = { wanderer: 1, bat: 1, charger: 2, shooter: 2, bomber: 2, shield: 3, brute: 3, sporeling: 1, yeti: 3, scorpion: 2, magma: 2, turret: 2, ghost: 2, ninja: 2, angel: 3, jelly: 2, drone: 1 };
 
 /** How far the camera leans toward the cursor, in pixels. */
 /** Seconds from the start of a spell fusion to the moment it lands; the sound is booked for the same moment. */
@@ -137,9 +135,10 @@ export class GameScene extends Phaser.Scene {
   /** The room whose fight is running; its gates are shut. */
   active?: DRoom;
   mode: Mode = 'title';
-  waves: { kind: EnemyKind; elite: boolean }[][] = [];
+  waves: SummonOrder[][] = [];
   waveIdx = 0;
-  waveTimer = 0;
+  /** Seconds until wave `waveIdx` starts loading in (0 once it has). */
+  waveGap = 0;
   hordeT = 0;
   hordeDur = 0;
   spawnT = 0;
@@ -213,6 +212,15 @@ export class GameScene extends Phaser.Scene {
   private camY = 0;
   private kickX = 0;
   private kickY = 0;
+  /** Real seconds during which another small hitstop only gets a sliver. */
+  private stopCool = 0;
+  /** How hard the gun in hand climbs and jumps back on a shot (heavy guns more). */
+  private gunKick = 0.15;
+  /** The knight's squash and stretch: long along a dash as it starts, flattened and flashing when hurt. */
+  private dashSquash = 0;
+  private playerHurtT = 0;
+  /** How long a melee blow that connects holds the frame: quick weapons get a short bite, slow ones a long one. */
+  private swingStop = 0.045;
   private pointerMoved = false;
   private touch?: TouchControls;
   time0 = 0;
@@ -511,11 +519,13 @@ export class GameScene extends Phaser.Scene {
   openPause() {
     if (this.fusing || this.mode !== 'play') return;
     this.mode = 'pause';
+    audio.muffle(true);
     const fights = this.dungeon.rooms.filter((r) => r.type === 'combat' || r.type === 'horde' || r.type === 'boss');
     ui.pause(
       { run: this.run, floorName: this.kit.name, roomsCleared: fights.filter((r) => r.cleared).length, roomsTotal: fights.length, training: !!this.training, tutorial: !!this.tutorial },
       {
         onResume: () => {
+          audio.muffle(false);
           if (this.mode === 'pause') this.mode = 'play';
         },
         onQuit: () => this.quitToTitle(),
@@ -640,6 +650,7 @@ export class GameScene extends Phaser.Scene {
     this.ehazards = [];
     this.light.darkT = 0;
     this.hazards = [];
+    clearSummons(this);
     this.telegraphs = [];
     this.visuals = [];
     this.pedestals.forEach((p) => [p.ped, p.item, p.glow, p.label].forEach((o) => o.destroy()));
@@ -745,6 +756,7 @@ export class GameScene extends Phaser.Scene {
     this.player.sprite.setTexture(`${this.heroTex}-a`);
     if (this.run.ascended) (this.ascensionFx ??= new AscensionFx(this)).syncAura(true);
     ui.showHud(true);
+    audio.floorIntro();
     if (this.training) ui.banner('万象画廊', '训练场', 'TRAINING GROUND', '武器随便试，木桩随便打，不计分也不存档', 2400);
     else ui.banner(`第${['一', '二', '三', '四'][this.run.level]}层`, kit.name, kit.en, kit.subtitle, first ? 2400 : 2200);
     if (!first) cam.fadeIn(420, 255, 255, 255);
@@ -910,26 +922,14 @@ export class GameScene extends Phaser.Scene {
     this.rhythm.startFight();
     this.fightStats = { t0: this.time0, kills: 0, combo: 0 };
     this.waveIdx = 0;
-    this.waveTimer = 0;
+    this.waveGap = 0;
     this.hordeT = 0;
     this.closeGates(r);
     if (r.type === 'boss') {
       audio.setIntensity(2);
-      audio.roar();
-      this.spawnT = 6;
-      const R = this.roomRect();
-      this.telegraphs.push({
-        kind: 'spawn',
-        x: R.cx,
-        y: R.y0 + 92,
-        r: 40,
-        t: 0,
-        dur: 1.1,
-        tier: 5,
-        onDone: () => {
-          if (this.active === r) this.boss = spawnBoss(this, this.run.level === LEVELS - 1 ? 'boar' : 'guardian');
-        },
-      });
+      // Its minions only start coming once it has made its entrance.
+      this.spawnT = 9;
+      summonBoss(this, r, this.run.level === LEVELS - 1 ? 'boar' : 'guardian');
     } else if (r.type === 'horde') {
       this.hordeDur = 20 + this.run.level * 4;
       this.spawnT = 0.6;
@@ -937,8 +937,9 @@ export class GameScene extends Phaser.Scene {
       audio.setIntensity(2);
       ui.toast(`尸潮来袭 坚持${this.hordeDur}秒`, 1600);
     } else {
+      // The first wave starts loading in a moment after the gates slam.
       this.planWaves(new Rng(r.seed));
-      this.spawnWave(0);
+      this.waveGap = WAVE_RULES.first;
       audio.setIntensity(1);
     }
     if (this.traps.some((t) => t.room === r)) ui.toast('机关启动', 1000);
@@ -966,7 +967,7 @@ export class GameScene extends Phaser.Scene {
       p.x += Math.cos(a) * 20;
       p.y += Math.sin(a) * 20;
     }
-    audio.block();
+    audio.lockdown();
     this.fx.shake(0.1);
   }
 
@@ -989,20 +990,20 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  /** Fewer, meaner enemies: a closer camera needs breathing room. */
+  /** Each wave comes in whole, so it is a crowd: bigger the deeper the floor and the room. */
   planWaves(rng: Rng) {
     const level = this.run.level;
     const depth = Math.min(this.active!.depth, 5);
     // Rooms fill up the deeper you go: about half again as many as the first cut, and a third wave sooner.
-    const budget = (9 + level * 5 + depth * 1.5) * this.run.diff.enemies;
+    const budget = (9 + level * 5 + depth * 1.5) * this.run.diff.enemies * WAVE_RULES.budget;
     const waveCount = depth >= 3 || level >= 2 ? 3 : 2;
     const kinds = this.enemyKinds();
     let elites = rng.chance(0.12 + level * (0.1 + FLOOR_SCALING.elites) + depth * 0.03) ? 1 : 0;
     this.waves = [];
     for (let w = 0; w < waveCount; w++) {
       let left = Math.round((budget * (0.85 + w * 0.2)) / waveCount);
-      const wave: { kind: EnemyKind; elite: boolean }[] = [];
-      while (left > 0) {
+      const wave: SummonOrder[] = [];
+      while ((left > 0 || wave.length < WAVE_RULES.minSize) && wave.length < WAVE_RULES.maxSize) {
         const kind = rng.weighted(kinds, (q) => ENEMIES[q].weight);
         const elite = elites > 0 && w === waveCount - 1;
         if (elite) elites--;
@@ -1035,84 +1036,26 @@ export class GameScene extends Phaser.Scene {
     return randomFloorIn(this.dungeon, r, this.run.rng, this.player.x, this.player.y, minDist);
   }
 
+  /** A wave loads in all at once: a sigil for every monster on one clock, and they all break out together. */
   spawnWave(i: number) {
-    for (const s of this.waves[i]) {
-      const [x, y] = this.spawnPoint();
-      this.queueSpawn(s.kind, x, y, s.elite);
-    }
+    const wave = this.waves[i];
+    const dur = WAVE_RULES.summon;
+    summonGroup(this, wave, { dur, onLand: (es) => this.waveLanded(es) });
+    audio.summonWave(dur, wave.length);
+    audio.waveCall(i, this.waves.length);
+    ui.waveBanner(i, this.waves.length);
   }
 
-  /** Summon an enemy: a warning on the floor whose look (and length) depends on how strong it is. */
-  queueSpawn(kind: EnemyKind, x: number, y: number, elite = false, mini = false, delay = 0.7) {
-    if (solidAt(this.dungeon, x, y)) [x, y] = openSpot(this.dungeon, x, y);
-    this.pendingSpawns++;
-    const tier = elite ? 4 : SPAWN_TIER[kind];
-    const style = elite ? undefined : SPAWN_STYLE[kind];
-    const color = hexToNum(kind === 'wanderer' ? this.kit.px.slime : kind === 'magma' ? E.orange : this.kit.palette.danger);
-    this.telegraphs.push({
-      kind: 'spawn',
-      x,
-      y,
-      r: tier >= 4 ? 14 : tier === 3 ? 11 : tier === 2 ? 10 : 8,
-      t: 0,
-      dur: delay * [0.9, 1.05, 1.3, 1.6][tier - 1],
-      tier,
-      style,
-      color,
-      onDone: () => {
-        this.pendingSpawns--;
-        if (this.mode === 'dead' || this.mode === 'end' || !this.active) return;
-        const e = this.spawnEnemy(kind, x, y, elite, mini);
-        this.arrive(e, tier, style);
-      },
-    });
+  /** The whole wave is out: one hit for all of them. */
+  waveLanded(es: Enemy[]) {
+    this.fx.shake(Math.min(0.3, 0.08 + es.length * 0.02));
+    this.fx.flash(this.kit.palette.danger, 0.08, 160);
+    audio.waveArrive(es.length);
   }
 
-  /** The moment a summoned enemy appears: each kind arrives its own way, with its own sound. */
-  arrive(e: Enemy, tier: number, style?: SpawnStyle) {
-    const danger = this.kit.palette.danger;
-    if (style && style !== 'portal') {
-      e.enter = { kind: style, t: 0 };
-      audio.spawn(style);
-      switch (style) {
-        case 'ooze':
-          this.fx.dust(e.x, e.y, 3);
-          break;
-        case 'burrow':
-          this.fx.dust(e.x, e.y, 9);
-          this.fx.ring(e.x, e.y, 12, E.tan, 200, 1);
-          break;
-        case 'smoke':
-          this.fx.dust(e.x, e.y - 4, 14);
-          this.fx.ring(e.x, e.y - 4, 16, E.white, 220, 1);
-          break;
-        case 'bones':
-          this.fx.sparks(e.x, e.y - 6, 8, 'white');
-          break;
-        case 'beam':
-          this.light.flash(e.x, e.y - 6, 70, E.yellow, 0.35);
-          this.fx.sparks(e.x, e.y - 6, 10, 'gold');
-          break;
-        case 'roll':
-          e.enter.ox = Math.random() < 0.5 ? -42 : 42;
-          break;
-      }
-      return;
-    }
-    if (style === 'portal') audio.spawn('portal');
-    if (tier === 1) {
-      e.enter = { kind: 'rise', t: 0 };
-      this.fx.dust(e.x, e.y, 3);
-    } else if (tier === 2) {
-      e.enter = { kind: 'drop', t: 0 };
-    } else {
-      e.enter = { kind: 'emerge', t: 0 };
-      this.fx.ring(e.x, e.y - 4, tier >= 4 ? 46 : 30, danger, 360, 2);
-      this.fx.burst(e.x, e.y - 4, tier >= 4 ? 14 : 8);
-      this.fx.shake(tier >= 4 ? 0.2 : 0.08);
-      this.light.flash(e.x, e.y - 4, tier >= 4 ? 90 : 60, danger, 0.3);
-      if (tier >= 4) this.fx.flash(danger, 0.12, 200);
-    }
+  /** Summon one monster (bosses call this for their minions); see summon.ts. */
+  queueSpawn(kind: EnemyKind, x: number, y: number, elite = false, mini = false, delay: number = WAVE_RULES.quick) {
+    queueSpawn(this, kind, x, y, { elite, mini, dur: delay });
   }
 
   spawnEnemy(kind: EnemyKind, x: number, y: number, elite = false, mini = false): Enemy {
@@ -1196,10 +1139,10 @@ export class GameScene extends Phaser.Scene {
   updateRoom(dt: number) {
     const r = this.active;
     if (!r || this.mode !== 'play') return;
-    // Once nothing more is coming, a straggler outside the locked room (spawned in a corridor, pushed through a gap)
-    // can never be reached and would keep the gates shut forever: it fades away instead.
-    const lastWave = (r.type === 'combat' && this.waveIdx === this.waves.length - 1) || (r.type === 'horde' && this.hordeT >= this.hordeDur);
-    if (lastWave && this.pendingSpawns === 0) {
+    // A straggler outside the locked room (spawned in a corridor, pushed through a gap) can never be reached, and a
+    // wave only ends when all of it is down, so it would keep the gates shut forever: it fades away instead.
+    const waiting = r.type === 'combat' || (r.type === 'horde' && this.hordeT >= this.hordeDur);
+    if (waiting && this.pendingSpawns === 0) {
       for (const e of this.enemies) {
         if (e.dead || e.boss || e.enter || roomAt(this.dungeon, e.x, e.y, 1) === r) continue;
         e.strayT = (e.strayT ?? 0) + dt;
@@ -1212,13 +1155,17 @@ export class GameScene extends Phaser.Scene {
     const alive = this.enemies.filter((e) => !e.dead && !e.boss).length;
     switch (r.type) {
       case 'combat': {
-        this.waveTimer += dt;
-        const waveSize = this.waves[this.waveIdx]?.length ?? 1;
-        if (this.waveIdx < this.waves.length - 1 && (alive + this.pendingSpawns <= Math.floor(waveSize * 0.25) || this.waveTimer > 10)) {
-          this.waveIdx++;
-          this.waveTimer = 0;
-          this.spawnWave(this.waveIdx);
-        } else if (this.waveIdx === this.waves.length - 1 && alive === 0 && this.pendingSpawns === 0) this.onRoomCleared();
+        // One wave at a time: the next starts loading only once every monster of this one is down.
+        if (this.waveGap > 0) {
+          this.waveGap -= dt;
+          if (this.waveGap <= 0) this.spawnWave(this.waveIdx);
+        } else if (alive === 0 && this.pendingSpawns === 0) {
+          if (this.waveIdx < this.waves.length - 1) {
+            this.waveIdx++;
+            this.waveGap = WAVE_RULES.gap;
+            audio.waveClear();
+          } else this.onRoomCleared();
+        }
         break;
       }
       case 'horde': {
@@ -1226,14 +1173,18 @@ export class GameScene extends Phaser.Scene {
         const k = Math.min(1, this.hordeT / this.hordeDur);
         if (this.hordeT < this.hordeDur) {
           this.spawnT -= dt;
-          if (this.spawnT <= 0 && alive + this.pendingSpawns < (14 + this.run.level * 5) * this.run.diff.enemies) {
-            this.spawnT = lerp(1.3, 0.7, k) / (1 + this.run.level * 0.15) / this.run.diff.enemies;
-            const [x, y] = this.spawnPoint(110);
-            const n = 1 + Math.floor(k * 1.5);
-            for (let i = 0; i < n; i++) {
-              const kind = this.run.rng.weighted(this.enemyKinds(), (q) => ENEMIES[q].weight);
-              this.queueSpawn(kind, x + rand(-12, 12), y + rand(-12, 12), false, false, 0.5);
-            }
+          const cap = (14 + this.run.level * 5) * this.run.diff.enemies;
+          if (this.spawnT <= 0 && alive + this.pendingSpawns < cap) {
+            // The horde comes in surges: a pack every few seconds, all summoned together, as many as the old
+            // steady trickle would have brought in that time.
+            const every = lerp(3.4, 2.4, k);
+            this.spawnT = every;
+            const rate = ((1 + Math.floor(k * 1.5)) * (1 + this.run.level * 0.15) * this.run.diff.enemies) / lerp(1.3, 0.7, k);
+            const n = clamp(Math.round(rate * every), 2, Math.max(2, Math.floor(cap - alive - this.pendingSpawns)));
+            const pack: SummonOrder[] = [];
+            for (let i = 0; i < n; i++) pack.push({ kind: this.run.rng.weighted(this.enemyKinds(), (q) => ENEMIES[q].weight) });
+            summonGroup(this, pack, { dur: WAVE_RULES.quick, minDist: 100 });
+            audio.summonWave(WAVE_RULES.quick, n, true);
           }
           this.swarmT -= dt;
           if (this.swarmT <= 0) {
@@ -1247,8 +1198,9 @@ export class GameScene extends Phaser.Scene {
         this.spawnT -= dt;
         if (this.boss && !this.boss.dead && this.spawnT <= 0 && alive < 5) {
           this.spawnT = 5;
-          const [x, y] = this.spawnPoint(110);
-          for (let i = 0; i < 2; i++) this.queueSpawn(this.run.rng.pick(['wanderer', 'bat'] as EnemyKind[]), x + rand(-10, 10), y + rand(-10, 10), false, false, 0.5);
+          const pair = [0, 1].map(() => ({ kind: this.run.rng.pick(['wanderer', 'bat'] as EnemyKind[]) }));
+          summonGroup(this, pair, { dur: WAVE_RULES.quick, minDist: 110 });
+          audio.summonWave(WAVE_RULES.quick, 2, true);
         }
         break;
       }
@@ -1274,12 +1226,15 @@ export class GameScene extends Phaser.Scene {
       ui.toast('蝙蝠群', 800);
     } else {
       const n = 6 + run.level * 2;
+      const ring: SummonOrder[] = [];
       for (let i = 0; i < n; i++) {
         const a = (i / n) * TAU;
         const x = p.x + Math.cos(a) * 84;
         const y = p.y + Math.sin(a) * 64;
-        if (!solidAt(this.dungeon, x, y) && roomAt(this.dungeon, x, y, 0) === r) this.queueSpawn('wanderer', x, y);
+        if (!solidAt(this.dungeon, x, y) && roomAt(this.dungeon, x, y, 0) === r) ring.push({ kind: 'wanderer', at: [x, y] });
       }
+      summonGroup(this, ring, { dur: WAVE_RULES.quick });
+      audio.summonWave(WAVE_RULES.quick, ring.length, true);
       ui.toast('包围', 800);
     }
   }
@@ -1307,8 +1262,9 @@ export class GameScene extends Phaser.Scene {
     audio.clear();
     ui.roomClear({ rank: grade.rank, points: grade.points, secs: this.time0 - this.fightStats.t0, kills: this.fightStats.kills, combo: this.fightStats.combo, boss: bossDown });
     audio.stamp(['D', 'C', 'B', 'A', 'S', 'SS'].indexOf(grade.rank));
-    this.telegraphs = this.telegraphs.filter((t) => t.kind !== 'spawn');
+    clearSummons(this);
     audio.setIntensity(0);
+    if (this.pickups.some((p) => p.kind === 'gem' && !p.dead && !p.magnet)) audio.magnet();
     this.pickups.forEach((p) => p.kind === 'gem' && (p.magnet = true));
     if (this.run.pets.includes('dove')) this.heal(1, this.player.x, this.player.y);
     this.openGates();
@@ -1417,8 +1373,11 @@ export class GameScene extends Phaser.Scene {
       this.hudTick(realDt);
       return;
     }
+    this.stopCool -= realDt;
     if (this.hitstop > 0) {
       this.hitstop -= realDt;
+      // The world holds still, but the camera keeps shaking through the freeze.
+      this.updateCamera(0);
       return;
     }
     if (this.bt) {
@@ -1481,6 +1440,7 @@ export class GameScene extends Phaser.Scene {
     updateChallenge(this, dt);
     this.updateTelegraphs(dt);
     if (this.mode === 'play') this.updateRoom(dt);
+    if (this.mode === 'play' && this.active && this.run.hp <= 1) audio.heartbeat();
     this.comboT -= dt;
     if (this.comboT <= 0 && this.combo > 0) this.combo = 0;
     if (this.comboT < -2) this.run.frenzyStacks = Math.max(0, this.run.frenzyStacks - dt * 4);
@@ -1522,7 +1482,8 @@ export class GameScene extends Phaser.Scene {
     const kd = Math.exp(-dt * 24);
     this.kickX *= kd;
     this.kickY *= kd;
-    cam.centerOn(this.camX + this.kickX, this.camY + this.kickY);
+    const [sx, sy] = this.fx.shakeOffset();
+    cam.centerOn(this.camX + this.kickX + sx, this.camY + this.kickY + sy);
   }
 
   /** Push the view against the shot direction, like recoil. */
@@ -1562,18 +1523,22 @@ export class GameScene extends Phaser.Scene {
       styleName: this.kit.name,
       place: this.training ? '训练场' : undefined,
       timer: this.active?.type === 'horde' ? Math.max(0, this.hordeDur - this.hordeT) : 0,
+      wave: this.active?.type === 'combat' && this.waves.length ? [this.waveIdx + 1, this.waves.length] : undefined,
       kills: run.kills,
       combo: this.combo,
       rank: this.rhythm.rank(),
       gauge: this.rhythm.gauge(),
       score: run.score,
       map: this.dungeon.rooms.map((r) => ({ gx: r.gx, gy: r.gy, type: r.type, visited: r.visited, seen: r.seen, cleared: r.cleared, current: r === this.room, doors: r.doors })),
-      boss: b ? { name: b.boss!.name, ratio: Math.max(0, b.hp / b.maxHp), phaseMark: b.kind === 'boar' ? 0.5 : 0.55 } : undefined,
+      boss: b ? { name: b.boss!.name, ratio: Math.max(0, Math.min(b.boss!.bar ?? 1, b.hp / b.maxHp)), phaseMark: b.kind === 'boar' ? 0.5 : 0.55 } : undefined,
     });
   }
 
+  /** Freeze the world for a moment. Small stops hard on each other's heels shrink to a sliver, so a hail of kills never stutters. */
   stop(sec: number) {
+    if (this.stopCool > 0 && sec < 0.06) sec *= 0.35;
     this.hitstop = Math.max(this.hitstop, sec);
+    this.stopCool = this.hitstop + 0.1;
   }
 
   slow(scale: number, sec: number) {
@@ -1671,6 +1636,7 @@ export class GameScene extends Phaser.Scene {
       if (p.armorT <= 0) {
         p.armorT = 0.9;
         this.run.armor++;
+        audio.armor(true);
       }
     }
     const touchDashAt = this.touch?.consume('dash');
@@ -1685,6 +1651,7 @@ export class GameScene extends Phaser.Scene {
       p.dashCd = 0.9 * this.run.mods.dashCooldown;
       audio.dash();
       this.fx.dust(p.x, p.y, 6);
+      this.dashSquash = 1;
       if (this.meleeHeld()) {
         const g = this.beatAct(this.dashPressAt || performance.now());
         if (g !== 'miss') this.beatDash(p.x, p.y, g === 'perfect');
@@ -1741,7 +1708,7 @@ export class GameScene extends Phaser.Scene {
     const g = this.meleeHeld() ? this.beatAct(at) : 'miss';
     p.skillT = g === 'perfect' ? 6 : g === 'good' ? 5 : 4;
     p.skillCd = 14;
-    audio.levelUp();
+    audio.skill();
     this.fx.ring(p.x, p.y - 4, 34, E.cyan, 300);
     this.fx.callout(p.x, p.y - 28, '双持！', E.cyan);
   }
@@ -1962,8 +1929,9 @@ export class GameScene extends Phaser.Scene {
         break;
     }
     if (def.casing) this.ejectCasing(ox, oy, a, def.casing);
+    this.gunKick = Math.min(0.55, 0.12 + (def.shake ?? 0.01) * 3);
     if (def.kind !== 'slash' && def.kind !== 'flame') {
-      this.fx.muzzle(ox, oy, a);
+      this.fx.muzzle(ox, oy, a, def.shake ?? 0);
       this.light.flash(ox, oy, 26 + (def.shake ?? 0) * 200, E.yellow, 0.07);
     } else if (def.kind === 'slash') this.light.flash(p.x + Math.cos(a) * 14, p.y - 4 + Math.sin(a) * 14, 40, E.cyan, 0.1);
     const shake = def.shake ?? 0.01;
@@ -1988,6 +1956,7 @@ export class GameScene extends Phaser.Scene {
     this.melee.last = this.time0;
     const grade = this.swingGrade;
     this.swingElement = def.element;
+    this.swingStop = clamp(def.cooldown * 0.15, 0.02, 0.06);
     const full = finisher && (grade === 'perfect' || grade === 'good');
     const x = p.x;
     const y = p.y - 4;
@@ -2095,12 +2064,20 @@ export class GameScene extends Phaser.Scene {
   /** Hit everything within `half` of angle `a` out to `r` (all around when half is pi), and cut enemy bullets down. */
   meleeHit(x: number, y: number, a: number, r: number, half: number, dmg: number, knock: number, src: string, heavy = false) {
     const all = half >= Math.PI - 0.01;
+    let hits = 0;
     for (const e of this.enemies) {
       if (e.dead) continue;
       const d = dist(x, y, e.x, e.y - 3);
       if (d > r + e.r) continue;
       if (!all && Math.abs(angleDiff(a, Math.atan2(e.y - 3 - y, e.x - x))) > half + 0.12 + Math.min(0.5, e.r / Math.max(d, 1))) continue;
       this.damageEnemy(e, dmg, { src, kx: e.x - x, ky: e.y - y, knock, ignoreShield: true, heavy, element: this.swingElement });
+      hits++;
+    }
+    // A blade that connects bites: the frame holds for a beat (longer for heavy blows) and the view jolts with the swing.
+    if (hits) {
+      this.stop(heavy ? Math.max(0.07, this.swingStop) : this.swingStop);
+      this.fx.shake(heavy ? 0.14 : 0.06);
+      this.kick(a, heavy ? 3 : 1.5);
     }
     for (const b of this.eproj) {
       if (b.dead || dist(x, y, b.x, b.y) > r + 6) continue;
@@ -2168,6 +2145,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   spawnEnemyBullet(x: number, y: number, a: number, speed: number, big = false) {
+    audio.enemyShot(big);
     return this.spawnProj(big ? 'ebig' : 'ebullet', x, y, a, speed, 7, big ? 5 : 3, 1, 0, 0, 'enemy');
   }
 
@@ -2589,6 +2567,7 @@ export class GameScene extends Phaser.Scene {
     if (e.dead) return;
     if ((e.boss && e.boss.invuln > 0) || (e.kind === 'ghost' && e.state === 'fade')) {
       this.fx.sparks(e.x, e.y - 8, 2, 'white');
+      audio.deflect();
       return;
     }
     if (e.kind === 'angel' && e.state === 'stone') amount *= 0.5;
@@ -2624,7 +2603,13 @@ export class GameScene extends Phaser.Scene {
       sh.hp -= dmg * k;
       this.fx.sparks(e.x, e.y - 6, 3, sh.el);
       if (!o.quiet) this.fx.number(e.x, e.y - e.r * 2 - 4, dmg * k, { small: true, color: ELEMENT_COLOR[sh.el] });
-      if (sh.hp > 0) return;
+      if (sh.hp > 0) {
+        // The shield rings when it shrugs a hit off, and thuds when the counter element bites.
+        if (o.quiet) return;
+        if (k < 1) audio.deflect();
+        else audio.hit(false);
+        return;
+      }
       // Broken: a burst of the shield's colour, and the elite reels.
       e.eshield = undefined;
       st.stun = 2;
@@ -2632,7 +2617,7 @@ export class GameScene extends Phaser.Scene {
       this.fx.callout(e.x, e.y - e.r * 2 - 16, '护盾破碎', ELEMENT_COLOR[sh.el], true);
       this.fx.ring(e.x, e.y - 4, 36, ELEMENT_COLOR[sh.el], 320, 2);
       this.fx.sparks(e.x, e.y - 4, 14, sh.el);
-      audio.explode(false);
+      audio.glass(true);
       return;
     }
     if (st.frozen > 0 && (o.heavy || element === 'rock')) dmg += shatter(this, e, dmg);
@@ -2641,6 +2626,9 @@ export class GameScene extends Phaser.Scene {
     this.run.damage[o.src] = (this.run.damage[o.src] ?? 0) + dmg;
     if (!o.dot) {
       e.flash = 0.06;
+      // White at once, so a hitstop freezes on the flash; ordinary monsters also wobble from the blow.
+      e.sprite.setTintFill(0xffffff);
+      if (!e.boss) e.hurtT = 0;
       if (o.kx !== undefined && o.knock) {
         const l = Math.hypot(o.kx, o.ky ?? 0) || 1;
         const res = e.boss ? 0.05 : e.elite ? 0.4 : 1;
@@ -2650,10 +2638,14 @@ export class GameScene extends Phaser.Scene {
       if (!o.quiet || crit) {
         audio.hit(crit, !!o.heavy);
         this.fx.sparks(e.x, e.y - 4, crit ? 6 : 2, crit ? 'gold' : element ?? 'white');
+        // The star sits on the side the blow came from.
+        const kl = Math.hypot(o.kx ?? 0, o.ky ?? 0);
+        const off = kl ? (e.r * 0.8) / kl : 0;
+        this.fx.impact(e.x - (o.kx ?? 0) * off, e.y - 4 - (o.ky ?? 0) * off, crit ? E.yellow : element ? ELEMENT_COLOR[element] : E.white, crit || !!o.heavy);
       }
       if (crit) {
-        this.stop(0.025);
-        this.fx.shake(0.03);
+        this.stop(0.035);
+        this.fx.shake(0.06);
       }
     }
     if (!o.quiet || crit) this.fx.number(e.x, e.y - e.r * 2 - 4, dmg, { crit, small: o.dot, color: o.color ?? (element ? ELEMENT_COLOR[element] : undefined) });
@@ -2733,9 +2725,16 @@ export class GameScene extends Phaser.Scene {
     this.fx.burst(e.x, e.y - 4, e.elite ? 16 : 6);
     this.splat(e);
     this.light.flash(e.x, e.y - 4, e.elite ? 60 : 30, E.white);
-    this.stop(e.elite ? 0.08 : 0.014);
-    if (e.elite) this.fx.shake(0.22);
-    if (this.combo > 0 && this.combo % 20 === 0) this.fx.callout(this.player.x, this.player.y - 32, `${this.combo}连杀！`, E.yellow);
+    this.stop(e.elite ? 0.09 : 0.03);
+    if (e.elite) {
+      this.fx.shake(0.3);
+      // An elite going down takes the world with it for a breath.
+      if (!this.bt && !this.fusing && this.slowT <= 0 && !e.boss) this.slow(0.3, 0.2);
+    }
+    if (this.combo > 0 && this.combo % 20 === 0) {
+      this.fx.callout(this.player.x, this.player.y - 32, `${this.combo}连杀！`, E.yellow);
+      audio.rankUp(Math.min(6, 1 + this.combo / 20));
+    }
     for (const s of environmental ? [] : run.spells) {
       if (s.id === 'aura' && s.evolved && dist2(e.x, e.y, this.player.x, this.player.y) < 60 * 60) {
         s.kills++;
@@ -2760,9 +2759,29 @@ export class GameScene extends Phaser.Scene {
       bossDeath(this, e);
       return;
     }
+    // The body pops white on the frozen frame, then is flung the way the blow went, flattening as it fades;
+    // bits of it scatter the same way and a thin ring marks the spot.
+    const kl = Math.hypot(e.kx, e.ky);
+    const [dx, dy] = kl > 1 ? [e.kx / kl, e.ky / kl] : [0, 0];
+    const gore = this.goreColor(e);
+    this.fx.gib(e.x, e.y - 4, dx, dy, e.elite ? 14 : 6, [gore, gore, E.white], e.elite ? 1.3 : 1);
+    this.fx.ring(e.x, e.y - 4, e.r + (e.elite ? 18 : 9), E.white, e.elite ? 280 : 170, 1);
+    if (kl > 1) this.kick(Math.atan2(dy, dx), e.elite ? 4 : 1.2);
     const sprite = e.sprite;
-    sprite.setTintFill(0xffffff);
-    this.tweens.add({ targets: sprite, scaleX: sprite.scaleX * 1.4, scaleY: sprite.scaleY * 0.4, alpha: 0, duration: 120, onComplete: () => sprite.destroy() });
+    sprite.setTintFill(0xffffff).setScale(e.scale * 1.3);
+    this.tweens.add({
+      targets: sprite,
+      x: sprite.x + dx * 10,
+      y: sprite.y + dy * 7 - 2,
+      scaleX: e.scale * 1.7,
+      scaleY: e.scale * 0.2,
+      angle: (dx || (e.id % 2 ? 1 : -1)) * 20,
+      alpha: 0,
+      delay: 30,
+      duration: 170,
+      ease: 'Quad.easeOut',
+      onComplete: () => sprite.destroy(),
+    });
     e.shadow.destroy();
     e.extra?.destroy();
     e.ring?.destroy();
@@ -2775,11 +2794,16 @@ export class GameScene extends Phaser.Scene {
    */
   splat(e: Enemy) {
     if (!e.boss && !e.elite && Math.random() > 0.35) return;
-    const stuff: Partial<Record<string, string>> = { wanderer: this.kit.px.slime, magma: E.brownD, bomber: E.ink, shield: E.cream, angel: E.grey, ghost: E.cyan, jelly: E.pink, sporeling: E.greenD, turret: E.navy, drone: E.navy, guardian: E.slate };
-    const col = stuff[e.kind] ?? E.redD;
+    const col = this.goreColor(e);
     const alpha = e.kind === 'ghost' ? 0.3 : e.kind === 'shield' || e.kind === 'angel' ? 0.5 : 0.72;
     const scale = (e.boss ? 2.6 : e.elite ? 1.7 : 1) * rand(0.8, 1.15);
     this.decals?.stamp(`splat-${Math.floor(rand(0, 4))}`, undefined, Math.round(e.x), Math.round(e.y + 1), { angle: Math.floor(rand(0, 4)) * 90, scale, alpha, tint: hexToNum(col) });
+  }
+
+  /** What a monster is made of, for its splat and the bits a kill knocks off it. */
+  goreColor(e: Enemy): string {
+    const stuff: Partial<Record<string, string>> = { wanderer: this.kit.px.slime, magma: E.brownD, bomber: E.ink, shield: E.cream, angel: E.grey, ghost: E.cyan, jelly: E.pink, sporeling: E.greenD, turret: E.navy, drone: E.navy, guardian: E.slate };
+    return stuff[e.kind] ?? E.redD;
   }
 
   explode(x: number, y: number, r: number, dmg: number, o: { src: string; hurtsPlayer?: number; knock?: number; small?: boolean; element?: Element; noReact?: boolean; volume?: number; environmental?: boolean }) {
@@ -2800,7 +2824,16 @@ export class GameScene extends Phaser.Scene {
     this.fx.ring(x, y, r, o.hurtsPlayer ? this.kit.palette.danger : E.yellow, 260, 2);
     this.fx.burst(x, y, o.small ? 4 : 10);
     this.fx.dust(x, y, o.small ? 3 : 8);
-    this.fx.shake(o.small ? 0.06 : 0.2);
+    this.fx.shake(o.small ? 0.06 : 0.24);
+    if (!o.small) {
+      // A white-hot core, embers thrown out, a scorch left on the floor, and the view shoved away from the blast.
+      this.fx.glowPop(x, y, r * 1.6, E.yellow, 150);
+      this.fx.gib(x, y, 0, 0, Math.min(14, 4 + Math.round(r / 4)), [E.orange, E.yellow, E.ink], 1.2);
+      this.decals?.stamp(`splat-${Math.floor(rand(0, 4))}`, undefined, Math.round(x), Math.round(y), { angle: Math.floor(rand(0, 4)) * 90, scale: r / 10, alpha: 0.32, tint: hexToNum(E.ink) });
+      const pd = dist(x, y, this.player.x, this.player.y);
+      if (pd < 160) this.kick(Math.atan2(this.player.y - y, this.player.x - x), 4 * (1 - pd / 160));
+      if (r > 28) this.stop(0.04);
+    }
     this.light.flash(x, y, r * 3, E.orange);
     audio.explode(!o.small && r > 30 && (o.volume ?? 1) > 0.7, o.volume ?? 1);
   }
@@ -2820,6 +2853,7 @@ export class GameScene extends Phaser.Scene {
       o.sprite.destroy();
       if (o.kind === 'barrel') this.explode(o.x, o.y, 44, 30, { src: '爆炸桶', hurtsPlayer: 2, knock: 160, volume: 0.5, environmental });
       else {
+        audio.crate();
         this.fx.burst(o.x, o.y, 8);
         this.fx.dust(o.x, o.y, 6);
         if (Math.random() < HEART_DROPS.crate) this.dropHeart(o.x, o.y);
@@ -2855,7 +2889,13 @@ export class GameScene extends Phaser.Scene {
     const a = Math.atan2(p.y - sy, p.x - sx);
     p.vx += Math.cos(a) * 160;
     p.vy += Math.sin(a) * 160;
-    audio.hurt();
+    // The knight flashes white then red and is knocked flat for a moment; the view is shoved the way the hit went.
+    this.playerHurtT = 0.2;
+    p.sprite.setTintFill(0xffffff);
+    this.kick(a, left > 0 ? 6 : 3);
+    this.fx.impact(p.x - Math.cos(a) * 4, p.y - 6 - Math.sin(a) * 4, left > 0 ? E.red : E.grey, true);
+    this.fx.sparks(p.x, p.y - 6, 8, left > 0 ? 'accent' : 'white');
+    audio.hurt(left <= 0);
     this.fx.shake(left > 0 ? 0.45 : 0.25);
     this.fx.flash(left > 0 ? E.red : E.grey, left > 0 ? 0.3 : 0.18, 220);
     this.stop(left > 0 ? 0.08 : 0.04);
@@ -2870,6 +2910,7 @@ export class GameScene extends Phaser.Scene {
     const run = this.run;
     if (run.hp >= run.mods.maxHp) return;
     run.hp = Math.min(run.mods.maxHp, run.hp + n);
+    audio.heal();
     this.fx.number(x, y - 16, n, { text: `+${n}`, color: E.red });
   }
 
@@ -2885,6 +2926,7 @@ export class GameScene extends Phaser.Scene {
     this.player.gun.setVisible(false);
     this.player.gun2.setVisible(false);
     audio.setIntensity(0);
+    audio.defeat();
     const rec = this.recordRun(false);
     const generation = this.runGeneration;
     this.after(1400, () => {
@@ -2966,7 +3008,9 @@ export class GameScene extends Phaser.Scene {
         updateBoss(this, e, dt, slowMul);
         this.bossShot = undefined;
       }
-      if (e.dummy) holdDummy(this, e);
+      // Arriving monsters hold still until their entrance is done.
+      if (e.enter) e.vx = e.vy = 0;
+      else if (e.dummy) holdDummy(this, e);
       else if (!e.boss) updateEnemyAI(this, e, dt, slowMul);
       if (e.dead) continue;
       const kd = Math.exp(-dt * 10);
@@ -3012,7 +3056,8 @@ export class GameScene extends Phaser.Scene {
       // The guardian hovers over pillars; everything else is held back by walls.
       const flies = a.kind === 'guardian' || a.kind === 'ghost' || a.kind === 'drone';
       if (!flies && (!a.boss || a.boss.air < 20)) [a.x, a.y] = collide(this.dungeon, a.x, a.y, Math.max(3, a.r * 0.8));
-      if (this.mode === 'play' && !a.dummy && dist2(a.x, a.y, pl.x, pl.y) < (a.r + pl.r * 0.8) ** 2 && (a.boss?.air ?? 0) < 20) {
+      const arriving = !!a.enter || (a.boss?.intro ?? 0) > 0;
+      if (this.mode === 'play' && !arriving && !a.dummy && dist2(a.x, a.y, pl.x, pl.y) < (a.r + pl.r * 0.8) ** 2 && (a.boss?.air ?? 0) < 20) {
         this.hurtPlayer(a.state === 'charge' ? 2 : a.contact, a.x, a.y);
       }
       a.flash -= dt;
@@ -3025,10 +3070,15 @@ export class GameScene extends Phaser.Scene {
         sp.setFlipX(pl.x < a.x);
       }
       sp.setPosition(Math.round(a.x), Math.round(a.y - (a.boss?.air ?? 0)));
-      // In a fight everything keeps time: a quick squash on every beat.
-      if (!a.boss && !a.enter && a.state !== 'fuse' && this.active) {
-        const k = Math.max(0, 1 - this.rhythm.phase * 5);
-        sp.setScale(a.scale * (1 + k * 0.12), a.scale * (1 - k * 0.12));
+      // In a fight everything keeps time: a quick squash on every beat. A hit sets the body wobbling on top of it.
+      if (!a.boss && !a.enter && a.state !== 'fuse' && (this.active || a.hurtT !== undefined)) {
+        let k = this.active ? Math.max(0, 1 - this.rhythm.phase * 5) * 0.12 : 0;
+        if (a.hurtT !== undefined) {
+          a.hurtT += dt;
+          if (a.hurtT > 0.3) a.hurtT = undefined;
+          else k += 0.3 * Math.cos(a.hurtT * 38) * Math.exp(-a.hurtT * 14);
+        }
+        sp.setScale(a.scale * (1 + k), a.scale * (1 - k));
       }
       if (a.kind === 'ghost') sp.setAlpha(a.state === 'fade' ? 0.25 : 0.9);
       if (a.flash > 0) sp.setTintFill(0xffffff);
@@ -3038,7 +3088,7 @@ export class GameScene extends Phaser.Scene {
       else if (a.status.stun > 0) sp.setTint(0x9aa4b8);
       else if (a.boss?.enraged) sp.setTint(0xff9a9a);
       else sp.clearTint();
-      if (a.enter) this.entrance(a, sp, dt);
+      if (a.enter) entrance(this, a, sp, dt);
       markAura(this, a);
       a.shadow.setPosition(Math.round(a.x), Math.round(a.y + 1));
       if (a.boss) animateBoss(this, a, dt);
@@ -3057,9 +3107,10 @@ export class GameScene extends Phaser.Scene {
   dropGem(x: number, y: number, value: number) {
     const tier = value >= 5 ? 3 : value >= 2 ? 2 : 1;
     const a = rand(0, TAU);
-    const sp = rand(10, 40);
+    const sp = rand(15, 50);
     const sprite = this.add.image(Math.round(x), Math.round(y), `gem-${tier}`).setDepth(DEPTH.pickup);
-    this.pickups.push({ kind: 'gem', tier, x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, value, t: 0, magnet: !this.active, sprite, dead: false });
+    // Gems pop out of the kill in a little hop before they settle.
+    this.pickups.push({ kind: 'gem', tier, x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, z: 2, vz: rand(70, 120), value, t: 0, magnet: !this.active, sprite, dead: false });
   }
 
   dropHeart(x: number, y: number) {
@@ -3088,6 +3139,8 @@ export class GameScene extends Phaser.Scene {
     sprite.setData('glow', glow);
     const pickup: Pickup = { kind: 'weapon', weapon: { ...weapon }, chest, revealT: onChest && reveal ? 0.55 : 0, tier: 0, x, y, vx: 0, vy: 0, value: 0, t: 0, magnet: false, sprite, dead: false };
     if (chest && reveal) this.tweens.add({ targets: chest, scaleX: 1.12, scaleY: 0.88, duration: 100, yoyo: true });
+    // A gun swapped out clatters to the floor; one rising out of a chest has the chest's own sound.
+    if (reveal && !onChest) audio.weaponDrop();
     this.pickups.push(pickup);
     return pickup;
   }
@@ -3124,7 +3177,7 @@ export class GameScene extends Phaser.Scene {
     }
     this.chooseReward({ type: 'weapon-new', id: p.weapon.def.id, instance: p.weapon }, () => {
       this.removePickup(p);
-      audio.select();
+      audio.weaponPickup();
       this.mode = 'play';
     }, () => { this.mode = 'play'; });
   }
@@ -3142,7 +3195,7 @@ export class GameScene extends Phaser.Scene {
     const c = ELEMENT_COLOR[p.element ?? 'rock'];
     this.fx.ring(pl.x, pl.y - 6, 22, c, 280, 2);
     this.fx.callout(pl.x, pl.y - 26, `护甲 +${restored}`, c);
-    audio.select();
+    audio.armor();
   }
 
   updatePickups(dt: number) {
@@ -3179,6 +3232,7 @@ export class GameScene extends Phaser.Scene {
         const step = Math.min(d, Math.min(540, 110 + p.t * 1000) * dt);
         p.x += (dx / d) * step;
         p.y += (dy / d) * step;
+        if (p.z) p.z = Math.max(0, p.z - dt * 80);
       } else {
         const f = Math.exp(-dt * 5);
         p.vx *= f;
@@ -3186,8 +3240,17 @@ export class GameScene extends Phaser.Scene {
         p.x += p.vx * dt;
         p.y += p.vy * dt;
         [p.x, p.y] = collide(this.dungeon, p.x, p.y, 3);
+        if (p.vz !== undefined) {
+          p.vz -= 420 * dt;
+          p.z = (p.z ?? 0) + p.vz * dt;
+          if (p.z <= 0) {
+            p.z = 0;
+            p.vz = p.vz < -50 ? -p.vz * 0.4 : undefined;
+          }
+        }
       }
-      p.sprite.setPosition(Math.round(p.x), Math.round(p.y + (p.magnet ? 0 : Math.round(Math.sin(p.t * 5) * 1.2))));
+      const bob = p.magnet || p.vz !== undefined ? 0 : Math.round(Math.sin(p.t * 5) * 1.2);
+      p.sprite.setPosition(Math.round(p.x), Math.round(p.y - (p.z ?? 0) + bob));
       if (canCollect && dist2(p.x, p.y, pl.x, pl.y - 4) < (pl.r + 6) ** 2 && this.mode === 'play') {
         if (p.kind === 'crystal') {
           this.collectCrystal(p);
@@ -3196,11 +3259,16 @@ export class GameScene extends Phaser.Scene {
         p.dead = true;
         p.sprite.destroy();
         if (p.kind === 'heart') {
+          // heal() has its own sound; a heart taken at full health still ticks.
+          if (this.run.hp >= this.run.mods.maxHp) audio.pickup(0);
           this.heal(1, pl.x, pl.y);
-          audio.select();
+          this.fx.ring(pl.x, pl.y - 6, 20, E.red, 260, 2);
+          this.fx.sparks(pl.x, pl.y - 6, 8, 'accent');
         } else {
           this.gemStreak++;
           this.gemT = 0.4;
+          // Each gem lands with a glint in its colour, a little brighter as a run of them streams in.
+          this.fx.glowPop(pl.x, pl.y - 6, 10 + Math.min(this.gemStreak, 12), p.tier === 3 ? E.red : p.tier === 2 ? E.green : E.cyan, 140);
           audio.pickup(this.gemStreak);
           this.gainXp(p.value);
         }
@@ -3224,7 +3292,7 @@ export class GameScene extends Phaser.Scene {
       this.fx.ring(p.x, p.y - 6, 36, E.cyan, 400);
       this.fx.sparks(p.x, p.y - 8, 10, 'ice');
       this.light.flash(p.x, p.y - 8, 65, E.cyan);
-      audio.select();
+      audio.chest(true);
       this.saveProgress();
       return;
     }
@@ -3238,7 +3306,7 @@ export class GameScene extends Phaser.Scene {
     this.fx.sparks(p.x, p.y - 8, 16, 'gold');
     this.light.flash(p.x, p.y - 8, 90, E.yellow);
     this.stop(0.08);
-    audio.levelUp();
+    audio.chest();
     const run = this.run;
     const items = rollChestChoices(run);
     const show = () => {
@@ -3349,7 +3417,7 @@ export class GameScene extends Phaser.Scene {
     this.trapdoor = undefined;
     // Gems still on the floor are not lost.
     for (const g of this.pickups) if (g.kind === 'gem' && !g.dead) this.gainXp(g.value);
-    audio.select();
+    audio.descend(td.final);
     const cam = this.cameras.main;
     cam.fadeOut(500, 255, 255, 255);
     cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
@@ -3608,6 +3676,8 @@ export class GameScene extends Phaser.Scene {
     if (this.mode === 'end' || this.mode === 'dead' || this.mode === 'title') return;
     this.mode = 'end';
     ui.showHud(false);
+    audio.setIntensity(0);
+    audio.victory();
     this.cameras.main.fadeIn(600, 255, 255, 255);
     const rec = this.recordRun(true);
     ui.end({ victory: true, run: this.run, ...rec }, () => this.restart(), () => this.endToTitle());
@@ -3667,12 +3737,24 @@ export class GameScene extends Phaser.Scene {
       const left = Math.cos(p.aim) < 0;
       p.sprite.setPosition(Math.round(p.x), Math.round(p.y)).setFlipX(left);
       p.sprite.setAlpha(p.iframes > 0 && p.dashT <= 0 && this.mode === 'play' ? (Math.floor(this.time0 * 20) % 2 ? 0.3 : 1) : 1);
+      // Squash and stretch: long along a dash as it sets off, knocked flat for a moment by a hit.
+      this.dashSquash = Math.max(0, this.dashSquash - dt * 6);
+      const ds = this.dashSquash * this.dashSquash * 0.35;
+      const hurt = this.playerHurtT;
+      this.playerHurtT = Math.max(0, hurt - dt);
+      const hs = hurt > 0 ? Math.sin((1 - hurt / 0.2) * Math.PI) * 0.2 : 0;
+      p.sprite.setScale(1 + ds * (Math.abs(p.dashX) - 0.5 * Math.abs(p.dashY)) + hs, 1 + ds * (Math.abs(p.dashY) - 0.5 * Math.abs(p.dashX)) - hs);
+      if (this.playerHurtT > 0.15) p.sprite.setTintFill(0xffffff);
+      else if (this.playerHurtT > 0) p.sprite.setTint(0xff7a7a);
+      else if (hurt > 0) p.sprite.clearTint();
       p.shadow.setPosition(Math.round(p.x), Math.round(p.y + 1));
       p.punch = Math.max(0, p.punch - dt * 10);
       const held = run.weapons[run.held];
       const handX = p.x + (left ? -2 : 2);
       const handY = p.y - 4;
-      const kick = p.punch * 2;
+      // Guns jump back and climb on each shot; the heavier the gun, the more.
+      const kick = p.punch * (2 + this.gunKick * 6);
+      const climb = p.punch * this.gunKick * (left ? 1 : -1);
       const gx = handX - Math.cos(p.aim) * kick;
       const gy = handY - Math.sin(p.aim) * kick;
       // Melee weapons act out the combo move; guns just kick back.
@@ -3689,7 +3771,7 @@ export class GameScene extends Phaser.Scene {
         this.swapT = Math.max(0, this.swapT - dt);
         const sw = this.swapT / 0.2;
         const flourish = sw * 2.4 * (left ? -1 : 1);
-        p.gun.setRotation(p.aim + swing + tilt + flourish).setScale(1, 1 - sw * 0.7).setFlipY(left).setDepth(Math.sin(p.aim) < -0.3 ? DEPTH.player - 0.1 : DEPTH.gun);
+        p.gun.setRotation(p.aim + swing + tilt + flourish + (melee ? 0 : climb)).setScale(1, 1 - sw * 0.7).setFlipY(left).setDepth(Math.sin(p.aim) < -0.3 ? DEPTH.player - 0.1 : DEPTH.gun);
       }
       const dual = p.skillT > 0 && run.weapons.length > 1;
       // The twin daggers: the second one rides in the off hand and takes every other stab.
@@ -3713,7 +3795,7 @@ export class GameScene extends Phaser.Scene {
     for (const t of this.telegraphs) {
       const k = t.t / t.dur;
       if (t.kind === 'spawn') {
-        this.drawSummon(g, t, k, danger);
+        drawSummon(this, g, t, k);
       } else if (t.kind === 'circle') {
         g.lineStyle(1, hexToNum(E.yellow), 0.6);
         g.strokeCircle(t.x, t.y, t.r!);
@@ -3797,6 +3879,7 @@ export class GameScene extends Phaser.Scene {
       }
     }
     const vg = this.gfx;
+    this.fx.trails(this.pproj);
     this.drawReload(dt);
     for (const v of this.visuals) {
       const k = 1 - v.t / v.dur;
@@ -3894,277 +3977,6 @@ export class GameScene extends Phaser.Scene {
       },
     });
     this.fx.ring(icon.x, icon.y, 12, E.yellow, 220, 1);
-  }
-
-  /** Entrance tweens, driven per frame since the enemy loop repositions sprites every frame. */
-  entrance(a: Enemy, sp: Img, dt: number) {
-    const en = a.enter!;
-    en.t += dt;
-    const DUR: Record<string, number> = { rise: 0.2, drop: 0.24, emerge: 0.4, ooze: 0.32, swoop: 0.3, burrow: 0.3, smoke: 0.14, bones: 0.22, mist: 0.55, slam: 0.22, beam: 0.36, bubble: 0.4, roll: 0.3 };
-    const dur = DUR[en.kind] ?? 0.3;
-    const k = Math.min(1, en.t / dur);
-    const s = a.scale;
-    switch (en.kind) {
-      case 'rise': {
-        // Grows up out of the circle, overshooting a little.
-        const h = k < 0.7 ? (k / 0.7) * 1.15 : 1.15 - ((k - 0.7) / 0.3) * 0.15;
-        sp.setScale(s * (1 - (1 - k) * 0.3), s * h);
-        break;
-      }
-      case 'drop':
-      case 'slam': {
-        // Falls from above and squashes on landing; heavy ones shake the floor.
-        const heavy = en.kind === 'slam';
-        sp.y -= Math.round((1 - k) * (1 - k) * (heavy ? 90 : 48));
-        sp.setAlpha(Math.min(1, k * 4));
-        if (k >= 1 && !en.landed) {
-          en.landed = true;
-          this.fx.dust(a.x, a.y, heavy ? 12 : 6);
-          this.fx.shake(heavy ? 0.12 : 0.04);
-          if (heavy) this.fx.ring(a.x, a.y, 26, E.white, 260, 2);
-        }
-        if (k >= 1) sp.setScale(s * 1.25, s * 0.75);
-        break;
-      }
-      case 'ooze': {
-        // Bubbles up out of its puddle and wobbles into shape.
-        const w = Math.sin(k * Math.PI * 3) * (1 - k) * 0.25;
-        sp.setScale(s * (1.4 - 0.4 * k + w), s * (0.2 + 0.8 * k - w));
-        break;
-      }
-      case 'swoop': {
-        // Dives in from high up and to the side.
-        const q = 1 - (1 - k) * (1 - k);
-        sp.x += Math.round((1 - q) * 30 * (a.id % 2 ? 1 : -1));
-        sp.y -= Math.round((1 - q) * 70);
-        sp.setAlpha(Math.min(1, k * 3));
-        break;
-      }
-      case 'burrow': {
-        // Bursts up out of the ground in a little hop.
-        sp.y -= Math.round(Math.sin(k * Math.PI) * 10);
-        sp.setScale(s * (0.8 + 0.2 * k), s * Math.min(1.15, 0.3 + k));
-        break;
-      }
-      case 'smoke':
-        sp.setAlpha(k).setScale(s * (1.3 - 0.3 * k));
-        break;
-      case 'bones':
-        // The bones snap together: a white flash, then its colours.
-        if (k < 0.5) sp.setTintFill(0xffffff);
-        sp.setScale(s * (1.2 - 0.2 * k));
-        break;
-      case 'mist':
-        sp.setAlpha(0.9 * k);
-        sp.y -= Math.round((1 - k) * 8);
-        break;
-      case 'beam':
-        if (k < 0.6) sp.setTintFill(0xffffff);
-        sp.setAlpha(Math.min(1, k * 2)).setScale(s * (1.25 - 0.25 * k));
-        break;
-      case 'bubble': {
-        // Floats up from below, bobbing.
-        sp.y += Math.round((1 - k) * 12);
-        sp.x += Math.round(Math.sin(k * 9) * 2 * (1 - k));
-        sp.setScale(s * (0.6 + 0.4 * k)).setAlpha(Math.min(1, k * 2.5));
-        break;
-      }
-      case 'roll': {
-        // Rolls in from the side, fuse fizzing.
-        const q = 1 - (1 - k) * (1 - k);
-        sp.x += Math.round((en.ox ?? 0) * (1 - q));
-        sp.setRotation((1 - q) * (en.ox ?? 0) * -0.3);
-        if (Math.random() < 0.5) this.fx.sparks(sp.x, sp.y - 8, 1, 'gold');
-        break;
-      }
-      default:
-        // Steps out of the rift as a black silhouette, then takes its colours.
-        sp.setScale(s * (0.6 + 0.4 * k));
-        if (k < 0.65) sp.setTintFill(hexToNum(E.ink));
-        sp.setAlpha(Math.min(1, 0.3 + k));
-    }
-    const settle = en.kind === 'drop' || en.kind === 'slam' ? 0.12 : 0;
-    if (en.t >= dur + settle) {
-      a.enter = undefined;
-      sp.setScale(s).setAlpha(a.kind === 'ghost' ? 0.9 : 1).setRotation(0);
-    }
-  }
-
-  /** What shows on the floor before a monster arrives: a puddle, cracks, a shadow, smoke, bones flying in... */
-  drawSpawnOmen(g: Phaser.GameObjects.Graphics, t: Telegraph, k: number) {
-    const vg = this.gfx;
-    const { x, y } = t;
-    const col = t.color ?? 0xffffff;
-    switch (t.style) {
-      case 'ooze':
-        g.fillStyle(col, 0.55);
-        g.fillEllipse(x, y, 4 + 18 * k, 2 + 7 * k);
-        g.fillStyle(0xffffff, 0.3);
-        g.fillEllipse(x - 3 * k, y - 1, 4 * k, 1.5 * k);
-        for (let i = 0; i < 3; i++) {
-          const q = (this.time0 * 2 + i * 0.37) % 1;
-          g.fillStyle(col, 0.8 * (1 - q));
-          g.fillCircle(x + Math.sin(i * 2.1) * 6 * k, y - q * 6, 1 + (1 - q));
-        }
-        break;
-      case 'swoop':
-      case 'slam':
-        // Its shadow grows as it comes down; something heavy gets a target ring too.
-        g.fillStyle(0x181425, 0.2 + 0.45 * k);
-        g.fillEllipse(x, y + 1, 6 + 14 * k, 3 + 5 * k);
-        if (t.style === 'slam') {
-          const r = 20 * (1 - k) + 7;
-          g.lineStyle(1, hexToNum(this.kit.palette.danger), 0.8);
-          g.strokeEllipse(x, y, r * 2, r * 1.2);
-          for (const a of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) g.lineBetween(x + Math.cos(a) * r, y + Math.sin(a) * r * 0.6, x + Math.cos(a) * (r + 4), y + Math.sin(a) * (r + 4) * 0.6);
-        }
-        break;
-      case 'burrow':
-        // The ground cracks and heaves.
-        g.fillStyle(0x3e2731, 0.55);
-        g.fillEllipse(x, y, 6 + 8 * k, 3 + 3 * k);
-        g.lineStyle(1, 0x181425, 0.75);
-        for (let i = 0; i < 5; i++) {
-          const a = i * 1.26 + 0.4;
-          const len = 3 + 10 * k;
-          g.lineBetween(x, y, x + Math.cos(a) * len, y + Math.sin(a) * len * 0.5);
-        }
-        if (Math.random() < 0.25) this.fx.dust(x + rand(-5, 5), y, 1);
-        break;
-      case 'smoke':
-        for (let i = 0; i < 7; i++) {
-          const a = this.time0 * 4 + i * 0.9;
-          const rr = 12 * (1 - k) + 3;
-          vg.fillStyle(0xc0cbdc, 0.3 + 0.3 * k);
-          vg.fillCircle(x + Math.cos(a) * rr, y - 6 + Math.sin(a) * rr * 0.5, 2 + k * 2);
-        }
-        break;
-      case 'bones':
-        for (let i = 0; i < 7; i++) {
-          const a = i * 0.9 + 0.3;
-          const rr = 28 * (1 - k);
-          vg.fillStyle(0xead4aa, 0.9);
-          vg.fillRect(Math.round(x + Math.cos(a) * rr) - 1, Math.round(y - 6 + Math.sin(a) * rr * 0.6), 3, 1);
-          vg.fillRect(Math.round(x + Math.cos(a) * rr) - 2, Math.round(y - 7 + Math.sin(a) * rr * 0.6), 1, 3);
-        }
-        break;
-      case 'mist':
-        for (let i = 0; i < 6; i++) {
-          const q = (this.time0 * 0.8 + i * 0.17) % 1;
-          vg.fillStyle(0xffffff, 0.22 * (1 - q) * (0.5 + k));
-          vg.fillEllipse(x + Math.sin(i * 1.7 + this.time0 * 2) * 7, y - q * 24, 6, 2);
-        }
-        break;
-      case 'beam': {
-        const h = 130 * Math.min(1, k * 1.4);
-        vg.fillStyle(0xfee761, 0.16 + 0.3 * k);
-        vg.fillRect(x - 5, y - 130, 10, h);
-        vg.fillStyle(0xffffff, 0.35 + 0.45 * k);
-        vg.fillRect(x - 1, y - 130, 2, h);
-        break;
-      }
-      case 'bubble':
-        for (let i = 0; i < 6; i++) {
-          const q = (this.time0 * 1.5 + i * 0.19) % 1;
-          vg.lineStyle(1, 0xffffff, 0.7 * (1 - q));
-          vg.strokeCircle(x + Math.sin(i * 2.3) * 7, y - q * 20, 1.5 + q);
-        }
-        break;
-    }
-  }
-
-  /** Summoning circles: rune ring, light pillar, dark rift, elite lightning, boss sigil. */
-  drawSummon(g: Phaser.GameObjects.Graphics, t: Telegraph, k: number, danger: number) {
-    if (t.style) this.drawSpawnOmen(g, t, k);
-    const tier = t.tier ?? 1;
-    const r = t.r ?? 8;
-    const spin = this.time0 * (tier >= 5 ? 1.2 : 3);
-    const grow = Math.min(1, k * 2.2);
-    const ring = (rr: number, alpha: number, w = 1) => {
-      g.lineStyle(w, danger, alpha);
-      g.strokeCircle(t.x, t.y, rr);
-    };
-    const ticks = (rr: number, n: number, len: number, alpha: number, offset = 0) => {
-      g.lineStyle(1, danger, alpha);
-      for (let i = 0; i < n; i++) {
-        const a = spin + offset + (i / n) * TAU;
-        g.lineBetween(t.x + Math.cos(a) * rr, t.y + Math.sin(a) * rr * 0.6, t.x + Math.cos(a) * (rr + len), t.y + Math.sin(a) * (rr + len) * 0.6);
-      }
-    };
-    if (tier === 3) {
-      // A rift tears open in the floor.
-      const rx = r * 1.3 * grow;
-      g.fillStyle(hexToNum(E.ink), 0.85);
-      g.fillEllipse(t.x, t.y, rx * 2, rx * 0.8);
-      g.lineStyle(1, danger, 0.5 + 0.5 * k);
-      g.strokeEllipse(t.x, t.y, rx * 2 + 2, rx * 0.8 + 2);
-      for (let arm = 0; arm < 3; arm++) {
-        g.lineStyle(1, danger, 0.7);
-        g.beginPath();
-        for (let i = 0; i <= 8; i++) {
-          const q = i / 8;
-          const a = -spin * 1.5 + arm * (TAU / 3) + q * 2.6;
-          const rr = rx * (1 - q * 0.8);
-          if (i === 0) g.moveTo(t.x + Math.cos(a) * rr, t.y + Math.sin(a) * rr * 0.4);
-          else g.lineTo(t.x + Math.cos(a) * rr, t.y + Math.sin(a) * rr * 0.4);
-        }
-        g.strokePath();
-      }
-      return;
-    }
-    // Rune circle (all other tiers), squashed for the 3/4 view.
-    g.lineStyle(1, danger, 0.4 + 0.5 * k);
-    g.strokeEllipse(t.x, t.y, r * 2 * grow, r * 1.2 * grow);
-    if (tier >= 2) g.strokeEllipse(t.x, t.y, r * 1.3 * grow, r * 0.78 * grow);
-    ticks(r * grow * 0.8, tier >= 4 ? 8 : 4, 3, 0.7);
-    g.fillStyle(danger, 0.15 + 0.35 * k);
-    g.fillEllipse(t.x, t.y, r * 1.2 * k, r * 0.7 * k);
-    if (tier >= 5) {
-      // Boss sigil: a slow hexagram inside double rings.
-      ring(r * grow, 0.6, 2);
-      ring(r * 0.8 * grow, 0.4);
-      g.lineStyle(1, danger, 0.7);
-      for (const off of [0, Math.PI / 3]) {
-        g.beginPath();
-        for (let i = 0; i <= 3; i++) {
-          const a = spin + off + (i / 3) * TAU;
-          const px = t.x + Math.cos(a) * r * 0.78 * grow;
-          const py = t.y + Math.sin(a) * r * 0.78 * grow * 0.6;
-          if (i === 0) g.moveTo(px, py);
-          else g.lineTo(px, py);
-        }
-        g.strokePath();
-      }
-      ticks(r * grow, 24, 4, 0.5);
-    }
-    // Medium and up: a pillar of light comes down, and motes swirl in.
-    if (tier >= 2) {
-      const vg = this.gfx;
-      const w = (tier >= 4 ? 6 : 3) + 4 * k;
-      vg.fillStyle(danger, 0.12 + 0.25 * k);
-      vg.fillRect(t.x - w / 2, t.y - 90, w, 90);
-      vg.fillStyle(0xffffff, 0.15 + 0.3 * k);
-      vg.fillRect(t.x - w / 6, t.y - 90, Math.max(1, w / 3), 90);
-      for (let i = 0; i < 6; i++) {
-        const a = spin * 1.4 + (i / 6) * TAU;
-        const rr = (1 - k) * r * 2.6;
-        vg.fillStyle(danger, 0.8);
-        vg.fillRect(Math.round(t.x + Math.cos(a) * rr), Math.round(t.y - 6 + Math.sin(a) * rr * 0.6), 2, 2);
-      }
-    }
-    // Elites call down three red bolts.
-    if (tier === 4) {
-      const due = Math.floor(k * 3.2);
-      while ((t.strikes ?? 0) < Math.min(3, due)) {
-        t.strikes = (t.strikes ?? 0) + 1;
-        const pts = [t.x + rand(-8, 8), t.y - 120];
-        for (let i = 1; i < 6; i++) pts.push(t.x + rand(-8, 8), t.y - 120 + (i * 120) / 6);
-        pts.push(t.x, t.y);
-        this.visuals.push({ kind: 'bolt', pts, width: 2, t: 0, dur: 0.14, color: danger });
-        this.light.flash(t.x, t.y, 50, this.kit.palette.danger, 0.15);
-        audio.shoot('chain');
-      }
-    }
   }
 
   strokePts(g: Phaser.GameObjects.Graphics, pts: number[]) {

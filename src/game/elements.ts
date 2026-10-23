@@ -200,7 +200,7 @@ export function shatter(s: GameScene, e: Enemy, hit: number): number {
   say(s, e, '碎冰', 'ice');
   for (let i = 0; i < 6; i++) s.spawnProj('shard', e.x, e.y - 4, (i / 6) * Math.PI * 2, 200, 0.3, 2, 0, 0, 10, '碎冰').hit.add(e);
   s.fx.sparks(e.x, e.y - 4, 12, 'ice');
-  audio.block();
+  audio.glass();
   return hit * 1.5 * s.run.mods.elementPower + 6;
 }
 

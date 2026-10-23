@@ -1,3 +1,4 @@
+import { audio, type LifeSound } from '../../audio/audio';
 import { cookRecipe, createLifeActionId, FISH, FISH_IDS, getRecipeFailure, LIFE_LIMITS, loadProfile, RECIPES, RECIPE_IDS, subscribeProfile } from '../../meta/life';
 import type { MetaFailure, MetaResult, ProfileState, RecipeId } from '../../meta/life';
 import { META_LIMITS, packSupply, PLANTS, PLANT_IDS, SUPPLIES, SUPPLY_IDS } from '../../meta/profile';
@@ -101,10 +102,10 @@ export function mountKitchen({container,onExit}:KitchenOptions):KitchenHandle {
   function openTarget(id:KitchenTargetId){if(disposed)return;if(id==='exit'){exit();return;}clearInput();panel=id;renderHud(true);}
   function closePanel(){panel=null;clearInput();renderHud();canvas.focus({preventScroll:true});}
   function exit(){if(disposed)return;dispose();onExit();}
-  function perform(action:()=>MetaResult,success:string|((result:MetaResult)=>string),after?:()=>void){
+  function perform(action:()=>MetaResult,success:string|((result:MetaResult)=>string),sound:LifeSound,after?:()=>void){
     if(disposed||transacting)return;
     transacting=true;
-    try{const result=action();state=result;tone=result.applied?(result.storage==='memory'?'warning':'success'):result.duplicate?'info':'error';
+    try{const result=action();state=result;if(result.applied)audio.life(sound);else if(!result.duplicate)audio.life('error');tone=result.applied?(result.storage==='memory'?'warning':'success'):result.duplicate?'info':'error';
       if(result.applied){const text=typeof success==='function'?success(result):success;message=result.storage==='memory'?text+' 当前仅在本页保留，关闭或重载后不会保存；不要重复操作。':text;after?.();}
       else if(result.duplicate)message='这次操作已经完成；库存没有再次扣除或增加。';
       else message=FAILURE_MESSAGES[result.reason??'invalid'];
@@ -128,11 +129,11 @@ export function mountKitchen({container,onExit}:KitchenOptions):KitchenHandle {
       if(panel!=='stove')return;
       const id=selectedId,token=createLifeActionId(),recipe=RECIPES[id],supply=outputFor(id);
       const reward=[...SUPPLY_IDS.flatMap(key=>recipe.reward.supplies?.[key]?[`${SUPPLIES[key].name} ×${recipe.reward.supplies[key]}`]:[]),...Object.entries(recipe.reward.seeds??{}).map(([key,count])=>`${PLANTS[key as PlantId].name}种子 ×${count}`)].join('、');
-      perform(()=>cookRecipe(id,token),result=>`${recipe.name}出锅，获得${reward}。${SUPPLIES[supply].name}现有 ${result.profile.supplies[supply]} / ${META_LIMITS.supplies}。`,()=>{celebration={recipe:id,start:elapsed};panel=null;clearInput();});
+      perform(()=>cookRecipe(id,token),result=>`${recipe.name}出锅，获得${reward}。${SUPPLIES[supply].name}现有 ${result.profile.supplies[supply]} / ${META_LIMITS.supplies}。`,'cook',()=>{celebration={recipe:id,start:elapsed};panel=null;clearInput();});
     }else if(action==='pack'){
       const id=control.dataset.supply;if(panel!=='bag'||!SUPPLY_IDS.some(key=>key===id))return;
-      const supply=id as SupplyId;perform(()=>packSupply(supply),SUPPLIES[supply].name+'已装入单份行囊；确认新冒险时才消耗一份。');
-    }else if(action==='unpack'&&panel==='bag')perform(()=>packSupply(null),'补给已移出行囊，成品库存没有减少。');
+      const supply=id as SupplyId;perform(()=>packSupply(supply),SUPPLIES[supply].name+'已装入单份行囊；确认新冒险时才消耗一份。','pack');
+    }else if(action==='unpack'&&panel==='bag')perform(()=>packSupply(null),'补给已移出行囊，成品库存没有减少。','pack');
   }
   root.addEventListener('click',handleClick,{signal});
   window.addEventListener('keydown',event=>{

@@ -96,7 +96,10 @@ export function finishChallenge(s: GameScene, success: boolean) {
     audio.clear();
     s.fx.ring(c.x, c.y, 50, E.cyan, 450, 2);
     ui.toast('试炼完成：+150分，回复1生命与1护甲', 2300);
-  } else ui.toast('试炼结束，本房机关已关闭', 1600);
+  } else {
+    audio.uiError();
+    ui.toast('试炼结束，本房机关已关闭', 1600);
+  }
   // Reward and its receipt share one snapshot, so continue cannot grant it twice.
   s.saveProgress();
 }

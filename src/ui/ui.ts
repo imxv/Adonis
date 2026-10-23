@@ -78,6 +78,8 @@ export interface HudData {
   /** Replaces the floor name for places outside the five floors (the training ground). */
   place?: string;
   timer: number;
+  /** In a combat room: the wave being fought (or loading in) and how many there are. */
+  wave?: [number, number];
   kills: number;
   combo: number;
   /** The style rank, how far it is toward the next one (0-1), and the run's points. */
@@ -442,7 +444,8 @@ class UI implements LayerHost {
     this.set('.kills', d.place ? '' : px(`KILL ${d.kills}`, DIM, { small: true }));
 
     const tt = d.timer > 0 ? `${String(Math.floor(d.timer / 60)).padStart(2, '0')}:${String(Math.floor(d.timer % 60)).padStart(2, '0')}` : '';
-    this.set('.timer', tt ? `${px('坚持住', E.yellow)}${px(tt, E.white, { small: true, scale: 2 })}` : '');
+    const wave = d.wave ? `${px('波次', E.yellow)}${px(`${d.wave[0]}/${d.wave[1]}`, E.white, { small: true, scale: 2 })}` : '';
+    this.set('.timer', tt ? `${px('坚持住', E.yellow)}${px(tt, E.white, { small: true, scale: 2 })}` : wave);
 
     // The style rank: a big letter, a gauge toward the next rank, and the points.
     this.set('.style .rk', px(d.rank, RANK_COLOR[d.rank], { small: true, scale: d.rank === 'SS' ? 2 : 3 }));
@@ -617,15 +620,18 @@ class UI implements LayerHost {
   private cine?: HTMLElement;
   private cineTimer = 0;
 
-  /** Bullet time: black bars close in from above and below and the world drains of colour; the UI stays bright. */
-  cinema(ms: number) {
+  /**
+   * Bullet time: black bars close in from above and below and the world drains of colour; the UI stays bright.
+   * A boss's entrance keeps its colours (`drain` false).
+   */
+  cinema(ms: number, drain = true) {
     if (!this.cine?.isConnected) {
       this.cine = el('div', 'cinema');
       this.hud.after(this.cine);
     }
     const c = this.cine;
     c.classList.add('on');
-    this.canvas?.classList.add('bt');
+    this.canvas?.classList.toggle('bt', drain);
     this.clearTimer(this.cineTimer);
     this.cineTimer = this.defer(() => {
       c.classList.remove('on');
@@ -654,6 +660,17 @@ class UI implements LayerHost {
     node.innerHTML = `<div class="big">${px(rank, RANK_COLOR[rank], { small: true, scale: 4 })}</div><div class="col">${px('RANK', E.white, { small: true })}${px(`+${points}`, E.yellow, { small: true })}</div>`;
     this.root.appendChild(node);
     this.defer(() => node.remove(), 2300);
+  }
+
+  /** A wave starts loading in: its number across the screen, the last one in red. */
+  waveBanner(i: number, n: number) {
+    this.root.querySelectorAll('.wavebanner').forEach((x) => x.remove());
+    const last = i === n - 1;
+    const node = el('div', `wavebanner${last ? ' last' : ''}`);
+    const big = last ? '最后一波' : `第${['一', '二', '三', '四', '五'][i] ?? i + 1}波`;
+    node.innerHTML = `<div class="wb-band">${px(big, last ? E.hot : E.white, { scale: 2 })}${px(last ? 'FINAL WAVE' : `WAVE ${i + 1}/${n}`, last ? E.hot : GREY, { small: true })}<i class="cb-sweep"></i></div>`;
+    this.root.appendChild(node);
+    this.defer(() => node.remove(), 1600);
   }
 
   toast(text: string, ms = 1300) {

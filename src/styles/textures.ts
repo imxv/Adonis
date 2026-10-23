@@ -431,6 +431,11 @@ export function buildCommonTextures(scene: Phaser.Scene) {
   }
   add(scene, 'spark', Grid.ascii(['.w.', 'www', '.w.']).render({ outline: false }));
   add(scene, 'muzzle', Grid.ascii(['..Y..', '.YwY.', 'YwwwY', '.YwY.', '..Y..']).render({ outline: false }));
+  // A heavy gun's blast: a cone of fire drawn pointing right from the muzzle.
+  add(scene, 'muzzle-big', Grid.ascii(['.YY......', 'YwwYY.Y..', 'wwwwwwwYY', 'YwwYY.Y..', '.YY......']).render({ outline: false }));
+  // Where a hit lands: a star that breaks into a scatter on the next frame. White, tinted per hit.
+  add(scene, 'hit-0', Grid.ascii(['....w....', '....w....', '....w....', '...www...', 'wwwwwwwww', '...www...', '....w....', '....w....', '....w....']).render({ outline: false }));
+  add(scene, 'hit-1', Grid.ascii(['w.....w', '.w...w.', '..w.w..', '.......', '..w.w..', '.w...w.', 'w.....w']).render({ outline: false }));
   add(scene, 'dot', Grid.ascii(['ww', 'ww']).render({ outline: false }));
   add(scene, 'smoke', Grid.ascii(['.GG.', 'GGGG', 'GGGG', '.GG.']).render({ outline: false }));
   const shadow = document.createElement('canvas');
