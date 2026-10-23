@@ -1,7 +1,7 @@
 import type { Mods } from '../core/stats';
 
 /** The heroes a run can start with. Adonis is the default; the knight is the original hero, still there to pick. */
-export type HeroId = 'adonis' | 'knight' | 'deepseek';
+export type HeroId = 'adonis' | 'knight' | 'deepseek' | 'coder';
 
 export interface HeroDef {
   id: HeroId;
@@ -57,6 +57,19 @@ export const HEROES: Record<HeroId, HeroDef> = {
     },
     tex: 'deepseek',
   },
+  coder: {
+    id: 'coder',
+    name: '程序员',
+    title: '在工位睡着的码农',
+    desc: '趴在键盘上睡着，醒来已在画里。满地会动的 bug，修完再下班。',
+    weapon: 'keyboard',
+    perk: '攻击频率 +10%，暴击伤害 +30%',
+    apply: (m) => {
+      m.fireRate += 0.1;
+      m.critMult += 0.3;
+    },
+    tex: 'coder',
+  },
 };
 
-export const HERO_ORDER: HeroId[] = ['adonis', 'knight', 'deepseek'];
+export const HERO_ORDER: HeroId[] = ['adonis', 'knight', 'deepseek', 'coder'];
