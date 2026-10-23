@@ -102,6 +102,8 @@ export interface TitleActions {
   codex: () => CodexTab[];
   onBack?: () => void;
   initialAction?: 'new' | 'continue';
+  /** Settings offer to replay the beginner tutorial. */
+  onTutorial?: () => void;
 }
 
 export interface PauseInfo {
@@ -109,12 +111,15 @@ export interface PauseInfo {
   floorName: string;
   roomsCleared: number;
   roomsTotal: number;
+  /** A tutorial practice run: leaving it is not saved. */
+  tutorial?: boolean;
 }
 
 export interface PauseActions {
   onResume: () => void;
   onQuit: () => void;
   codex: () => CodexTab[];
+  onTutorial?: () => void;
 }
 
 export interface EndInfo {
@@ -275,6 +280,11 @@ class UI implements LayerHost {
 
   applyTheme(kit: StyleKit) {
     this.root.style.setProperty('--biome', kit.palette.danger);
+  }
+
+  /** The tutorial card lives in the HUD layer, so every page and menu covers it. */
+  coach(node: HTMLElement) {
+    this.hud.appendChild(node);
   }
 
   showHud(show: boolean) {
@@ -1049,7 +1059,7 @@ class UI implements LayerHost {
         else if (i === 2) openBoard(this);
         else if (i === 3) openHelp(this);
         else if (i === 4) openCodex(this, (tabs ??= a.codex()));
-        else if (i === 5) openSettings(this);
+        else if (i === 5) openSettings(this, { onTutorial: a.onTutorial && (() => leave(a.onTutorial!)) });
         else if (a.onBack) leave(a.onBack);
       };
     const nav = new MenuNav(rows, pick, [!save]);
@@ -1140,7 +1150,7 @@ class UI implements LayerHost {
     ov.querySelector('.ps-right')!.addEventListener('keydown', (e) => {
       if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes((e as KeyboardEvent).key)) e.stopPropagation();
     });
-    const rows = [menuRow('继续游戏', { key: 'Esc' }), menuRow('游戏说明'), menuRow('图鉴'), menuRow('设置'), menuRow('返回画廊', { note: '自动存档' })];
+    const rows = [menuRow('继续游戏', { key: 'Esc' }), menuRow('游戏说明'), menuRow('图鉴'), menuRow('设置'), info.tutorial ? menuRow('退出教程') : menuRow('返回画廊', { note: '自动存档' })];
     ov.querySelector('.menu')!.append(...rows);
     let tabs: CodexTab[] | undefined;
     const resume = () => {
@@ -1152,8 +1162,11 @@ class UI implements LayerHost {
       if (i === 0) resume();
       else if (i === 1) openHelp(this);
       else if (i === 2) openCodex(this, (tabs ??= a.codex()));
-      else if (i === 3) openSettings(this);
-      else confirmBox(this, '返回画廊？进度会自动存档，之后可继续这次冒险。', () => {
+      else if (i === 3) openSettings(this, { onTutorial: a.onTutorial && (() => confirmBox(this, info.tutorial ? '从头重新开始新手教程？' : '回到画廊从头开始新手教程？这次冒险会自动存档。', () => {
+        this.close(layer);
+        a.onTutorial!();
+      })) });
+      else confirmBox(this, info.tutorial ? '退出新手教程，回到画廊？之后可在设置里重新开始。' : '返回画廊？进度会自动存档，之后可继续这次冒险。', () => {
         this.close(layer);
         a.onQuit();
       });
