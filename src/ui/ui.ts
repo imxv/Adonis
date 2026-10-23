@@ -881,9 +881,14 @@ class UI implements LayerHost {
    */
   heroSelect(onPick: (hero: HeroId) => void, initialHero: HeroId = 'adonis') {
     const generation = this.generation;
+    // More than three heroes are wider than the screen: the cards overlap like a fanned hand, the selected one on top.
+    // A tap on a card that is not up yet only brings it forward, so its perk can be read before the next tap picks it.
+    const fanned = HERO_ORDER.length > 3;
+    const touchHint = fanned ? '轻触卡片查看，再点一次选择' : '轻触卡片选择角色';
     const ov = el('div', 'overlay picker heroes');
-    ov.innerHTML = `<div class="pk-head"><span class="tagred">${px('HERO', E.white, { small: true, outline: false })}</span>${px('选择角色', E.yellow, { scale: 2 })}${px(isTouchBrowser() ? '轻触卡片选择角色' : '谁走进这幅画', GREY)}<button type="button" class="hero-back" aria-label="返回主页">${px(isTouchBrowser() ? '‹ 返回' : 'Esc 返回', DIM)}</button></div>`;
-    const table = el('div', 'pk-cards');
+    ov.innerHTML = `<div class="pk-head"><span class="tagred">${px('HERO', E.white, { small: true, outline: false })}</span>${px('选择角色', E.yellow, { scale: 2 })}${px(isTouchBrowser() ? touchHint : '谁走进这幅画', GREY)}<button type="button" class="hero-back" aria-label="返回主页">${px(isTouchBrowser() ? '‹ 返回' : 'Esc 返回', DIM)}</button></div>`;
+    const table = el('div', fanned ? 'pk-cards fanned' : 'pk-cards');
+    table.style.setProperty('--n', String(HERO_ORDER.length));
     ov.appendChild(table);
     const cards = HERO_ORDER.map((id, i) => {
       const h = HEROES[id];
@@ -919,6 +924,7 @@ class UI implements LayerHost {
       cards.forEach((c, k) => {
         c.classList.toggle('sel', k === i);
         c.setAttribute('aria-pressed', String(k === i));
+        c.style.zIndex = String(cards.length - Math.abs(k - i));
       });
     };
     const pick = (i: number) => {
@@ -942,14 +948,26 @@ class UI implements LayerHost {
       this.close(layer, 150);
     };
     ov.querySelector('.hero-back')!.addEventListener('click', back);
+    // Only a real mouse selects by hovering. A finger or pen sets this from pointerdown until its click, so the focus
+    // that the tap brings along is left alone too.
+    let tapped = false;
     cards.forEach((card, k) => {
-      card.addEventListener('focus', () => { if (!done) select(k); });
-      card.addEventListener('mouseenter', () => {
-        if (done || sel === k) return;
+      card.addEventListener('pointerdown', (e) => { tapped = e.pointerType !== 'mouse'; });
+      card.addEventListener('focus', () => { if (!done && !tapped) select(k); });
+      card.addEventListener('pointerenter', (e) => {
+        if (done || sel === k || e.pointerType !== 'mouse') return;
         audio.hover();
         select(k);
       });
-      card.addEventListener('click', () => pick(k));
+      card.addEventListener('click', () => {
+        const peek = fanned && tapped && sel !== k;
+        tapped = false;
+        if (!peek) pick(k);
+        else if (!done) {
+          audio.hover();
+          select(k);
+        }
+      });
     });
     select(Math.max(0, HERO_ORDER.indexOf(initialHero)));
     const layer = this.push(ov, (e) => {

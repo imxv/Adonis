@@ -1,4 +1,4 @@
-import { magSize, reloadTime, type MeleeMove, type MoveKind, type WeaponInstance } from '../data/weapons';
+import { FORK_DAMAGE, magSize, reloadTime, type MeleeMove, type MoveKind, type WeaponInstance } from '../data/weapons';
 import type { RunState } from './run';
 
 /** Shared with combat so the inspection panel includes the weapon-wide damage tuning. */
@@ -71,6 +71,7 @@ const USAGE: Record<string, string> = {
   gale: '近身吹退，扩散已有火水雷冰',
   quake: '瞄准地面抛射，击碎冻结或结晶',
   bramble: '贯穿附草，配合水火雷触发反应',
+  keyboard: '射进敌群，代码块命中后向两侧分叉',
 };
 
 const number = (n: number) => Number(n.toFixed(1)).toString();
@@ -119,6 +120,7 @@ export function weaponMetrics(w: WeaponInstance, run: RunState): WeaponMetrics {
       if (pierceUpgrade > 0) traits.push(`每枚最多命中${pierceUpgrade + 1}个目标`);
       if (def.bounce) traits.push(`撞墙反弹${def.bounce}次`);
       if (def.split) traits.push(`碎成${def.split}片冰晶，每片${number(damage * 0.35)}伤害`);
+      if (def.fork) traits.push(`命中或撞墙分叉${def.fork.length}层，每层一分二`, `分叉伤害${def.fork.map((_, i) => number(damage * FORK_DAMAGE ** (i + 1))).join('／')}`);
       if (def.spinTo) traits.push(`1.4秒升至${number(maxAttackRate)}次／秒`);
       break;
     case 'spread':

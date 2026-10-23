@@ -64,6 +64,8 @@ export interface Proj {
   hitProps?: Set<Obstacle>;
   /** Shards it bursts into when it stops (ice lance). */
   split?: number;
+  /** Textures of the levels it still forks into, two at a time, when it hits an enemy or a wall (recursion keyboard). */
+  fork?: string[];
   dist?: number;
   maxDist?: number;
   returning?: boolean;

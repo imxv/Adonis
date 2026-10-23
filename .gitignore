@@ -5,3 +5,7 @@ dist/
 output/
 src/world3d/evidence/
 src/sidegames/fishing/evidence/
+
+.wrangler/
+.dev.vars
+.dev.vars.*

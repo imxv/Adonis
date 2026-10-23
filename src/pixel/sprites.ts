@@ -58,6 +58,34 @@ export const ADONIS_B: SpriteDef = {
   rows: [...ADONIS_A.rows.slice(0, 12), '.R...s....s...', '....s.....s...', '...bb.....bb..'],
 };
 
+/**
+ * The programmer: messy brown hair with a cowlick, thick black-rimmed glasses catching the light, a red plaid shirt
+ * with a blue lanyard and a white badge, a black backpack on the shoulders, jeans and white sneakers. Faces right.
+ */
+export const CODER_A: SpriteDef = {
+  rows: [
+    '.......b......',
+    '.....bBbb.....',
+    '...bbBBbbbb...',
+    '..bbbbbbsssb..',
+    '..bbbbSsssss..',
+    '..bbbSooooooo.',
+    '...bbsowcowos.',
+    '...bbsssssss..',
+    '....bssSSSs...',
+    '..DDGrRrkRr...',
+    '..DGDRrRwrRs..',
+    '..DDnrRrRrRs..',
+    '...nKkkkkkK...',
+    '....kK..kK....',
+    '...ggw..ggw...',
+  ],
+};
+
+export const CODER_B: SpriteDef = {
+  rows: [...CODER_A.rows.slice(0, 13), '...kK....kK...', '..ggw....ggw..'],
+};
+
 export const SLIME_A: SpriteDef = {
   mirror: true,
   rows: ['.......', '....111', '..11111', '.111111', '.11ew11', '.11ee11', '1111111', '111111o', '1111111', '1111111', '.111111', '..11111'],
