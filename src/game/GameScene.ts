@@ -213,6 +213,15 @@ export class GameScene extends Phaser.Scene {
   private camY = 0;
   private kickX = 0;
   private kickY = 0;
+  /** Real seconds during which another small hitstop only gets a sliver. */
+  private stopCool = 0;
+  /** How hard the gun in hand climbs and jumps back on a shot (heavy guns more). */
+  private gunKick = 0.15;
+  /** The knight's squash and stretch: long along a dash as it starts, flattened and flashing when hurt. */
+  private dashSquash = 0;
+  private playerHurtT = 0;
+  /** How long a melee blow that connects holds the frame: quick weapons get a short bite, slow ones a long one. */
+  private swingStop = 0.045;
   private pointerMoved = false;
   private touch?: TouchControls;
   time0 = 0;
@@ -1417,8 +1426,11 @@ export class GameScene extends Phaser.Scene {
       this.hudTick(realDt);
       return;
     }
+    this.stopCool -= realDt;
     if (this.hitstop > 0) {
       this.hitstop -= realDt;
+      // The world holds still, but the camera keeps shaking through the freeze.
+      this.updateCamera(0);
       return;
     }
     if (this.bt) {
@@ -1522,7 +1534,8 @@ export class GameScene extends Phaser.Scene {
     const kd = Math.exp(-dt * 24);
     this.kickX *= kd;
     this.kickY *= kd;
-    cam.centerOn(this.camX + this.kickX, this.camY + this.kickY);
+    const [sx, sy] = this.fx.shakeOffset();
+    cam.centerOn(this.camX + this.kickX + sx, this.camY + this.kickY + sy);
   }
 
   /** Push the view against the shot direction, like recoil. */
@@ -1572,8 +1585,11 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  /** Freeze the world for a moment. Small stops hard on each other's heels shrink to a sliver, so a hail of kills never stutters. */
   stop(sec: number) {
+    if (this.stopCool > 0 && sec < 0.06) sec *= 0.35;
     this.hitstop = Math.max(this.hitstop, sec);
+    this.stopCool = this.hitstop + 0.1;
   }
 
   slow(scale: number, sec: number) {
@@ -1685,6 +1701,7 @@ export class GameScene extends Phaser.Scene {
       p.dashCd = 0.9 * this.run.mods.dashCooldown;
       audio.dash();
       this.fx.dust(p.x, p.y, 6);
+      this.dashSquash = 1;
       if (this.meleeHeld()) {
         const g = this.beatAct(this.dashPressAt || performance.now());
         if (g !== 'miss') this.beatDash(p.x, p.y, g === 'perfect');
@@ -1962,8 +1979,9 @@ export class GameScene extends Phaser.Scene {
         break;
     }
     if (def.casing) this.ejectCasing(ox, oy, a, def.casing);
+    this.gunKick = Math.min(0.55, 0.12 + (def.shake ?? 0.01) * 3);
     if (def.kind !== 'slash' && def.kind !== 'flame') {
-      this.fx.muzzle(ox, oy, a);
+      this.fx.muzzle(ox, oy, a, def.shake ?? 0);
       this.light.flash(ox, oy, 26 + (def.shake ?? 0) * 200, E.yellow, 0.07);
     } else if (def.kind === 'slash') this.light.flash(p.x + Math.cos(a) * 14, p.y - 4 + Math.sin(a) * 14, 40, E.cyan, 0.1);
     const shake = def.shake ?? 0.01;
@@ -1988,6 +2006,7 @@ export class GameScene extends Phaser.Scene {
     this.melee.last = this.time0;
     const grade = this.swingGrade;
     this.swingElement = def.element;
+    this.swingStop = clamp(def.cooldown * 0.15, 0.02, 0.06);
     const full = finisher && (grade === 'perfect' || grade === 'good');
     const x = p.x;
     const y = p.y - 4;
@@ -2095,12 +2114,20 @@ export class GameScene extends Phaser.Scene {
   /** Hit everything within `half` of angle `a` out to `r` (all around when half is pi), and cut enemy bullets down. */
   meleeHit(x: number, y: number, a: number, r: number, half: number, dmg: number, knock: number, src: string, heavy = false) {
     const all = half >= Math.PI - 0.01;
+    let hits = 0;
     for (const e of this.enemies) {
       if (e.dead) continue;
       const d = dist(x, y, e.x, e.y - 3);
       if (d > r + e.r) continue;
       if (!all && Math.abs(angleDiff(a, Math.atan2(e.y - 3 - y, e.x - x))) > half + 0.12 + Math.min(0.5, e.r / Math.max(d, 1))) continue;
       this.damageEnemy(e, dmg, { src, kx: e.x - x, ky: e.y - y, knock, ignoreShield: true, heavy, element: this.swingElement });
+      hits++;
+    }
+    // A blade that connects bites: the frame holds for a beat (longer for heavy blows) and the view jolts with the swing.
+    if (hits) {
+      this.stop(heavy ? Math.max(0.07, this.swingStop) : this.swingStop);
+      this.fx.shake(heavy ? 0.14 : 0.06);
+      this.kick(a, heavy ? 3 : 1.5);
     }
     for (const b of this.eproj) {
       if (b.dead || dist(x, y, b.x, b.y) > r + 6) continue;
@@ -2641,6 +2668,9 @@ export class GameScene extends Phaser.Scene {
     this.run.damage[o.src] = (this.run.damage[o.src] ?? 0) + dmg;
     if (!o.dot) {
       e.flash = 0.06;
+      // White at once, so a hitstop freezes on the flash; ordinary monsters also wobble from the blow.
+      e.sprite.setTintFill(0xffffff);
+      if (!e.boss) e.hurtT = 0;
       if (o.kx !== undefined && o.knock) {
         const l = Math.hypot(o.kx, o.ky ?? 0) || 1;
         const res = e.boss ? 0.05 : e.elite ? 0.4 : 1;
@@ -2650,10 +2680,14 @@ export class GameScene extends Phaser.Scene {
       if (!o.quiet || crit) {
         audio.hit(crit, !!o.heavy);
         this.fx.sparks(e.x, e.y - 4, crit ? 6 : 2, crit ? 'gold' : element ?? 'white');
+        // The star sits on the side the blow came from.
+        const kl = Math.hypot(o.kx ?? 0, o.ky ?? 0);
+        const off = kl ? (e.r * 0.8) / kl : 0;
+        this.fx.impact(e.x - (o.kx ?? 0) * off, e.y - 4 - (o.ky ?? 0) * off, crit ? E.yellow : element ? ELEMENT_COLOR[element] : E.white, crit || !!o.heavy);
       }
       if (crit) {
-        this.stop(0.025);
-        this.fx.shake(0.03);
+        this.stop(0.035);
+        this.fx.shake(0.06);
       }
     }
     if (!o.quiet || crit) this.fx.number(e.x, e.y - e.r * 2 - 4, dmg, { crit, small: o.dot, color: o.color ?? (element ? ELEMENT_COLOR[element] : undefined) });
@@ -2733,8 +2767,12 @@ export class GameScene extends Phaser.Scene {
     this.fx.burst(e.x, e.y - 4, e.elite ? 16 : 6);
     this.splat(e);
     this.light.flash(e.x, e.y - 4, e.elite ? 60 : 30, E.white);
-    this.stop(e.elite ? 0.08 : 0.014);
-    if (e.elite) this.fx.shake(0.22);
+    this.stop(e.elite ? 0.09 : 0.03);
+    if (e.elite) {
+      this.fx.shake(0.3);
+      // An elite going down takes the world with it for a breath.
+      if (!this.bt && !this.fusing && this.slowT <= 0 && !e.boss) this.slow(0.3, 0.2);
+    }
     if (this.combo > 0 && this.combo % 20 === 0) this.fx.callout(this.player.x, this.player.y - 32, `${this.combo}连杀！`, E.yellow);
     for (const s of environmental ? [] : run.spells) {
       if (s.id === 'aura' && s.evolved && dist2(e.x, e.y, this.player.x, this.player.y) < 60 * 60) {
@@ -2760,9 +2798,29 @@ export class GameScene extends Phaser.Scene {
       bossDeath(this, e);
       return;
     }
+    // The body pops white on the frozen frame, then is flung the way the blow went, flattening as it fades;
+    // bits of it scatter the same way and a thin ring marks the spot.
+    const kl = Math.hypot(e.kx, e.ky);
+    const [dx, dy] = kl > 1 ? [e.kx / kl, e.ky / kl] : [0, 0];
+    const gore = this.goreColor(e);
+    this.fx.gib(e.x, e.y - 4, dx, dy, e.elite ? 14 : 6, [gore, gore, E.white], e.elite ? 1.3 : 1);
+    this.fx.ring(e.x, e.y - 4, e.r + (e.elite ? 18 : 9), E.white, e.elite ? 280 : 170, 1);
+    if (kl > 1) this.kick(Math.atan2(dy, dx), e.elite ? 4 : 1.2);
     const sprite = e.sprite;
-    sprite.setTintFill(0xffffff);
-    this.tweens.add({ targets: sprite, scaleX: sprite.scaleX * 1.4, scaleY: sprite.scaleY * 0.4, alpha: 0, duration: 120, onComplete: () => sprite.destroy() });
+    sprite.setTintFill(0xffffff).setScale(e.scale * 1.3);
+    this.tweens.add({
+      targets: sprite,
+      x: sprite.x + dx * 10,
+      y: sprite.y + dy * 7 - 2,
+      scaleX: e.scale * 1.7,
+      scaleY: e.scale * 0.2,
+      angle: (dx || (e.id % 2 ? 1 : -1)) * 20,
+      alpha: 0,
+      delay: 30,
+      duration: 170,
+      ease: 'Quad.easeOut',
+      onComplete: () => sprite.destroy(),
+    });
     e.shadow.destroy();
     e.extra?.destroy();
     e.ring?.destroy();
@@ -2775,11 +2833,16 @@ export class GameScene extends Phaser.Scene {
    */
   splat(e: Enemy) {
     if (!e.boss && !e.elite && Math.random() > 0.35) return;
-    const stuff: Partial<Record<string, string>> = { wanderer: this.kit.px.slime, magma: E.brownD, bomber: E.ink, shield: E.cream, angel: E.grey, ghost: E.cyan, jelly: E.pink, sporeling: E.greenD, turret: E.navy, drone: E.navy, guardian: E.slate };
-    const col = stuff[e.kind] ?? E.redD;
+    const col = this.goreColor(e);
     const alpha = e.kind === 'ghost' ? 0.3 : e.kind === 'shield' || e.kind === 'angel' ? 0.5 : 0.72;
     const scale = (e.boss ? 2.6 : e.elite ? 1.7 : 1) * rand(0.8, 1.15);
     this.decals?.stamp(`splat-${Math.floor(rand(0, 4))}`, undefined, Math.round(e.x), Math.round(e.y + 1), { angle: Math.floor(rand(0, 4)) * 90, scale, alpha, tint: hexToNum(col) });
+  }
+
+  /** What a monster is made of, for its splat and the bits a kill knocks off it. */
+  goreColor(e: Enemy): string {
+    const stuff: Partial<Record<string, string>> = { wanderer: this.kit.px.slime, magma: E.brownD, bomber: E.ink, shield: E.cream, angel: E.grey, ghost: E.cyan, jelly: E.pink, sporeling: E.greenD, turret: E.navy, drone: E.navy, guardian: E.slate };
+    return stuff[e.kind] ?? E.redD;
   }
 
   explode(x: number, y: number, r: number, dmg: number, o: { src: string; hurtsPlayer?: number; knock?: number; small?: boolean; element?: Element; noReact?: boolean; volume?: number; environmental?: boolean }) {
@@ -2800,7 +2863,16 @@ export class GameScene extends Phaser.Scene {
     this.fx.ring(x, y, r, o.hurtsPlayer ? this.kit.palette.danger : E.yellow, 260, 2);
     this.fx.burst(x, y, o.small ? 4 : 10);
     this.fx.dust(x, y, o.small ? 3 : 8);
-    this.fx.shake(o.small ? 0.06 : 0.2);
+    this.fx.shake(o.small ? 0.06 : 0.24);
+    if (!o.small) {
+      // A white-hot core, embers thrown out, a scorch left on the floor, and the view shoved away from the blast.
+      this.fx.glowPop(x, y, r * 1.6, E.yellow, 150);
+      this.fx.gib(x, y, 0, 0, Math.min(14, 4 + Math.round(r / 4)), [E.orange, E.yellow, E.ink], 1.2);
+      this.decals?.stamp(`splat-${Math.floor(rand(0, 4))}`, undefined, Math.round(x), Math.round(y), { angle: Math.floor(rand(0, 4)) * 90, scale: r / 10, alpha: 0.32, tint: hexToNum(E.ink) });
+      const pd = dist(x, y, this.player.x, this.player.y);
+      if (pd < 160) this.kick(Math.atan2(this.player.y - y, this.player.x - x), 4 * (1 - pd / 160));
+      if (r > 28) this.stop(0.04);
+    }
     this.light.flash(x, y, r * 3, E.orange);
     audio.explode(!o.small && r > 30 && (o.volume ?? 1) > 0.7, o.volume ?? 1);
   }
@@ -2855,6 +2927,12 @@ export class GameScene extends Phaser.Scene {
     const a = Math.atan2(p.y - sy, p.x - sx);
     p.vx += Math.cos(a) * 160;
     p.vy += Math.sin(a) * 160;
+    // The knight flashes white then red and is knocked flat for a moment; the view is shoved the way the hit went.
+    this.playerHurtT = 0.2;
+    p.sprite.setTintFill(0xffffff);
+    this.kick(a, left > 0 ? 6 : 3);
+    this.fx.impact(p.x - Math.cos(a) * 4, p.y - 6 - Math.sin(a) * 4, left > 0 ? E.red : E.grey, true);
+    this.fx.sparks(p.x, p.y - 6, 8, left > 0 ? 'accent' : 'white');
     audio.hurt();
     this.fx.shake(left > 0 ? 0.45 : 0.25);
     this.fx.flash(left > 0 ? E.red : E.grey, left > 0 ? 0.3 : 0.18, 220);
@@ -3025,10 +3103,15 @@ export class GameScene extends Phaser.Scene {
         sp.setFlipX(pl.x < a.x);
       }
       sp.setPosition(Math.round(a.x), Math.round(a.y - (a.boss?.air ?? 0)));
-      // In a fight everything keeps time: a quick squash on every beat.
-      if (!a.boss && !a.enter && a.state !== 'fuse' && this.active) {
-        const k = Math.max(0, 1 - this.rhythm.phase * 5);
-        sp.setScale(a.scale * (1 + k * 0.12), a.scale * (1 - k * 0.12));
+      // In a fight everything keeps time: a quick squash on every beat. A hit sets the body wobbling on top of it.
+      if (!a.boss && !a.enter && a.state !== 'fuse' && (this.active || a.hurtT !== undefined)) {
+        let k = this.active ? Math.max(0, 1 - this.rhythm.phase * 5) * 0.12 : 0;
+        if (a.hurtT !== undefined) {
+          a.hurtT += dt;
+          if (a.hurtT > 0.3) a.hurtT = undefined;
+          else k += 0.3 * Math.cos(a.hurtT * 38) * Math.exp(-a.hurtT * 14);
+        }
+        sp.setScale(a.scale * (1 + k), a.scale * (1 - k));
       }
       if (a.kind === 'ghost') sp.setAlpha(a.state === 'fade' ? 0.25 : 0.9);
       if (a.flash > 0) sp.setTintFill(0xffffff);
@@ -3057,9 +3140,10 @@ export class GameScene extends Phaser.Scene {
   dropGem(x: number, y: number, value: number) {
     const tier = value >= 5 ? 3 : value >= 2 ? 2 : 1;
     const a = rand(0, TAU);
-    const sp = rand(10, 40);
+    const sp = rand(15, 50);
     const sprite = this.add.image(Math.round(x), Math.round(y), `gem-${tier}`).setDepth(DEPTH.pickup);
-    this.pickups.push({ kind: 'gem', tier, x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, value, t: 0, magnet: !this.active, sprite, dead: false });
+    // Gems pop out of the kill in a little hop before they settle.
+    this.pickups.push({ kind: 'gem', tier, x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, z: 2, vz: rand(70, 120), value, t: 0, magnet: !this.active, sprite, dead: false });
   }
 
   dropHeart(x: number, y: number) {
@@ -3179,6 +3263,7 @@ export class GameScene extends Phaser.Scene {
         const step = Math.min(d, Math.min(540, 110 + p.t * 1000) * dt);
         p.x += (dx / d) * step;
         p.y += (dy / d) * step;
+        if (p.z) p.z = Math.max(0, p.z - dt * 80);
       } else {
         const f = Math.exp(-dt * 5);
         p.vx *= f;
@@ -3186,8 +3271,17 @@ export class GameScene extends Phaser.Scene {
         p.x += p.vx * dt;
         p.y += p.vy * dt;
         [p.x, p.y] = collide(this.dungeon, p.x, p.y, 3);
+        if (p.vz !== undefined) {
+          p.vz -= 420 * dt;
+          p.z = (p.z ?? 0) + p.vz * dt;
+          if (p.z <= 0) {
+            p.z = 0;
+            p.vz = p.vz < -50 ? -p.vz * 0.4 : undefined;
+          }
+        }
       }
-      p.sprite.setPosition(Math.round(p.x), Math.round(p.y + (p.magnet ? 0 : Math.round(Math.sin(p.t * 5) * 1.2))));
+      const bob = p.magnet || p.vz !== undefined ? 0 : Math.round(Math.sin(p.t * 5) * 1.2);
+      p.sprite.setPosition(Math.round(p.x), Math.round(p.y - (p.z ?? 0) + bob));
       if (canCollect && dist2(p.x, p.y, pl.x, pl.y - 4) < (pl.r + 6) ** 2 && this.mode === 'play') {
         if (p.kind === 'crystal') {
           this.collectCrystal(p);
@@ -3197,10 +3291,14 @@ export class GameScene extends Phaser.Scene {
         p.sprite.destroy();
         if (p.kind === 'heart') {
           this.heal(1, pl.x, pl.y);
+          this.fx.ring(pl.x, pl.y - 6, 20, E.red, 260, 2);
+          this.fx.sparks(pl.x, pl.y - 6, 8, 'accent');
           audio.select();
         } else {
           this.gemStreak++;
           this.gemT = 0.4;
+          // Each gem lands with a glint in its colour, a little brighter as a run of them streams in.
+          this.fx.glowPop(pl.x, pl.y - 6, 10 + Math.min(this.gemStreak, 12), p.tier === 3 ? E.red : p.tier === 2 ? E.green : E.cyan, 140);
           audio.pickup(this.gemStreak);
           this.gainXp(p.value);
         }
@@ -3667,12 +3765,24 @@ export class GameScene extends Phaser.Scene {
       const left = Math.cos(p.aim) < 0;
       p.sprite.setPosition(Math.round(p.x), Math.round(p.y)).setFlipX(left);
       p.sprite.setAlpha(p.iframes > 0 && p.dashT <= 0 && this.mode === 'play' ? (Math.floor(this.time0 * 20) % 2 ? 0.3 : 1) : 1);
+      // Squash and stretch: long along a dash as it sets off, knocked flat for a moment by a hit.
+      this.dashSquash = Math.max(0, this.dashSquash - dt * 6);
+      const ds = this.dashSquash * this.dashSquash * 0.35;
+      const hurt = this.playerHurtT;
+      this.playerHurtT = Math.max(0, hurt - dt);
+      const hs = hurt > 0 ? Math.sin((1 - hurt / 0.2) * Math.PI) * 0.2 : 0;
+      p.sprite.setScale(1 + ds * (Math.abs(p.dashX) - 0.5 * Math.abs(p.dashY)) + hs, 1 + ds * (Math.abs(p.dashY) - 0.5 * Math.abs(p.dashX)) - hs);
+      if (this.playerHurtT > 0.15) p.sprite.setTintFill(0xffffff);
+      else if (this.playerHurtT > 0) p.sprite.setTint(0xff7a7a);
+      else if (hurt > 0) p.sprite.clearTint();
       p.shadow.setPosition(Math.round(p.x), Math.round(p.y + 1));
       p.punch = Math.max(0, p.punch - dt * 10);
       const held = run.weapons[run.held];
       const handX = p.x + (left ? -2 : 2);
       const handY = p.y - 4;
-      const kick = p.punch * 2;
+      // Guns jump back and climb on each shot; the heavier the gun, the more.
+      const kick = p.punch * (2 + this.gunKick * 6);
+      const climb = p.punch * this.gunKick * (left ? 1 : -1);
       const gx = handX - Math.cos(p.aim) * kick;
       const gy = handY - Math.sin(p.aim) * kick;
       // Melee weapons act out the combo move; guns just kick back.
@@ -3689,7 +3799,7 @@ export class GameScene extends Phaser.Scene {
         this.swapT = Math.max(0, this.swapT - dt);
         const sw = this.swapT / 0.2;
         const flourish = sw * 2.4 * (left ? -1 : 1);
-        p.gun.setRotation(p.aim + swing + tilt + flourish).setScale(1, 1 - sw * 0.7).setFlipY(left).setDepth(Math.sin(p.aim) < -0.3 ? DEPTH.player - 0.1 : DEPTH.gun);
+        p.gun.setRotation(p.aim + swing + tilt + flourish + (melee ? 0 : climb)).setScale(1, 1 - sw * 0.7).setFlipY(left).setDepth(Math.sin(p.aim) < -0.3 ? DEPTH.player - 0.1 : DEPTH.gun);
       }
       const dual = p.skillT > 0 && run.weapons.length > 1;
       // The twin daggers: the second one rides in the off hand and takes every other stab.
@@ -3797,6 +3907,7 @@ export class GameScene extends Phaser.Scene {
       }
     }
     const vg = this.gfx;
+    this.fx.trails(this.pproj);
     this.drawReload(dt);
     for (const v of this.visuals) {
       const k = 1 - v.t / v.dur;
