@@ -23,8 +23,8 @@ export function releaseMobileEntryDisplay(): void {
   display?.cancel();
 }
 
-/** Call directly from the title's user gesture, before selection or loading delays. */
-export function beginMobileEntry(host: LayerHost, onReady: () => void): void {
+/** Call directly from the title's user gesture, before selection or loading delays. `onCancel` hears only the player's own cancel. */
+export function beginMobileEntry(host: LayerHost, onReady: () => void, onCancel?: () => void): void {
   const existing = entries.get(host);
   if (existing?.el.isConnected) {
     existing.focus();
@@ -75,6 +75,11 @@ export function beginMobileEntry(host: LayerHost, onReady: () => void): void {
   const cleanupObserver = new MutationObserver(() => {
     if (!ov.isConnected) finish('cancel');
   });
+  const cancelled = () => {
+    const open = !done;
+    finish('cancel');
+    if (open) onCancel?.();
+  };
   const finish = (action: 'landscape' | 'portrait' | 'cancel') => {
     if (done) return;
     const detached = !ov.isConnected;
@@ -98,7 +103,7 @@ export function beginMobileEntry(host: LayerHost, onReady: () => void): void {
     if (event.key === 'Escape' || event.key === 'Backspace') {
       event.preventDefault();
       host.escUsed();
-      finish('cancel');
+      cancelled();
     } else if (event.key === 'Tab') {
       event.preventDefault();
       const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
@@ -118,7 +123,7 @@ export function beginMobileEntry(host: LayerHost, onReady: () => void): void {
   entries.set(host, entry);
   pendingEntry = entry;
   portrait.addEventListener('click', () => finish('portrait'), { signal: events.signal });
-  cancel.addEventListener('click', () => finish('cancel'), { signal: events.signal });
+  cancel.addEventListener('click', cancelled, { signal: events.signal });
   window.addEventListener('mobileviewportchange', () => {
     if (isLandscapeViewport()) finish('landscape');
   }, { signal: events.signal });

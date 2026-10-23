@@ -12,7 +12,7 @@ import { K, buildCommonTextures, buildKitTextures, buildLevel, textTexture } fro
 import type { StyleKit } from '../styles/types';
 import { decoArt } from '../pixel/decor';
 import { ui } from '../ui/ui';
-import { releaseMobileEntryDisplay } from '../ui/mobileEntry';
+import { beginMobileEntry, releaseMobileEntryDisplay } from '../ui/mobileEntry';
 import { settings } from '../settings';
 import { TouchControls } from '../input/touchControls';
 import { DIRS, DIR_VEC } from './dirs';
@@ -61,6 +61,7 @@ import { HubController } from '../hub/controller';
 import { KIT_BY_ID } from '../styles/kits';
 import { TRAINING_KIT, hitDummy, holdDummy, setupTraining, takeTrainingWeapon, trainingDungeon, trainingSpawn, updateTraining, type TrainingState } from './training';
 import { prepareRun, settleRun, SUPPLIES } from '../meta/profile';
+import { TUTORIAL_PARAMS, TutorialCoach } from './tutorial';
 export type { Trap } from './traps';
 
 type Mode = 'title' | 'play' | 'choose' | 'pause' | 'ascend' | 'transition' | 'dead' | 'end';
@@ -220,6 +221,8 @@ export class GameScene extends Phaser.Scene {
   private hub?: HubController;
   private releaseHubAudio?: () => void;
   private hubSuspension?: { input: boolean; keyboard: boolean; capture: boolean; paused: boolean };
+  /** The beginner tutorial's coach, while its practice run is up. */
+  tutorial?: TutorialCoach;
   private runGeneration = 0;
   private levelGeneration = 0;
   private recorded?: { runId: string; score: number; rank: number; date: number; settlement: string; warning?: string | null };
@@ -245,6 +248,7 @@ export class GameScene extends Phaser.Scene {
 
   create() {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.endTutorial();
       this.hub?.dispose();
       this.hub = undefined;
       this.releaseHubAudio?.();
@@ -334,11 +338,13 @@ export class GameScene extends Phaser.Scene {
         void audio.init();
         this.startTraining();
       },
+      startTutorial: () => this.startTutorial(),
     });
     this.showTitle();
   }
 
   showTitle() {
+    this.endTutorial();
     this.runGeneration++;
     this.training = undefined;
     this.mode = 'title';
@@ -406,7 +412,28 @@ export class GameScene extends Phaser.Scene {
       codex: () => buildCodex(this),
       initialAction: action,
       onBack: () => this.hub?.show(),
+      onTutorial: () => this.hub?.startTour(),
     });
+  }
+
+  /** The combat half of the beginner tutorial: a practice floor that is never saved, scored or supplied. */
+  startTutorial() {
+    ui.resetLayers();
+    beginMobileEntry(ui, () => {
+      void audio.init();
+      this.startRun(undefined, 'adonis', 'easy', true);
+    }, () => this.hub?.show());
+  }
+
+  /** Leave the practice floor for the hall, or for a real run's hero select. */
+  leaveTutorial(adventure: boolean) {
+    this.endToTitle();
+    if (adventure) this.hub?.adventure();
+  }
+
+  private endTutorial() {
+    this.tutorial?.dispose();
+    this.tutorial = undefined;
   }
 
   /** Leave the run for the main menu; progress is saved so it can be continued. */
@@ -420,7 +447,7 @@ export class GameScene extends Phaser.Scene {
   saveProgress() {
     const run = this.run;
     const d = this.dungeon;
-    if (this.sys.settings.key !== 'game' || !run || !d || this.training || this.mode === 'dead' || this.mode === 'end' || this.mode === 'title') return;
+    if (this.sys.settings.key !== 'game' || !run || !d || this.training || this.tutorial || this.mode === 'dead' || this.mode === 'end' || this.mode === 'title') return;
     saveRun({
       v: 1,
       savedAt: Date.now(),
@@ -438,6 +465,8 @@ export class GameScene extends Phaser.Scene {
   recordRun(victory: boolean) {
     const run = this.run;
     if (this.recorded?.runId === run.runId) return this.recorded;
+    // The practice floor never touches the saved run, the boards or the garden.
+    if (this.tutorial) return (this.recorded = { runId: run.runId, score: 0, rank: 0, date: Date.now(), settlement: '新手教程不计入排行榜。' });
     clearRun();
     const date = Date.now();
     const base = { victory, floor: run.level + 1, kills: run.kills, lv: run.xpLevel, secs: Math.round(run.elapsed), diff: run.diff.id };
@@ -484,25 +513,29 @@ export class GameScene extends Phaser.Scene {
     this.mode = 'pause';
     const fights = this.dungeon.rooms.filter((r) => r.type === 'combat' || r.type === 'horde' || r.type === 'boss');
     ui.pause(
-      { run: this.run, floorName: this.kit.name, roomsCleared: fights.filter((r) => r.cleared).length, roomsTotal: fights.length, training: !!this.training },
+      { run: this.run, floorName: this.kit.name, roomsCleared: fights.filter((r) => r.cleared).length, roomsTotal: fights.length, training: !!this.training, tutorial: !!this.tutorial },
       {
         onResume: () => {
           if (this.mode === 'pause') this.mode = 'play';
         },
         onQuit: () => this.quitToTitle(),
         codex: () => buildCodex(this),
+        onTutorial: () => {
+          this.quitToTitle();
+          this.hub?.startTour();
+        },
       },
     );
   }
 
   // ---------------------------------------------------------------- run and floors
 
-  startRun(saved?: SavedRun, hero?: HeroId, difficulty?: DifficultyId) {
+  startRun(saved?: SavedRun, hero?: HeroId, difficulty?: DifficultyId, tutorial = false) {
     this.leaveForRun();
     if (!saved) this.resetCrystalRuntime();
-    this.run = saved ? restoreRun(saved) : newRun(this.params, hero, difficulty);
+    this.run = saved ? restoreRun(saved) : newRun(tutorial ? new URLSearchParams(TUTORIAL_PARAMS) : this.params, hero, difficulty);
     let preparationWarning: string | null = null;
-    if (!saved && this.sys.settings.key === 'game') {
+    if (!saved && this.sys.settings.key === 'game' && !tutorial) {
       const preparation = prepareRun(this.run.runId);
       preparationWarning = preparation.warning ?? (!preparation.prepared ? '本次未能准备花园补给，仍可正常冒险。' : null);
       const prepared = preparation.prepared;
@@ -523,6 +556,7 @@ export class GameScene extends Phaser.Scene {
       this.run.supply = { id: id ?? 'garden-supply', name: id ? SUPPLIES[id]?.name ?? '花园补给' : '花园补给' };
     }
     this.resetHero();
+    if (tutorial) this.tutorial = new TutorialCoach(this);
     this.enterLevel(true, saved);
     if (preparationWarning) ui.toast(preparationWarning, 6500);
   }
@@ -542,9 +576,10 @@ export class GameScene extends Phaser.Scene {
     this.enterLevel(true);
   }
 
-  /** Close whatever was open (the hall, a run, the training ground) before a new run or training begins. */
+  /** Close whatever was open (the hall, a run, the tutorial, the training ground) before a new run or training begins. */
   private leaveForRun() {
     this.runGeneration++;
+    this.endTutorial();
     this.recorded = undefined;
     this.training = undefined;
     this.god = this.params.has('god');
@@ -1375,6 +1410,7 @@ export class GameScene extends Phaser.Scene {
       this.aimY = wp.y;
     }
     this.drawCursor();
+    this.tutorial?.update(realDt);
     if (this.mode === 'title' || this.mode === 'pause' || this.mode === 'choose' || this.mode === 'end') {
       resetWeaponPreview(this);
       this.light.update(this, 0);
@@ -2775,7 +2811,7 @@ export class GameScene extends Phaser.Scene {
     this.combo = 0;
     this.rhythm.hurt();
     if (this.activeChallenge) finishChallenge(this, false);
-    if (run.hp <= 0) this.die();
+    if (run.hp <= 0 && !this.tutorial?.spare()) this.die();
     return true;
   }
 

@@ -2369,6 +2369,16 @@ body:not(.touch-device) .title .menu .item { flex-shrink: 0; padding-top: 0; pad
   box-shadow: inset 0 0 0 1px #1d1a2b;
 }
 
+/* Where the tutorial can be replayed the page has a ninth row; the rows tighten to fit. */
+.st-list.tight {
+  gap: 1px;
+}
+
+.st-list.tight .st-row {
+  padding-top: 1px;
+  padding-bottom: 1px;
+}
+
 .st-row .dia {
   visibility: hidden;
 }

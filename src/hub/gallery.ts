@@ -27,6 +27,10 @@ export interface GalleryHandle {
   dispose(): void;
   pause(paused: boolean): void;
   refresh(state: GalleryState): void;
+  /** The tutorial lights one destination up and points the way to it; null clears it. */
+  guide(action: GalleryAction | null): void;
+  /** How far the visitor has walked since the hall opened, and what they stand beside. */
+  progress(): { walked: number; near: GalleryAction | null };
 }
 export interface GalleryOptions extends GalleryState {
   container: HTMLElement;
@@ -99,6 +103,8 @@ export function mountGallery(options: GalleryOptions): GalleryHandle {
   let pointerStart: Point | null = null;
   let hovered: Destination | null = null;
   let triggerTime = -1000;
+  let guided: GalleryAction | null = null;
+  let walked = 0;
   // Arrive in front of the mosaic, out of reach of every station, so no prompt greets the visitor.
   const character: Point = { x: WORLD_CENTER, y: 800 };
   const keys = new Set<string>();
@@ -318,6 +324,7 @@ export function mountGallery(options: GalleryOptions): GalleryHandle {
       const normal = Math.hypot(dx, dy);
       const speed = 245 * dt;
       const next = floorPoint({ x: character.x + dx / normal * speed, y: character.y + dy / normal * speed });
+      walked += distance(character, next);
       character.x = next.x;
       character.y = next.y;
       if (dx) facing = Math.sign(dx);
@@ -363,7 +370,7 @@ export function mountGallery(options: GalleryOptions): GalleryHandle {
     return destination.action !== 'repair' || !!state.profile?.repair;
   }
   function isSelected(destination: Destination) {
-    return near === destination || hovered === destination;
+    return near === destination || hovered === destination || guided === destination.action;
   }
   function drawSign(destination: Destination) {
     const art = signs.get(destination.action)!;
@@ -442,6 +449,27 @@ export function mountGallery(options: GalleryOptions): GalleryHandle {
     pixelRenderer.drawForeground(context);
     selected.forEach(drawSignMarker);
     context.restore();
+    drawGuideArrow();
+  }
+  /** While the guided destination is out of view, a chevron on the screen edge points the way to it. */
+  function drawGuideArrow() {
+    const destination = DESTINATIONS.find((item) => item.action === guided && available(item));
+    if (!destination) return;
+    const viewH = height - bottomCover;
+    const x = (destination.sign.x - camera.x) * scale;
+    const y = (destination.sign.y - camera.y) * scale;
+    const margin = 40;
+    if (x > margin && x < width - margin && y > margin && y < viewH - margin) return;
+    // Snapped to a side so the pixel chevron is never drawn at an odd angle.
+    const side = Math.abs(x - width / 2) / width >= Math.abs(y - viewH / 2) / viewH ? (x < width / 2 ? Math.PI : 0) : (y < viewH / 2 ? -Math.PI / 2 : Math.PI / 2);
+    const bob = reducedMotion.matches ? 0 : Math.round((Math.sin(clock * 5) + 1) * 1.5) * 3;
+    const ax = side === 0 ? width - margin + bob : side === Math.PI ? margin - bob : clamp(x, margin, width - margin);
+    const ay = side === Math.PI / 2 ? viewH - margin + bob : side === -Math.PI / 2 ? margin - bob : clamp(y, margin * 2, viewH - margin);
+    context.save();
+    context.translate(Math.round(ax), Math.round(ay));
+    context.rotate(side - Math.PI / 2);
+    drawSignChevron(context, 0, 9, 3);
+    context.restore();
   }
 
   updateState(state);
@@ -451,6 +479,11 @@ export function mountGallery(options: GalleryOptions): GalleryHandle {
   start();
   return {
     refresh(next) { if (!disposed) updateState(next); },
+    guide(action) {
+      guided = action;
+      if (!animation && !disposed) draw();
+    },
+    progress: () => ({ walked, near: near?.action ?? null }),
     pause(next) {
       if (disposed || paused === next) return;
       paused = next;

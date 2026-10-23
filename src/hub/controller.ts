@@ -2,8 +2,10 @@ import { loadProfile, claimDiscovery, PLANTS, SUPPLIES, subscribeProfile } from 
 import { FISH, FISH_IDS, RESTORATIONS, RESTORATION_IDS, getRestorationFailure, restoreGallery } from '../meta/life';
 import type { LifeCost, MetaProfile, ProfileState } from '../meta/life';
 import type { PlantId } from '../meta/profile';
-import { loadRun, topSupplyScores } from '../save';
+import { loadRun, topScores, topSupplyScores } from '../save';
+import { setTutorialStatus, shouldOfferTutorial } from '../tutorial/progress';
 import { mountGallery, type GalleryAction, type GalleryHandle } from './gallery';
+import { HallTour, askTutorial } from './tour';
 import { createPixelRepairDisplay } from './gallery-pixel-renderer';
 import './controller.css';
 import '../ui/visualTheme.css';
@@ -37,6 +39,8 @@ interface HubOptions {
   showAdventure(action?: 'new' | 'continue'): void;
   /** Opens the training ground inside the combat scene. */
   showTraining(): void;
+  /** The combat half of the beginner tutorial, after the hall tour reaches the main painting. */
+  startTutorial(): void;
   releaseUI(): void;
 }
 
@@ -53,6 +57,9 @@ export class HubController {
   private generation = 0;
   private unsubscribe: () => void;
   private refreshPage?: () => void;
+  private tour?: HallTour;
+  private question?: { cancel(): void };
+  private asked = false;
   mode: HubMode = 'gallery';
 
   constructor(private readonly options: HubOptions) {
@@ -67,7 +74,7 @@ export class HubController {
     this.unsubscribe = subscribeProfile(() => this.refresh());
     window.addEventListener('mobileviewportchange', () => this.external?.resize?.(), { signal: this.events.signal });
     document.addEventListener('visibilitychange', () => {
-      this.gallery.pause(document.hidden || this.mode !== 'gallery');
+      this.gallery.pause(document.hidden || this.mode !== 'gallery' || !!this.question);
       this.external?.pause?.(document.hidden);
     }, { signal: this.events.signal });
     // Capture only this mode's Escape. A world owns its own Escape/pointer-lock gesture.
@@ -124,11 +131,51 @@ export class HubController {
     this.setMode('gallery');
     this.options.suspendGame();
     this.refresh();
-    this.gallery.pause(document.hidden);
+    this.gallery.pause(document.hidden || !!this.question);
+    this.offerTutorial();
+  }
+
+  /** The first time the hall opens, ask once whether to take the tutorial; the answer is kept. */
+  private offerTutorial() {
+    if (this.asked || this.question || this.tour || !shouldOfferTutorial()) return;
+    this.asked = true;
+    this.gallery.pause(true);
+    this.question = askTutorial(this.galleryHost, !!loadRun() || topScores().length > 0, (start) => {
+      this.question = undefined;
+      if (this.mode === 'gallery') this.gallery.pause(document.hidden);
+      if (start) this.startTour();
+      else setTutorialStatus('skipped');
+    });
+  }
+
+  /** Begin the tutorial at its first hall step; settings use this to replay it. */
+  startTour() {
+    if (this.mode === 'disposed') return;
+    this.question?.cancel();
+    this.question = undefined;
+    this.asked = true;
+    setTutorialStatus('started');
+    this.tour?.dispose();
+    this.tour = new HallTour({ host: this.galleryHost, gallery: this.gallery, onSkip: () => this.endTour(true) });
+    if (this.mode !== 'gallery') this.show();
+    else this.gallery.pause(document.hidden);
+  }
+
+  /** Straight to the adventure menu, as if the main painting had been entered. */
+  adventure() {
+    this.show();
+    this.act('adventure');
+  }
+
+  private endTour(skipped = false) {
+    this.tour?.dispose();
+    this.tour = undefined;
+    if (skipped) setTutorialStatus('skipped');
   }
 
   enterRun() {
     if (this.mode === 'disposed') return;
+    this.endTour();
     this.generation++;
     this.releaseExternal();
     this.clearNotice();
@@ -140,12 +187,17 @@ export class HubController {
 
   private act(action: GalleryAction) {
     if (this.mode !== 'gallery') return;
+    const tour = this.tour?.handle(action) ?? 'pass';
+    if (tour === 'block') return;
     if (action === 'adventure' || action === 'continue') {
       this.setMode('adventure-menu');
       this.gallery.pause(true);
       this.root.hidden = true;
       this.options.releaseUI();
-      this.options.showAdventure(action === 'continue' ? 'continue' : 'new');
+      // The combat half of the tutorial takes place inside the painting. The tour card waits, hidden,
+      // until the practice run really starts, so a cancelled phone-rotation prompt returns to it.
+      if (tour === 'enter') this.options.startTutorial();
+      else this.options.showAdventure(action === 'continue' ? 'continue' : 'new');
     } else if (action === 'training') this.options.showTraining();
     else if (action === 'collection') this.collection();
     else if (action === 'repair') this.restoration();
@@ -412,6 +464,8 @@ export class HubController {
     this.events.abort();
     this.clearNotice();
     this.unsubscribe();
+    this.question?.cancel();
+    this.endTour();
     this.gallery.dispose();
     this.root.remove();
   }

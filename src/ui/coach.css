@@ -1,0 +1,83 @@
+/* The tutorial card: on the left below the hearts, their damage note and the toasts, inside the HUD layer so pages and menus cover it. */
+.coach {
+  position: absolute;
+  left: 6px;
+  top: 54px;
+  width: 152px;
+  padding: 4px 6px 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: slideIn 0.25s steps(4) both;
+}
+
+.coach.done {
+  box-shadow: inset 0 0 0 1px #3e8948, 0 0 0 1px #000;
+}
+
+.coach.folded .lines {
+  display: none;
+}
+
+.coach-head,
+.coach-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.coach .lines {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.coach-skip {
+  margin-left: auto;
+  padding: 1px 3px;
+  border: 0;
+  background: none;
+  box-shadow: inset 0 0 0 1px #3a4466;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.coach-skip:hover {
+  box-shadow: inset 0 0 0 1px #8b9bb4;
+}
+
+/* The closing page reuses the result box; the controls sit in two columns. */
+.coach-end .box {
+  width: 320px;
+  gap: 5px;
+}
+
+.coach-end .head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.coach-keys {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 10px;
+  width: 100%;
+  margin: 2px 0;
+}
+
+.coach-keys .ck {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.coach-end .menu {
+  flex-direction: row;
+  gap: 12px;
+}
+
+/* Pages and menus own the screen; the card waits underneath, out of sight. */
+#ui-root:has(> .overlay) .coach {
+  visibility: hidden;
+}
