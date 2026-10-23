@@ -75,6 +75,8 @@ export interface HudData {
   pets: string[];
   level: number;
   styleName: string;
+  /** Replaces the floor name for places outside the five floors (the training ground). */
+  place?: string;
   timer: number;
   /** In a combat room: the wave being fought (or loading in) and how many there are. */
   wave?: [number, number];
@@ -104,6 +106,8 @@ export interface TitleActions {
   codex: () => CodexTab[];
   onBack?: () => void;
   initialAction?: 'new' | 'continue';
+  /** Settings offer to replay the beginner tutorial. */
+  onTutorial?: () => void;
 }
 
 export interface PauseInfo {
@@ -111,12 +115,17 @@ export interface PauseInfo {
   floorName: string;
   roomsCleared: number;
   roomsTotal: number;
+  /** In the training ground nothing is saved, so leaving needs no warning. */
+  training?: boolean;
+  /** A tutorial practice run: leaving it is not saved. */
+  tutorial?: boolean;
 }
 
 export interface PauseActions {
   onResume: () => void;
   onQuit: () => void;
   codex: () => CodexTab[];
+  onTutorial?: () => void;
 }
 
 export interface EndInfo {
@@ -279,6 +288,11 @@ class UI implements LayerHost {
     this.root.style.setProperty('--biome', kit.palette.danger);
   }
 
+  /** The tutorial card lives in the HUD layer, so every page and menu covers it. */
+  coach(node: HTMLElement) {
+    this.hud.appendChild(node);
+  }
+
   showHud(show: boolean) {
     if (!show) {
       this.hideWeaponPreview();
@@ -426,8 +440,8 @@ class UI implements LayerHost {
     this.set('.spells', spells + (pets ? `<div class="pet-roster">${pets}</div>` : ''));
 
     this.drawMap(d.map);
-    this.set('.sname', px(`${FLOOR_NAMES[d.level]}层 ${d.styleName}`, GREY));
-    this.set('.kills', px(`KILL ${d.kills}`, DIM, { small: true }));
+    this.set('.sname', px(d.place ?? `${FLOOR_NAMES[d.level]}层 ${d.styleName}`, GREY));
+    this.set('.kills', d.place ? '' : px(`KILL ${d.kills}`, DIM, { small: true }));
 
     const tt = d.timer > 0 ? `${String(Math.floor(d.timer / 60)).padStart(2, '0')}:${String(Math.floor(d.timer % 60)).padStart(2, '0')}` : '';
     const wave = d.wave ? `${px('波次', E.yellow)}${px(`${d.wave[0]}/${d.wave[1]}`, E.white, { small: true, scale: 2 })}` : '';
@@ -884,9 +898,14 @@ class UI implements LayerHost {
    */
   heroSelect(onPick: (hero: HeroId) => void, initialHero: HeroId = 'adonis') {
     const generation = this.generation;
+    // More than three heroes are wider than the screen: the cards overlap like a fanned hand, the selected one on top.
+    // A tap on a card that is not up yet only brings it forward, so its perk can be read before the next tap picks it.
+    const fanned = HERO_ORDER.length > 3;
+    const touchHint = fanned ? '轻触卡片查看，再点一次选择' : '轻触卡片选择角色';
     const ov = el('div', 'overlay picker heroes');
-    ov.innerHTML = `<div class="pk-head"><span class="tagred">${px('HERO', E.white, { small: true, outline: false })}</span>${px('选择角色', E.yellow, { scale: 2 })}${px(isTouchBrowser() ? '轻触卡片选择角色' : '谁走进这幅画', GREY)}<button type="button" class="hero-back" aria-label="返回主页">${px(isTouchBrowser() ? '‹ 返回' : 'Esc 返回', DIM)}</button></div>`;
-    const table = el('div', 'pk-cards');
+    ov.innerHTML = `<div class="pk-head"><span class="tagred">${px('HERO', E.white, { small: true, outline: false })}</span>${px('选择角色', E.yellow, { scale: 2 })}${px(isTouchBrowser() ? touchHint : '谁走进这幅画', GREY)}<button type="button" class="hero-back" aria-label="返回主页">${px(isTouchBrowser() ? '‹ 返回' : 'Esc 返回', DIM)}</button></div>`;
+    const table = el('div', fanned ? 'pk-cards fanned' : 'pk-cards');
+    table.style.setProperty('--n', String(HERO_ORDER.length));
     ov.appendChild(table);
     const cards = HERO_ORDER.map((id, i) => {
       const h = HEROES[id];
@@ -922,6 +941,7 @@ class UI implements LayerHost {
       cards.forEach((c, k) => {
         c.classList.toggle('sel', k === i);
         c.setAttribute('aria-pressed', String(k === i));
+        c.style.zIndex = String(cards.length - Math.abs(k - i));
       });
     };
     const pick = (i: number) => {
@@ -945,14 +965,26 @@ class UI implements LayerHost {
       this.close(layer, 150);
     };
     ov.querySelector('.hero-back')!.addEventListener('click', back);
+    // Only a real mouse selects by hovering. A finger or pen sets this from pointerdown until its click, so the focus
+    // that the tap brings along is left alone too.
+    let tapped = false;
     cards.forEach((card, k) => {
-      card.addEventListener('focus', () => { if (!done) select(k); });
-      card.addEventListener('mouseenter', () => {
-        if (done || sel === k) return;
+      card.addEventListener('pointerdown', (e) => { tapped = e.pointerType !== 'mouse'; });
+      card.addEventListener('focus', () => { if (!done && !tapped) select(k); });
+      card.addEventListener('pointerenter', (e) => {
+        if (done || sel === k || e.pointerType !== 'mouse') return;
         audio.hover();
         select(k);
       });
-      card.addEventListener('click', () => pick(k));
+      card.addEventListener('click', () => {
+        const peek = fanned && tapped && sel !== k;
+        tapped = false;
+        if (!peek) pick(k);
+        else if (!done) {
+          audio.hover();
+          select(k);
+        }
+      });
     });
     select(Math.max(0, HERO_ORDER.indexOf(initialHero)));
     const layer = this.push(ov, (e) => {
@@ -1066,7 +1098,7 @@ class UI implements LayerHost {
         else if (i === 2) openBoard(this);
         else if (i === 3) openHelp(this);
         else if (i === 4) openCodex(this, (tabs ??= a.codex()));
-        else if (i === 5) openSettings(this);
+        else if (i === 5) openSettings(this, { onTutorial: a.onTutorial && (() => leave(a.onTutorial!)) });
         else if (a.onBack) leave(a.onBack);
       };
     const nav = new MenuNav(rows, pick, [!save]);
@@ -1143,10 +1175,10 @@ class UI implements LayerHost {
       <div class="ps-left">
         <div class="head"><span class="tagred">${px('PAUSE', E.white, { small: true, outline: false })}</span>${px('暂停', E.yellow, { scale: 2 })}</div>
         <div class="menu"></div>
-        <div class="ps-diff">${px('难度', DIM)}${px(run.diff.name, run.diff.id === 'hard' ? ACCENT : E.white)}${px('种子', DIM)}${px(String(run.seed), DIM, { small: true })}</div>
+        ${info.training ? '' : `<div class="ps-diff">${px('难度', DIM)}${px(run.diff.name, run.diff.id === 'hard' ? ACCENT : E.white)}${px('种子', DIM)}${px(String(run.seed), DIM, { small: true })}</div>`}
       </div>
       <div class="ps-right panel" tabindex="0" role="region" aria-label="本局状态与宠物加成">
-        <div class="ps-top">${px(`第${floorNo}层 · ${info.floorName}`, E.yellow)}${px(`房间 ${info.roomsCleared}/${info.roomsTotal}`, GREY)}${px(`击杀 ${run.kills}`, GREY)}${px(`用时 ${fmtTime(run.elapsed)}`, GREY)}</div>
+        <div class="ps-top">${info.training ? `${px('训练场', E.yellow)}${px('不计分，不存档', GREY)}` : `${px(`第${floorNo}层 · ${info.floorName}`, E.yellow)}${px(`房间 ${info.roomsCleared}/${info.roomsTotal}`, GREY)}${px(`击杀 ${run.kills}`, GREY)}`}${px(`用时 ${fmtTime(run.elapsed)}`, GREY)}</div>
         <div class="ps-cols">
           <div class="ps-col">${sec('角色', hero)}${sec('属性', statGrid)}</div>
           <div class="ps-col">${sec('武器', guns)}${sec('法术', `<div class="ps-two">${spells}</div>`)}${sec('宠物', `<div class="ps-row">${pets}</div>${petStats}`)}</div>
@@ -1157,7 +1189,13 @@ class UI implements LayerHost {
     ov.querySelector('.ps-right')!.addEventListener('keydown', (e) => {
       if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes((e as KeyboardEvent).key)) e.stopPropagation();
     });
-    const rows = [menuRow('继续游戏', { key: 'Esc' }), menuRow('游戏说明'), menuRow('图鉴'), menuRow('设置'), menuRow('返回画廊', { note: '自动存档' })];
+    const rows = [
+      menuRow(info.training ? '继续训练' : '继续游戏', { key: 'Esc' }),
+      menuRow('游戏说明'),
+      menuRow('图鉴'),
+      menuRow('设置'),
+      info.tutorial ? menuRow('退出教程') : menuRow('返回画廊', info.training ? {} : { note: '自动存档' }),
+    ];
     ov.querySelector('.menu')!.append(...rows);
     let tabs: CodexTab[] | undefined;
     const resume = () => {
@@ -1169,8 +1207,14 @@ class UI implements LayerHost {
       if (i === 0) resume();
       else if (i === 1) openHelp(this);
       else if (i === 2) openCodex(this, (tabs ??= a.codex()));
-      else if (i === 3) openSettings(this);
-      else confirmBox(this, '返回画廊？进度会自动存档，之后可继续这次冒险。', () => {
+      else if (i === 3) openSettings(this, { onTutorial: a.onTutorial && (() => confirmBox(this, info.tutorial ? '从头重新开始新手教程？' : info.training ? '回到画廊从头开始新手教程？' : '回到画廊从头开始新手教程？这次冒险会自动存档。', () => {
+        this.close(layer);
+        a.onTutorial!();
+      })) });
+      else if (info.training) {
+        this.close(layer);
+        a.onQuit();
+      } else confirmBox(this, info.tutorial ? '退出新手教程，回到画廊？之后可在设置里重新开始。' : '返回画廊？进度会自动存档，之后可继续这次冒险。', () => {
         this.close(layer);
         a.onQuit();
       });

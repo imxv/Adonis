@@ -15,6 +15,8 @@ export interface StationSprite {
 }
 
 const SCALE = 2;
+/** The training rack's top-left corner: on the open paving right of the mosaic, in front of the repair easel. */
+export const TRAINING_AT = { x: 1846, y: 704 } as const;
 
 function rect(c: Ctx, color: string, x: number, y: number, w: number, h: number): void {
   if (w <= 0 || h <= 0) return;
@@ -163,14 +165,80 @@ function kitchenFrame(phase: number): HTMLCanvasElement {
   });
 }
 
-export function createGalleryStations(): { fishing: StationSprite; kitchen: StationSprite; dispose(): void } {
+/** A weapon rack with a sword, a spear and a bow, and a straw dummy rocking on its post beside it. */
+function trainingFrame(phase: number): HTMLCanvasElement {
+  return frame(84, 62, (c) => {
+    const OUT = '#2b2532';
+    ellipse(c, '#101c35', 26, 59, 24, 3);
+    ellipse(c, '#101c35', 67, 59, 13, 2);
+    // Rack: two posts and two rails.
+    for (const x of [3, 45]) {
+      rect(c, OUT, x - 1, 12, 5, 48);
+      rect(c, '#795340', x, 13, 3, 46);
+      rect(c, '#aa783d', x, 13, 1, 46);
+    }
+    for (const y of [14, 44]) {
+      rect(c, OUT, 1, y - 1, 49, 5);
+      rect(c, '#795340', 2, y, 47, 3);
+      rect(c, '#d5a75c', 2, y, 47, 1);
+    }
+    // Sword: blade up, guard and grip resting on the lower rail.
+    rect(c, OUT, 11, 2, 5, 43);
+    rect(c, '#b3a599', 12, 3, 3, 41);
+    rect(c, '#d5c5aa', 12, 3, 1, 41);
+    rect(c, OUT, 8, 43, 11, 4);
+    rect(c, '#d5a75c', 9, 44, 9, 2);
+    rect(c, OUT, 12, 46, 3, 8);
+    rect(c, '#795340', 13, 47, 1, 6);
+    // Spear: a long shaft and a leaf blade.
+    line(c, OUT, 25, 0, 25, 58, 3);
+    line(c, '#aa783d', 26, 6, 26, 57);
+    rect(c, OUT, 23, 0, 7, 9);
+    rect(c, '#d5c5aa', 25, 1, 3, 7);
+    rect(c, '#ce554b', 24, 9, 5, 2);
+    // Bow: the stave curves away from its string.
+    for (let y = 6; y <= 44; y++) {
+      const bend = Math.round(Math.sin(((y - 6) / 38) * Math.PI) * 6);
+      rect(c, OUT, 33 + bend, y, 3, 1);
+      rect(c, '#aa783d', 34 + bend, y, 1, 1);
+    }
+    line(c, '#e8d8b7', 34, 6, 34, 44);
+    // Dummy: post and base, then the straw body, arms, burlap head and target.
+    const sway = phase % 2;
+    rect(c, OUT, 58, 56, 19, 4);
+    rect(c, '#60442e', 59, 57, 17, 2);
+    rect(c, OUT, 65, 34, 5, 23);
+    rect(c, '#795340', 66, 35, 3, 22);
+    const bx = 67 + sway;
+    rect(c, OUT, bx - 15, 21, 31, 5);
+    rect(c, '#d5a75c', bx - 14, 22, 29, 3);
+    rect(c, '#eac77b', bx - 14, 22, 29, 1);
+    ellipse(c, OUT, bx, 31, 9, 12);
+    ellipse(c, '#d5a75c', bx, 31, 8, 11);
+    for (let y = 22; y < 42; y += 3) rect(c, '#aa783d', bx - 6, y, 12, 1);
+    ellipse(c, '#ce554b', bx, 30, 5, 5);
+    ellipse(c, '#e8d8b7', bx, 30, 3, 3);
+    ellipse(c, '#ce554b', bx, 30, 1, 1);
+    ellipse(c, OUT, bx, 12, 7, 7);
+    ellipse(c, '#b8935a', bx, 12, 6, 6);
+    rect(c, OUT, bx - 3, 10, 2, 2);
+    rect(c, OUT, bx + 2, 10, 2, 2);
+    rect(c, '#795340', bx - 2, 15, 5, 1);
+    rect(c, OUT, bx - 2, 19, 5, 3);
+    rect(c, '#795340', bx - 1, 20, 3, 1);
+  });
+}
+
+export function createGalleryStations(): { fishing: StationSprite; kitchen: StationSprite; training: StationSprite; dispose(): void } {
   const fishing: StationSprite = { frames: [fishingFrame(0), fishingFrame(1)], x: 284, y: 544, baseY: 700 };
   const kitchen: StationSprite = { frames: [0, 1, 2, 3].map(kitchenFrame), x: 660, y: 528, baseY: 666 };
+  const training: StationSprite = { frames: [trainingFrame(0), trainingFrame(1)], x: TRAINING_AT.x, y: TRAINING_AT.y, baseY: TRAINING_AT.y + 118 };
   return {
     fishing,
     kitchen,
+    training,
     dispose() {
-      for (const station of [fishing, kitchen]) station.frames.forEach((canvas) => { canvas.width = canvas.height = 1; });
+      for (const station of [fishing, kitchen, training]) station.frames.forEach((canvas) => { canvas.width = canvas.height = 1; });
     },
   };
 }

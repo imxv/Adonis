@@ -123,7 +123,7 @@ export function updateInteractionHints(s: GameScene) {
       if (p.kind === 'weapon' && p.weapon) {
         lines = [p.weapon.def.name];
         color = E.cyan;
-        action = '拾取';
+        action = s.training ? '换上' : '拾取';
       } else {
         lines = [p.kind === 'wchest' ? '武器箱' : '技能/强化箱'];
         color = p.kind === 'wchest' ? E.cyan : E.yellow;
@@ -139,6 +139,8 @@ export function updateInteractionHints(s: GameScene) {
     const texture = labelTexture(s, lines, color, focused ? action : undefined);
     if (label.texture.key !== texture) label.setTexture(texture);
     label.setPosition(Math.round(x), Math.round(y)).setDepth(DEPTH.numbers - 0.5).setAlpha(focused ? 1 : 0.85);
+    // The racks hold every weapon side by side; only the one in reach is named, or the names would overlap.
+    label.setVisible(focused || !s.training || target.kind !== 'pickup');
   }
 }
 
@@ -183,7 +185,7 @@ function previewKeepClear(s: GameScene): PreviewKeepClear[] {
 /** Observe the same target as F. Safe-room browsing never pauses play or consumes input. */
 export function updateNearbyWeaponPreview(s: GameScene, dt: number) {
   const unsafe = !canInteract(s) || !!s.active || !!s.altar?.started || s.pendingSpawns > 0
-    || !!s.bt || s.enemies.some((e) => !e.dead) || s.eproj.some((p) => !p.dead)
+    || !!s.bt || s.enemies.some((e) => !e.dead && !e.dummy) || s.eproj.some((p) => !p.dead)
     || s.ehazards.length > 0 || s.telegraphs.some((t) => t.kind === 'spawn')
     || s.isFiring() || s.input.activePointer.rightButtonDown()
     || s.player.skillT > 0 || s.player.sinceHit < 1;

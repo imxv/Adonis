@@ -18,7 +18,8 @@
 </p>
 
 <p align="center">
-  <a href="https://tianmu-hackathon-group-05.test.gifshow.com/"><strong>在线试玩（公司 SSO）</strong></a>
+  <a href="https://adonis-game.pages.dev/"><strong>在线试玩</strong></a>
+  · <a href="https://tianmu-hackathon-group-05.test.gifshow.com/">公司 SSO 入口</a>
   · <a href="#快速开始">快速开始</a>
   · <a href="#操作指南">操作指南</a>
   · <a href="#开发文档">开发文档</a>
@@ -34,7 +35,7 @@
 
 | 世界 | 战斗 | 相遇 |
 | :---: | :---: | :---: |
-| **5** 层地牢 · **10** 种画风 | **24** 把武器 · **12** 种基础法术 | **3** 位角色 · **9** 种宠物 |
+| **5** 层地牢 · **10** 种画风 | **25** 把武器 · **12** 种基础法术 | **4** 位角色 · **9** 种宠物 |
 | **6** 种机关 · **3** 种环境设施 | **7** 种元素 · **6** 种融合法术 | **17** 种怪物 · **11** 位 Boss |
 
 ### 这一局，打出你的风格
@@ -53,6 +54,7 @@
 | **阿多尼斯** · 爱神所爱的猎人 | 长弓 | 移速 +10%，暴击率 +8% |
 | **骑士** · 误入画中的旅人 | 骑士手枪 | 护甲上限 +1 |
 | **鲸鱼娘** · DeepSeek 海中来客 | 潮汐枪 | 弹匣容量 +20%，换弹时间 -10% |
+| **程序员** · 在工位睡着的码农 | 递归键盘 | 攻击频率 +10%，暴击伤害 +30% |
 
 ### 留意脚下，也留意墙边
 
@@ -72,7 +74,7 @@
 
 ## 快速开始
 
-**在线体验：** [进入画中轮回](https://tianmu-hackathon-group-05.test.gifshow.com/)（需要公司 SSO 登录）。
+**在线体验：** [进入画中轮回](https://adonis-game.pages.dev/)。原[公司 SSO 入口](https://tianmu-hackathon-group-05.test.gifshow.com/)继续保留。
 
 **本地运行：** 使用 Node.js 22.12+（或 20.19+ 的 20.x 版本）和 npm。
 
@@ -85,7 +87,7 @@ npm run dev
 
 打开 [http://127.0.0.1:5173](http://127.0.0.1:5173)，选择角色，即可开始冒险。
 
-> 当前依赖锁文件使用公司 npm 镜像，安装依赖需要能够访问该镜像。
+> 依赖锁文件使用公共 npm 源，无需公司网络。
 
 | 命令 | 用途 |
 | --- | --- |
@@ -136,7 +138,8 @@ npm run dev
 | --- | --- |
 | [设计草案](docs/spec.md) | 世界观、地牢结构与系统设计；部分早期数值与当前版本有差异 |
 | [设计决策](docs/decisions.md) | 玩法取舍与实现思路 |
-| [部署说明](ops/deploy/README.md) | GitHub main 自动部署、版本核验与排行榜服务 |
+| [Cloudflare 部署](docs/cloudflare-deploy.md) | Pages 静态站点、Functions 排行榜与 D1 数据库 |
+| [原服务器部署](ops/deploy/README.md) | 原 Python 服务的 GitHub main 自动部署、版本核验与排行榜服务 |
 | [游戏数据](src/data/) | 角色、武器、法术、怪物与成长配置 |
 
 <details>

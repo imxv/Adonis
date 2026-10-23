@@ -149,7 +149,7 @@ export function updateTraps(s: GameScene, dt: number) {
     if (tr.kind === 'saw') {
       if (tr.t < WARNING) {
         dashed(tr, tr.ax, tr.ay, tr.bx, tr.by, warningColor);
-        if (tr.state !== 'warn') { tr.state = 'warn'; audio.block(); }
+        if (tr.state !== 'warn') { tr.state = 'warn'; audio.trap(false); }
         continue;
       }
       tr.state = 'up';
@@ -170,9 +170,9 @@ export function updateTraps(s: GameScene, dt: number) {
     const entered = state !== tr.state || cycle !== tr.cycle;
     if (cycle !== tr.cycle) tr.volley = 0;
     tr.cycle = cycle; tr.state = state;
-    if (entered && state === 'warn' && dist2(s.player.x, s.player.y, tr.ax, tr.ay) < 260 ** 2) audio.block();
+    if (entered && state === 'warn' && dist2(s.player.x, s.player.y, tr.ax, tr.ay) < 260 ** 2) audio.trap(false);
     if (entered && state === 'up') {
-      if (tr.kind !== 'arrows' && dist2(s.player.x, s.player.y, tr.ax, tr.ay) < 260 ** 2) audio.block();
+      if (tr.kind !== 'arrows' && dist2(s.player.x, s.player.y, tr.ax, tr.ay) < 260 ** 2) audio.trap(true);
     }
     if (tr.kind !== 'spikes') {
       const key = K(`trap-${tr.kind}${state === 'down' ? '' : state === 'warn' ? '-warn' : '-active'}`, s.kit);

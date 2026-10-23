@@ -6,13 +6,13 @@ import { audio } from '../audio/audio';
 import { ENEMIES, AFFIXES, PETS, PET_ORDER, type Affix, type EnemyKind } from '../data/enemies';
 import { SPELLS, SPELL_ORDER } from '../data/spells';
 import { UPGRADE_BY_ID } from '../data/upgrades';
-import { MAX_WEAPONS, WEAPONS, WEAPON_ORDER, magSize, reloadTime, type MeleeMove, type MoveKind, type WeaponInstance } from '../data/weapons';
+import { FORK_DAMAGE, MAX_WEAPONS, WEAPONS, WEAPON_ORDER, magSize, reloadTime, type MeleeMove, type MoveKind, type WeaponInstance } from '../data/weapons';
 import { E } from '../pixel/palette';
 import { K, buildCommonTextures, buildKitTextures, buildLevel, textTexture } from '../styles/textures';
 import type { StyleKit } from '../styles/types';
 import { decoArt } from '../pixel/decor';
 import { ui } from '../ui/ui';
-import { releaseMobileEntryDisplay } from '../ui/mobileEntry';
+import { beginMobileEntry, releaseMobileEntryDisplay } from '../ui/mobileEntry';
 import { settings } from '../settings';
 import { TouchControls } from '../input/touchControls';
 import { DIRS, DIR_VEC } from './dirs';
@@ -59,7 +59,10 @@ import { currentPush, destroyCurrents, populateCurrents, updateCurrents, type Cu
 import { challengeProgress, destroyChallenges, finishChallenge, populateChallenges, updateChallenge, type Challenge } from './challenge';
 import { clearSummons, drawSummon, entrance, queueSpawn, summonBoss, summonGroup, type SummonOrder } from './summon';
 import { HubController } from '../hub/controller';
+import { KIT_BY_ID } from '../styles/kits';
+import { TRAINING_KIT, hitDummy, holdDummy, setupTraining, takeTrainingWeapon, trainingDungeon, trainingSpawn, updateTraining, type TrainingState } from './training';
 import { prepareRun, settleRun, SUPPLIES } from '../meta/profile';
+import { TUTORIAL_PARAMS, TutorialCoach } from './tutorial';
 export type { Trap } from './traps';
 
 type Mode = 'title' | 'play' | 'choose' | 'pause' | 'ascend' | 'transition' | 'dead' | 'end';
@@ -209,6 +212,15 @@ export class GameScene extends Phaser.Scene {
   private camY = 0;
   private kickX = 0;
   private kickY = 0;
+  /** Real seconds during which another small hitstop only gets a sliver. */
+  private stopCool = 0;
+  /** How hard the gun in hand climbs and jumps back on a shot (heavy guns more). */
+  private gunKick = 0.15;
+  /** The knight's squash and stretch: long along a dash as it starts, flattened and flashing when hurt. */
+  private dashSquash = 0;
+  private playerHurtT = 0;
+  /** How long a melee blow that connects holds the frame: quick weapons get a short bite, slow ones a long one. */
+  private swingStop = 0.045;
   private pointerMoved = false;
   private touch?: TouchControls;
   time0 = 0;
@@ -217,9 +229,13 @@ export class GameScene extends Phaser.Scene {
   private hub?: HubController;
   private releaseHubAudio?: () => void;
   private hubSuspension?: { input: boolean; keyboard: boolean; capture: boolean; paused: boolean };
+  /** The beginner tutorial's coach, while its practice run is up. */
+  tutorial?: TutorialCoach;
   private runGeneration = 0;
   private levelGeneration = 0;
   private recorded?: { runId: string; score: number; rank: number; date: number; settlement: string; warning?: string | null };
+  /** Open while the player is in the training ground: weapons on racks, dummies, and nothing saved or scored. */
+  training?: TrainingState;
 
   constructor(key = 'game') {
     super(key);
@@ -240,6 +256,7 @@ export class GameScene extends Phaser.Scene {
 
   create() {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.endTutorial();
       this.hub?.dispose();
       this.hub = undefined;
       this.releaseHubAudio?.();
@@ -325,12 +342,19 @@ export class GameScene extends Phaser.Scene {
       resumeGame: () => this.resumeFromHub(),
       releaseUI: () => ui.suspend(false),
       showAdventure: (action) => this.openAdventureMenu(action),
+      showTraining: () => {
+        void audio.init();
+        this.startTraining();
+      },
+      startTutorial: () => this.startTutorial(),
     });
     this.showTitle();
   }
 
   showTitle() {
+    this.endTutorial();
     this.runGeneration++;
+    this.training = undefined;
     this.mode = 'title';
     ui.showHud(false);
     audio.playHome();
@@ -396,7 +420,28 @@ export class GameScene extends Phaser.Scene {
       codex: () => buildCodex(this),
       initialAction: action,
       onBack: () => this.hub?.show(),
+      onTutorial: () => this.hub?.startTour(),
     });
+  }
+
+  /** The combat half of the beginner tutorial: a practice floor that is never saved, scored or supplied. */
+  startTutorial() {
+    ui.resetLayers();
+    beginMobileEntry(ui, () => {
+      void audio.init();
+      this.startRun(undefined, 'adonis', 'easy', true);
+    }, () => this.hub?.show());
+  }
+
+  /** Leave the practice floor for the hall, or for a real run's hero select. */
+  leaveTutorial(adventure: boolean) {
+    this.endToTitle();
+    if (adventure) this.hub?.adventure();
+  }
+
+  private endTutorial() {
+    this.tutorial?.dispose();
+    this.tutorial = undefined;
   }
 
   /** Leave the run for the main menu; progress is saved so it can be continued. */
@@ -410,7 +455,7 @@ export class GameScene extends Phaser.Scene {
   saveProgress() {
     const run = this.run;
     const d = this.dungeon;
-    if (this.sys.settings.key !== 'game' || !run || !d || this.mode === 'dead' || this.mode === 'end' || this.mode === 'title') return;
+    if (this.sys.settings.key !== 'game' || !run || !d || this.training || this.tutorial || this.mode === 'dead' || this.mode === 'end' || this.mode === 'title') return;
     saveRun({
       v: 1,
       savedAt: Date.now(),
@@ -428,6 +473,8 @@ export class GameScene extends Phaser.Scene {
   recordRun(victory: boolean) {
     const run = this.run;
     if (this.recorded?.runId === run.runId) return this.recorded;
+    // The practice floor never touches the saved run, the boards or the garden.
+    if (this.tutorial) return (this.recorded = { runId: run.runId, score: 0, rank: 0, date: Date.now(), settlement: '新手教程不计入排行榜。' });
     clearRun();
     const date = Date.now();
     const base = { victory, floor: run.level + 1, kills: run.kills, lv: run.xpLevel, secs: Math.round(run.elapsed), diff: run.diff.id };
@@ -472,34 +519,33 @@ export class GameScene extends Phaser.Scene {
   openPause() {
     if (this.fusing || this.mode !== 'play') return;
     this.mode = 'pause';
+    audio.muffle(true);
     const fights = this.dungeon.rooms.filter((r) => r.type === 'combat' || r.type === 'horde' || r.type === 'boss');
     ui.pause(
-      { run: this.run, floorName: this.kit.name, roomsCleared: fights.filter((r) => r.cleared).length, roomsTotal: fights.length },
+      { run: this.run, floorName: this.kit.name, roomsCleared: fights.filter((r) => r.cleared).length, roomsTotal: fights.length, training: !!this.training, tutorial: !!this.tutorial },
       {
         onResume: () => {
+          audio.muffle(false);
           if (this.mode === 'pause') this.mode = 'play';
         },
         onQuit: () => this.quitToTitle(),
         codex: () => buildCodex(this),
+        onTutorial: () => {
+          this.quitToTitle();
+          this.hub?.startTour();
+        },
       },
     );
   }
 
   // ---------------------------------------------------------------- run and floors
 
-  startRun(saved?: SavedRun, hero?: HeroId, difficulty?: DifficultyId) {
-    this.runGeneration++;
-    this.recorded = undefined;
-    this.hub?.enterRun();
-    ui.resetLayers();
-    this.touch?.reset();
-    ui.resetDamageFeedback();
-    this.clearLevel();
-    destroyPets(this);
+  startRun(saved?: SavedRun, hero?: HeroId, difficulty?: DifficultyId, tutorial = false) {
+    this.leaveForRun();
     if (!saved) this.resetCrystalRuntime();
-    this.run = saved ? restoreRun(saved) : newRun(this.params, hero, difficulty);
+    this.run = saved ? restoreRun(saved) : newRun(tutorial ? new URLSearchParams(TUTORIAL_PARAMS) : this.params, hero, difficulty);
     let preparationWarning: string | null = null;
-    if (!saved && this.sys.settings.key === 'game') {
+    if (!saved && this.sys.settings.key === 'game' && !tutorial) {
       const preparation = prepareRun(this.run.runId);
       preparationWarning = preparation.warning ?? (!preparation.prepared ? '本次未能准备花园补给，仍可正常冒险。' : null);
       const prepared = preparation.prepared;
@@ -519,6 +565,43 @@ export class GameScene extends Phaser.Scene {
       const id = this.run.prepared.supply;
       this.run.supply = { id: id ?? 'garden-supply', name: id ? SUPPLIES[id]?.name ?? '花园补给' : '花园补给' };
     }
+    this.resetHero();
+    if (tutorial) this.tutorial = new TutorialCoach(this);
+    this.enterLevel(true, saved);
+    if (preparationWarning) ui.toast(preparationWarning, 6500);
+  }
+
+  /** The training ground: one hall with every weapon on a rack and dummies to hit. Nothing is saved or scored. */
+  startTraining(hero?: HeroId) {
+    this.leaveForRun();
+    this.resetCrystalRuntime();
+    const run = newRun(this.params, hero);
+    run.styles = [KIT_BY_ID[TRAINING_KIT]];
+    run.level = 0;
+    run.room = 0;
+    this.run = run;
+    this.training = { racks: {}, groups: [] };
+    this.resetHero();
+    this.god = true;
+    this.enterLevel(true);
+  }
+
+  /** Close whatever was open (the hall, a run, the tutorial, the training ground) before a new run or training begins. */
+  private leaveForRun() {
+    this.runGeneration++;
+    this.endTutorial();
+    this.recorded = undefined;
+    this.training = undefined;
+    this.god = this.params.has('god');
+    this.hub?.enterRun();
+    ui.resetLayers();
+    this.touch?.reset();
+    ui.resetDamageFeedback();
+    this.clearLevel();
+    destroyPets(this);
+  }
+
+  private resetHero() {
     this.heroTex = this.run.ascended ? 'jesus' : HEROES[this.run.hero].tex;
     this.combo = 0;
     this.carryTokens = [];
@@ -532,8 +615,6 @@ export class GameScene extends Phaser.Scene {
       this.player.gun.setVisible(true);
       this.player.iframes = 1;
     }
-    this.enterLevel(true, saved);
-    if (preparationWarning) ui.toast(preparationWarning, 6500);
   }
 
   clearLevel() {
@@ -612,8 +693,8 @@ export class GameScene extends Phaser.Scene {
     audio.setStyle(kit);
     audio.setIntensity(0);
     const seed = this.run.seed + this.run.level * 7919;
-    const d = generateDungeon(new Rng(seed), this.run.level, this.run.diff.traps);
-    if (this.run.dungeonVersion === 2) enhanceDungeon(d, seed, this.run.level, kit.id);
+    const d = this.training ? trainingDungeon() : generateDungeon(new Rng(seed), this.run.level, this.run.diff.traps);
+    if (!this.training && this.run.dungeonVersion === 2) enhanceDungeon(d, seed, this.run.level, kit.id);
     this.dungeon = d;
     this.flow = new FlowField(d);
     this.bg?.destroy();
@@ -635,10 +716,10 @@ export class GameScene extends Phaser.Scene {
       startRoom = d.byId.get(saved.at) ?? d.start;
     }
     this.safeRoom = startRoom.cleared ? startRoom : d.start;
-    const [sx, sy] = openSpot(d, ...roomCenter(startRoom));
+    const [sx, sy] = this.training ? trainingSpawn() : openSpot(d, ...roomCenter(startRoom));
     const p = this.player;
     p.x = sx;
-    p.y = sy + 10;
+    p.y = this.training ? sy : sy + 10;
     p.vx = p.vy = 0;
     p.sprite.setVisible(true);
     p.gun.setVisible(true);
@@ -652,8 +733,11 @@ export class GameScene extends Phaser.Scene {
     this.markSeen(startRoom);
     this.light.setLevel(kit, d, seed);
     this.dressLevel(kit, d);
-    this.populate(new Rng(seed + 1));
-    populateChallenges(this, saved);
+    if (this.training) this.training = setupTraining(this);
+    else {
+      this.populate(new Rng(seed + 1));
+      populateChallenges(this, saved);
+    }
     this.ambient?.destroy();
     const cam = this.cameras.main;
     this.ambient = this.add
@@ -672,7 +756,9 @@ export class GameScene extends Phaser.Scene {
     this.player.sprite.setTexture(`${this.heroTex}-a`);
     if (this.run.ascended) (this.ascensionFx ??= new AscensionFx(this)).syncAura(true);
     ui.showHud(true);
-    ui.banner(`第${['一', '二', '三', '四'][this.run.level]}层`, kit.name, kit.en, kit.subtitle, first ? 2400 : 2200);
+    audio.floorIntro();
+    if (this.training) ui.banner('万象画廊', '训练场', 'TRAINING GROUND', '武器随便试，木桩随便打，不计分也不存档', 2400);
+    else ui.banner(`第${['一', '二', '三', '四'][this.run.level]}层`, kit.name, kit.en, kit.subtitle, first ? 2400 : 2200);
     if (!first) cam.fadeIn(420, 255, 255, 255);
     if (saved && d.boss.cleared) this.spawnTrapdoor(...roomCenter(d.boss));
     if (saved) this.after(800, () => this.checkFusions());
@@ -881,7 +967,7 @@ export class GameScene extends Phaser.Scene {
       p.x += Math.cos(a) * 20;
       p.y += Math.sin(a) * 20;
     }
-    audio.block();
+    audio.lockdown();
     this.fx.shake(0.1);
   }
 
@@ -1178,6 +1264,7 @@ export class GameScene extends Phaser.Scene {
     audio.stamp(['D', 'C', 'B', 'A', 'S', 'SS'].indexOf(grade.rank));
     clearSummons(this);
     audio.setIntensity(0);
+    if (this.pickups.some((p) => p.kind === 'gem' && !p.dead && !p.magnet)) audio.magnet();
     this.pickups.forEach((p) => p.kind === 'gem' && (p.magnet = true));
     if (this.run.pets.includes('dove')) this.heal(1, this.player.x, this.player.y);
     this.openGates();
@@ -1279,14 +1366,18 @@ export class GameScene extends Phaser.Scene {
       this.aimY = wp.y;
     }
     this.drawCursor();
+    this.tutorial?.update(realDt);
     if (this.mode === 'title' || this.mode === 'pause' || this.mode === 'choose' || this.mode === 'end') {
       resetWeaponPreview(this);
       this.light.update(this, 0);
       this.hudTick(realDt);
       return;
     }
+    this.stopCool -= realDt;
     if (this.hitstop > 0) {
       this.hitstop -= realDt;
+      // The world holds still, but the camera keeps shaking through the freeze.
+      this.updateCamera(0);
       return;
     }
     if (this.bt) {
@@ -1336,6 +1427,7 @@ export class GameScene extends Phaser.Scene {
     this.updatePickups(dt);
     updateLevelTokens(this, dt);
     updateInteractionHints(this);
+    if (this.training) updateTraining(this, this.training);
     this.updateHazards(dt);
     updateCores(this, dt);
     for (const h of this.ehazards) {
@@ -1348,6 +1440,7 @@ export class GameScene extends Phaser.Scene {
     updateChallenge(this, dt);
     this.updateTelegraphs(dt);
     if (this.mode === 'play') this.updateRoom(dt);
+    if (this.mode === 'play' && this.active && this.run.hp <= 1) audio.heartbeat();
     this.comboT -= dt;
     if (this.comboT <= 0 && this.combo > 0) this.combo = 0;
     if (this.comboT < -2) this.run.frenzyStacks = Math.max(0, this.run.frenzyStacks - dt * 4);
@@ -1389,7 +1482,8 @@ export class GameScene extends Phaser.Scene {
     const kd = Math.exp(-dt * 24);
     this.kickX *= kd;
     this.kickY *= kd;
-    cam.centerOn(this.camX + this.kickX, this.camY + this.kickY);
+    const [sx, sy] = this.fx.shakeOffset();
+    cam.centerOn(this.camX + this.kickX + sx, this.camY + this.kickY + sy);
   }
 
   /** Push the view against the shot direction, like recoil. */
@@ -1427,6 +1521,7 @@ export class GameScene extends Phaser.Scene {
       pets: run.pets,
       level: run.level,
       styleName: this.kit.name,
+      place: this.training ? '训练场' : undefined,
       timer: this.active?.type === 'horde' ? Math.max(0, this.hordeDur - this.hordeT) : 0,
       wave: this.active?.type === 'combat' && this.waves.length ? [this.waveIdx + 1, this.waves.length] : undefined,
       kills: run.kills,
@@ -1439,8 +1534,11 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  /** Freeze the world for a moment. Small stops hard on each other's heels shrink to a sliver, so a hail of kills never stutters. */
   stop(sec: number) {
+    if (this.stopCool > 0 && sec < 0.06) sec *= 0.35;
     this.hitstop = Math.max(this.hitstop, sec);
+    this.stopCool = this.hitstop + 0.1;
   }
 
   slow(scale: number, sec: number) {
@@ -1538,6 +1636,7 @@ export class GameScene extends Phaser.Scene {
       if (p.armorT <= 0) {
         p.armorT = 0.9;
         this.run.armor++;
+        audio.armor(true);
       }
     }
     const touchDashAt = this.touch?.consume('dash');
@@ -1552,6 +1651,7 @@ export class GameScene extends Phaser.Scene {
       p.dashCd = 0.9 * this.run.mods.dashCooldown;
       audio.dash();
       this.fx.dust(p.x, p.y, 6);
+      this.dashSquash = 1;
       if (this.meleeHeld()) {
         const g = this.beatAct(this.dashPressAt || performance.now());
         if (g !== 'miss') this.beatDash(p.x, p.y, g === 'perfect');
@@ -1608,7 +1708,7 @@ export class GameScene extends Phaser.Scene {
     const g = this.meleeHeld() ? this.beatAct(at) : 'miss';
     p.skillT = g === 'perfect' ? 6 : g === 'good' ? 5 : 4;
     p.skillCd = 14;
-    audio.levelUp();
+    audio.skill();
     this.fx.ring(p.x, p.y - 4, 34, E.cyan, 300);
     this.fx.callout(p.x, p.y - 28, '双持！', E.cyan);
   }
@@ -1751,6 +1851,11 @@ export class GameScene extends Phaser.Scene {
           if (def.element) pr.element = def.element;
           if (def.bounce) pr.bounce = def.bounce;
           if (def.split) pr.split = def.split;
+          if (def.fork) {
+            // Code reads upright whichever way it flies.
+            pr.fork = def.fork;
+            pr.sprite.setRotation(0);
+          }
           if (def.id === 'shuriken') pr.spin = 26;
           if (def.tracer) {
             const len = raycast(this.dungeon, ox, oy, Math.cos(aa), Math.sin(aa), range).len;
@@ -1824,8 +1929,9 @@ export class GameScene extends Phaser.Scene {
         break;
     }
     if (def.casing) this.ejectCasing(ox, oy, a, def.casing);
+    this.gunKick = Math.min(0.55, 0.12 + (def.shake ?? 0.01) * 3);
     if (def.kind !== 'slash' && def.kind !== 'flame') {
-      this.fx.muzzle(ox, oy, a);
+      this.fx.muzzle(ox, oy, a, def.shake ?? 0);
       this.light.flash(ox, oy, 26 + (def.shake ?? 0) * 200, E.yellow, 0.07);
     } else if (def.kind === 'slash') this.light.flash(p.x + Math.cos(a) * 14, p.y - 4 + Math.sin(a) * 14, 40, E.cyan, 0.1);
     const shake = def.shake ?? 0.01;
@@ -1850,6 +1956,7 @@ export class GameScene extends Phaser.Scene {
     this.melee.last = this.time0;
     const grade = this.swingGrade;
     this.swingElement = def.element;
+    this.swingStop = clamp(def.cooldown * 0.15, 0.02, 0.06);
     const full = finisher && (grade === 'perfect' || grade === 'good');
     const x = p.x;
     const y = p.y - 4;
@@ -1957,12 +2064,20 @@ export class GameScene extends Phaser.Scene {
   /** Hit everything within `half` of angle `a` out to `r` (all around when half is pi), and cut enemy bullets down. */
   meleeHit(x: number, y: number, a: number, r: number, half: number, dmg: number, knock: number, src: string, heavy = false) {
     const all = half >= Math.PI - 0.01;
+    let hits = 0;
     for (const e of this.enemies) {
       if (e.dead) continue;
       const d = dist(x, y, e.x, e.y - 3);
       if (d > r + e.r) continue;
       if (!all && Math.abs(angleDiff(a, Math.atan2(e.y - 3 - y, e.x - x))) > half + 0.12 + Math.min(0.5, e.r / Math.max(d, 1))) continue;
       this.damageEnemy(e, dmg, { src, kx: e.x - x, ky: e.y - y, knock, ignoreShield: true, heavy, element: this.swingElement });
+      hits++;
+    }
+    // A blade that connects bites: the frame holds for a beat (longer for heavy blows) and the view jolts with the swing.
+    if (hits) {
+      this.stop(heavy ? Math.max(0.07, this.swingStop) : this.swingStop);
+      this.fx.shake(heavy ? 0.14 : 0.06);
+      this.kick(a, heavy ? 3 : 1.5);
     }
     for (const b of this.eproj) {
       if (b.dead || dist(x, y, b.x, b.y) > r + 6) continue;
@@ -2030,6 +2145,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   spawnEnemyBullet(x: number, y: number, a: number, speed: number, big = false) {
+    audio.enemyShot(big);
     return this.spawnProj(big ? 'ebig' : 'ebullet', x, y, a, speed, 7, big ? 5 : 3, 1, 0, 0, 'enemy');
   }
 
@@ -2062,6 +2178,49 @@ export class GameScene extends Phaser.Scene {
     }
     this.fx.sparks(x, y, 8, 'ice');
     this.fx.ring(x, y, 14, E.cyan, 180, 1);
+  }
+
+  /**
+   * A recursion keyboard shot forks in two where it stops, each half a level down: a smaller glyph, weaker and with half
+   * the reach. Through an enemy the halves fly on to either side and leave that enemy alone; off a wall, crate or barrel
+   * they glance back off its face.
+   */
+  forkShot(p: Proj, x: number, y: number, off?: 'wall' | Obstacle) {
+    const [tex, ...deeper] = p.fork ?? [];
+    p.fork = undefined;
+    if (!tex) return;
+    let [nx, ny] = [0, 0];
+    if (off === 'wall') {
+      // (x, y) is the last point outside the wall and the shot itself is inside it.
+      const hitX = solidAt(this.dungeon, p.x, y);
+      const hitY = solidAt(this.dungeon, x, p.y);
+      if (hitX || !hitY) nx = -Math.sign(p.vx);
+      if (hitY || !hitX) ny = -Math.sign(p.vy);
+    } else if (off) {
+      [nx, ny] = [x - off.x, y - off.y];
+      const d = Math.hypot(nx, ny) || 1;
+      x = off.x + (nx / d) * (off.r + p.r + 1);
+      y = off.y + (ny / d) * (off.r + p.r + 1);
+    }
+    let a0 = Math.atan2(p.vy, p.vx);
+    const nn = nx * nx + ny * ny;
+    if (nn > 0) {
+      const [ux, uy] = [Math.cos(a0), Math.sin(a0)];
+      const k = (2 * (ux * nx + uy * ny)) / nn;
+      a0 = Math.atan2(uy - k * ny, ux - k * nx);
+    }
+    const speed = Math.hypot(p.vx, p.vy);
+    for (const side of [-1, 1]) {
+      const c = this.spawnProj('bolt', x, y, a0 + side * 0.45, speed, (p.life0 ?? 0.8) * 0.5, p.r * 0.8, p.dmg * FORK_DAMAGE, 0, p.knock * 0.6, p.src, tex);
+      // The halves sweep from the fork, not from the player, at the parent's scale: the glyphs themselves get smaller.
+      c.px = x;
+      c.py = y;
+      c.sprite.setScale(p.sprite.scaleX).setRotation(0);
+      c.element = p.element;
+      if (deeper.length) c.fork = deeper;
+      for (const e of p.hit) c.hit.add(e);
+    }
+    this.fx.sparks(x, y, 4, 'grass');
   }
 
   /** A spent casing kicks out of the gun, tumbles to the floor and fades. */
@@ -2198,6 +2357,7 @@ export class GameScene extends Phaser.Scene {
         } else {
           if (p.kind !== 'flame') this.fx.sparks(p.x - p.vx * dt, p.y - p.vy * dt, 2, 'gold');
           if (p.split) this.shatter(p, p.x - p.vx * dt, p.y - p.vy * dt);
+          if (p.fork) this.forkShot(p, p.x - p.vx * dt, p.y - p.vy * dt, 'wall');
           this.killProj(p, true);
           continue;
         }
@@ -2217,6 +2377,7 @@ export class GameScene extends Phaser.Scene {
             continue;
           }
           if (o.kind !== 'pillar') this.damageObstacle(o, p.dmg);
+          if (p.fork) this.forkShot(p, p.x, p.y, o);
           this.killProj(p);
           continue;
         }
@@ -2249,6 +2410,7 @@ export class GameScene extends Phaser.Scene {
           continue;
         }
         if (p.split) this.shatter(p, p.x, p.y);
+        if (p.fork) this.forkShot(p, p.x, p.y);
         this.killProj(p);
         break;
       }
@@ -2405,6 +2567,7 @@ export class GameScene extends Phaser.Scene {
     if (e.dead) return;
     if ((e.boss && e.boss.invuln > 0) || (e.kind === 'ghost' && e.state === 'fade')) {
       this.fx.sparks(e.x, e.y - 8, 2, 'white');
+      audio.deflect();
       return;
     }
     if (e.kind === 'angel' && e.state === 'stone') amount *= 0.5;
@@ -2440,7 +2603,13 @@ export class GameScene extends Phaser.Scene {
       sh.hp -= dmg * k;
       this.fx.sparks(e.x, e.y - 6, 3, sh.el);
       if (!o.quiet) this.fx.number(e.x, e.y - e.r * 2 - 4, dmg * k, { small: true, color: ELEMENT_COLOR[sh.el] });
-      if (sh.hp > 0) return;
+      if (sh.hp > 0) {
+        // The shield rings when it shrugs a hit off, and thuds when the counter element bites.
+        if (o.quiet) return;
+        if (k < 1) audio.deflect();
+        else audio.hit(false);
+        return;
+      }
       // Broken: a burst of the shield's colour, and the elite reels.
       e.eshield = undefined;
       st.stun = 2;
@@ -2448,7 +2617,7 @@ export class GameScene extends Phaser.Scene {
       this.fx.callout(e.x, e.y - e.r * 2 - 16, '护盾破碎', ELEMENT_COLOR[sh.el], true);
       this.fx.ring(e.x, e.y - 4, 36, ELEMENT_COLOR[sh.el], 320, 2);
       this.fx.sparks(e.x, e.y - 4, 14, sh.el);
-      audio.explode(false);
+      audio.glass(true);
       return;
     }
     if (st.frozen > 0 && (o.heavy || element === 'rock')) dmg += shatter(this, e, dmg);
@@ -2457,6 +2626,9 @@ export class GameScene extends Phaser.Scene {
     this.run.damage[o.src] = (this.run.damage[o.src] ?? 0) + dmg;
     if (!o.dot) {
       e.flash = 0.06;
+      // White at once, so a hitstop freezes on the flash; ordinary monsters also wobble from the blow.
+      e.sprite.setTintFill(0xffffff);
+      if (!e.boss) e.hurtT = 0;
       if (o.kx !== undefined && o.knock) {
         const l = Math.hypot(o.kx, o.ky ?? 0) || 1;
         const res = e.boss ? 0.05 : e.elite ? 0.4 : 1;
@@ -2466,10 +2638,14 @@ export class GameScene extends Phaser.Scene {
       if (!o.quiet || crit) {
         audio.hit(crit, !!o.heavy);
         this.fx.sparks(e.x, e.y - 4, crit ? 6 : 2, crit ? 'gold' : element ?? 'white');
+        // The star sits on the side the blow came from.
+        const kl = Math.hypot(o.kx ?? 0, o.ky ?? 0);
+        const off = kl ? (e.r * 0.8) / kl : 0;
+        this.fx.impact(e.x - (o.kx ?? 0) * off, e.y - 4 - (o.ky ?? 0) * off, crit ? E.yellow : element ? ELEMENT_COLOR[element] : E.white, crit || !!o.heavy);
       }
       if (crit) {
-        this.stop(0.025);
-        this.fx.shake(0.03);
+        this.stop(0.035);
+        this.fx.shake(0.06);
       }
     }
     if (!o.quiet || crit) this.fx.number(e.x, e.y - e.r * 2 - 4, dmg, { crit, small: o.dot, color: o.color ?? (element ? ELEMENT_COLOR[element] : undefined) });
@@ -2479,7 +2655,8 @@ export class GameScene extends Phaser.Scene {
         for (let i = 0; i < m.splitOnCrit; i++) this.spawnProj('shard', e.x, e.y, rand(0, TAU), 260, 0.4, 2, dmg * 0.35, 0, 20, '裂变').hit.add(e);
       }
     }
-    if (e.hp <= 0) this.killEnemy(e, o.src, o.environmental);
+    if (e.dummy) hitDummy(this, e, dmg);
+    else if (e.hp <= 0) this.killEnemy(e, o.src, o.environmental);
   }
 
   /** Throttle the small words over an enemy (resists), so a stream of hits doesn't bury it in text. */
@@ -2548,9 +2725,16 @@ export class GameScene extends Phaser.Scene {
     this.fx.burst(e.x, e.y - 4, e.elite ? 16 : 6);
     this.splat(e);
     this.light.flash(e.x, e.y - 4, e.elite ? 60 : 30, E.white);
-    this.stop(e.elite ? 0.08 : 0.014);
-    if (e.elite) this.fx.shake(0.22);
-    if (this.combo > 0 && this.combo % 20 === 0) this.fx.callout(this.player.x, this.player.y - 32, `${this.combo}连杀！`, E.yellow);
+    this.stop(e.elite ? 0.09 : 0.03);
+    if (e.elite) {
+      this.fx.shake(0.3);
+      // An elite going down takes the world with it for a breath.
+      if (!this.bt && !this.fusing && this.slowT <= 0 && !e.boss) this.slow(0.3, 0.2);
+    }
+    if (this.combo > 0 && this.combo % 20 === 0) {
+      this.fx.callout(this.player.x, this.player.y - 32, `${this.combo}连杀！`, E.yellow);
+      audio.rankUp(Math.min(6, 1 + this.combo / 20));
+    }
     for (const s of environmental ? [] : run.spells) {
       if (s.id === 'aura' && s.evolved && dist2(e.x, e.y, this.player.x, this.player.y) < 60 * 60) {
         s.kills++;
@@ -2575,9 +2759,29 @@ export class GameScene extends Phaser.Scene {
       bossDeath(this, e);
       return;
     }
+    // The body pops white on the frozen frame, then is flung the way the blow went, flattening as it fades;
+    // bits of it scatter the same way and a thin ring marks the spot.
+    const kl = Math.hypot(e.kx, e.ky);
+    const [dx, dy] = kl > 1 ? [e.kx / kl, e.ky / kl] : [0, 0];
+    const gore = this.goreColor(e);
+    this.fx.gib(e.x, e.y - 4, dx, dy, e.elite ? 14 : 6, [gore, gore, E.white], e.elite ? 1.3 : 1);
+    this.fx.ring(e.x, e.y - 4, e.r + (e.elite ? 18 : 9), E.white, e.elite ? 280 : 170, 1);
+    if (kl > 1) this.kick(Math.atan2(dy, dx), e.elite ? 4 : 1.2);
     const sprite = e.sprite;
-    sprite.setTintFill(0xffffff);
-    this.tweens.add({ targets: sprite, scaleX: sprite.scaleX * 1.4, scaleY: sprite.scaleY * 0.4, alpha: 0, duration: 120, onComplete: () => sprite.destroy() });
+    sprite.setTintFill(0xffffff).setScale(e.scale * 1.3);
+    this.tweens.add({
+      targets: sprite,
+      x: sprite.x + dx * 10,
+      y: sprite.y + dy * 7 - 2,
+      scaleX: e.scale * 1.7,
+      scaleY: e.scale * 0.2,
+      angle: (dx || (e.id % 2 ? 1 : -1)) * 20,
+      alpha: 0,
+      delay: 30,
+      duration: 170,
+      ease: 'Quad.easeOut',
+      onComplete: () => sprite.destroy(),
+    });
     e.shadow.destroy();
     e.extra?.destroy();
     e.ring?.destroy();
@@ -2590,11 +2794,16 @@ export class GameScene extends Phaser.Scene {
    */
   splat(e: Enemy) {
     if (!e.boss && !e.elite && Math.random() > 0.35) return;
-    const stuff: Partial<Record<string, string>> = { wanderer: this.kit.px.slime, magma: E.brownD, bomber: E.ink, shield: E.cream, angel: E.grey, ghost: E.cyan, jelly: E.pink, sporeling: E.greenD, turret: E.navy, drone: E.navy, guardian: E.slate };
-    const col = stuff[e.kind] ?? E.redD;
+    const col = this.goreColor(e);
     const alpha = e.kind === 'ghost' ? 0.3 : e.kind === 'shield' || e.kind === 'angel' ? 0.5 : 0.72;
     const scale = (e.boss ? 2.6 : e.elite ? 1.7 : 1) * rand(0.8, 1.15);
     this.decals?.stamp(`splat-${Math.floor(rand(0, 4))}`, undefined, Math.round(e.x), Math.round(e.y + 1), { angle: Math.floor(rand(0, 4)) * 90, scale, alpha, tint: hexToNum(col) });
+  }
+
+  /** What a monster is made of, for its splat and the bits a kill knocks off it. */
+  goreColor(e: Enemy): string {
+    const stuff: Partial<Record<string, string>> = { wanderer: this.kit.px.slime, magma: E.brownD, bomber: E.ink, shield: E.cream, angel: E.grey, ghost: E.cyan, jelly: E.pink, sporeling: E.greenD, turret: E.navy, drone: E.navy, guardian: E.slate };
+    return stuff[e.kind] ?? E.redD;
   }
 
   explode(x: number, y: number, r: number, dmg: number, o: { src: string; hurtsPlayer?: number; knock?: number; small?: boolean; element?: Element; noReact?: boolean; volume?: number; environmental?: boolean }) {
@@ -2615,7 +2824,16 @@ export class GameScene extends Phaser.Scene {
     this.fx.ring(x, y, r, o.hurtsPlayer ? this.kit.palette.danger : E.yellow, 260, 2);
     this.fx.burst(x, y, o.small ? 4 : 10);
     this.fx.dust(x, y, o.small ? 3 : 8);
-    this.fx.shake(o.small ? 0.06 : 0.2);
+    this.fx.shake(o.small ? 0.06 : 0.24);
+    if (!o.small) {
+      // A white-hot core, embers thrown out, a scorch left on the floor, and the view shoved away from the blast.
+      this.fx.glowPop(x, y, r * 1.6, E.yellow, 150);
+      this.fx.gib(x, y, 0, 0, Math.min(14, 4 + Math.round(r / 4)), [E.orange, E.yellow, E.ink], 1.2);
+      this.decals?.stamp(`splat-${Math.floor(rand(0, 4))}`, undefined, Math.round(x), Math.round(y), { angle: Math.floor(rand(0, 4)) * 90, scale: r / 10, alpha: 0.32, tint: hexToNum(E.ink) });
+      const pd = dist(x, y, this.player.x, this.player.y);
+      if (pd < 160) this.kick(Math.atan2(this.player.y - y, this.player.x - x), 4 * (1 - pd / 160));
+      if (r > 28) this.stop(0.04);
+    }
     this.light.flash(x, y, r * 3, E.orange);
     audio.explode(!o.small && r > 30 && (o.volume ?? 1) > 0.7, o.volume ?? 1);
   }
@@ -2635,6 +2853,7 @@ export class GameScene extends Phaser.Scene {
       o.sprite.destroy();
       if (o.kind === 'barrel') this.explode(o.x, o.y, 44, 30, { src: '爆炸桶', hurtsPlayer: 2, knock: 160, volume: 0.5, environmental });
       else {
+        audio.crate();
         this.fx.burst(o.x, o.y, 8);
         this.fx.dust(o.x, o.y, 6);
         if (Math.random() < HEART_DROPS.crate) this.dropHeart(o.x, o.y);
@@ -2670,14 +2889,20 @@ export class GameScene extends Phaser.Scene {
     const a = Math.atan2(p.y - sy, p.x - sx);
     p.vx += Math.cos(a) * 160;
     p.vy += Math.sin(a) * 160;
-    audio.hurt();
+    // The knight flashes white then red and is knocked flat for a moment; the view is shoved the way the hit went.
+    this.playerHurtT = 0.2;
+    p.sprite.setTintFill(0xffffff);
+    this.kick(a, left > 0 ? 6 : 3);
+    this.fx.impact(p.x - Math.cos(a) * 4, p.y - 6 - Math.sin(a) * 4, left > 0 ? E.red : E.grey, true);
+    this.fx.sparks(p.x, p.y - 6, 8, left > 0 ? 'accent' : 'white');
+    audio.hurt(left <= 0);
     this.fx.shake(left > 0 ? 0.45 : 0.25);
     this.fx.flash(left > 0 ? E.red : E.grey, left > 0 ? 0.3 : 0.18, 220);
     this.stop(left > 0 ? 0.08 : 0.04);
     this.combo = 0;
     this.rhythm.hurt();
     if (this.activeChallenge) finishChallenge(this, false);
-    if (run.hp <= 0) this.die();
+    if (run.hp <= 0 && !this.tutorial?.spare()) this.die();
     return true;
   }
 
@@ -2685,6 +2910,7 @@ export class GameScene extends Phaser.Scene {
     const run = this.run;
     if (run.hp >= run.mods.maxHp) return;
     run.hp = Math.min(run.mods.maxHp, run.hp + n);
+    audio.heal();
     this.fx.number(x, y - 16, n, { text: `+${n}`, color: E.red });
   }
 
@@ -2700,6 +2926,7 @@ export class GameScene extends Phaser.Scene {
     this.player.gun.setVisible(false);
     this.player.gun2.setVisible(false);
     audio.setIntensity(0);
+    audio.defeat();
     const rec = this.recordRun(false);
     const generation = this.runGeneration;
     this.after(1400, () => {
@@ -2783,6 +3010,7 @@ export class GameScene extends Phaser.Scene {
       }
       // Arriving monsters hold still until their entrance is done.
       if (e.enter) e.vx = e.vy = 0;
+      else if (e.dummy) holdDummy(this, e);
       else if (!e.boss) updateEnemyAI(this, e, dt, slowMul);
       if (e.dead) continue;
       const kd = Math.exp(-dt * 10);
@@ -2829,23 +3057,28 @@ export class GameScene extends Phaser.Scene {
       const flies = a.kind === 'guardian' || a.kind === 'ghost' || a.kind === 'drone';
       if (!flies && (!a.boss || a.boss.air < 20)) [a.x, a.y] = collide(this.dungeon, a.x, a.y, Math.max(3, a.r * 0.8));
       const arriving = !!a.enter || (a.boss?.intro ?? 0) > 0;
-      if (this.mode === 'play' && !arriving && dist2(a.x, a.y, pl.x, pl.y) < (a.r + pl.r * 0.8) ** 2 && (a.boss?.air ?? 0) < 20) {
+      if (this.mode === 'play' && !arriving && !a.dummy && dist2(a.x, a.y, pl.x, pl.y) < (a.r + pl.r * 0.8) ** 2 && (a.boss?.air ?? 0) < 20) {
         this.hurtPlayer(a.state === 'charge' ? 2 : a.contact, a.x, a.y);
       }
       a.flash -= dt;
       a.anim += dt;
       const sp = a.sprite;
-      if (!a.boss) {
+      if (!a.boss && !a.dummy) {
         const moving = Math.hypot(a.vx, a.vy) > 4;
         const frame = moving && Math.floor(a.anim * (a.kind === 'bat' ? 10 : 5)) % 2 ? 'b' : 'a';
         sp.setTexture(K(`en-${a.kind}-${frame}`, this.kit));
         sp.setFlipX(pl.x < a.x);
       }
       sp.setPosition(Math.round(a.x), Math.round(a.y - (a.boss?.air ?? 0)));
-      // In a fight everything keeps time: a quick squash on every beat.
-      if (!a.boss && !a.enter && a.state !== 'fuse' && this.active) {
-        const k = Math.max(0, 1 - this.rhythm.phase * 5);
-        sp.setScale(a.scale * (1 + k * 0.12), a.scale * (1 - k * 0.12));
+      // In a fight everything keeps time: a quick squash on every beat. A hit sets the body wobbling on top of it.
+      if (!a.boss && !a.enter && a.state !== 'fuse' && (this.active || a.hurtT !== undefined)) {
+        let k = this.active ? Math.max(0, 1 - this.rhythm.phase * 5) * 0.12 : 0;
+        if (a.hurtT !== undefined) {
+          a.hurtT += dt;
+          if (a.hurtT > 0.3) a.hurtT = undefined;
+          else k += 0.3 * Math.cos(a.hurtT * 38) * Math.exp(-a.hurtT * 14);
+        }
+        sp.setScale(a.scale * (1 + k), a.scale * (1 - k));
       }
       if (a.kind === 'ghost') sp.setAlpha(a.state === 'fade' ? 0.25 : 0.9);
       if (a.flash > 0) sp.setTintFill(0xffffff);
@@ -2874,9 +3107,10 @@ export class GameScene extends Phaser.Scene {
   dropGem(x: number, y: number, value: number) {
     const tier = value >= 5 ? 3 : value >= 2 ? 2 : 1;
     const a = rand(0, TAU);
-    const sp = rand(10, 40);
+    const sp = rand(15, 50);
     const sprite = this.add.image(Math.round(x), Math.round(y), `gem-${tier}`).setDepth(DEPTH.pickup);
-    this.pickups.push({ kind: 'gem', tier, x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, value, t: 0, magnet: !this.active, sprite, dead: false });
+    // Gems pop out of the kill in a little hop before they settle.
+    this.pickups.push({ kind: 'gem', tier, x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, z: 2, vz: rand(70, 120), value, t: 0, magnet: !this.active, sprite, dead: false });
   }
 
   dropHeart(x: number, y: number) {
@@ -2905,6 +3139,8 @@ export class GameScene extends Phaser.Scene {
     sprite.setData('glow', glow);
     const pickup: Pickup = { kind: 'weapon', weapon: { ...weapon }, chest, revealT: onChest && reveal ? 0.55 : 0, tier: 0, x, y, vx: 0, vy: 0, value: 0, t: 0, magnet: false, sprite, dead: false };
     if (chest && reveal) this.tweens.add({ targets: chest, scaleX: 1.12, scaleY: 0.88, duration: 100, yoyo: true });
+    // A gun swapped out clatters to the floor; one rising out of a chest has the chest's own sound.
+    if (reveal && !onChest) audio.weaponDrop();
     this.pickups.push(pickup);
     return pickup;
   }
@@ -2932,9 +3168,16 @@ export class GameScene extends Phaser.Scene {
       ui.toast('已携带这把武器，地上的武器会保留', 1300);
       return;
     }
+    if (this.training) {
+      if (!takeTrainingWeapon(this, this.training, p)) return;
+      this.removePickup(p);
+      this.swapT = 0.2;
+      audio.swap();
+      return;
+    }
     this.chooseReward({ type: 'weapon-new', id: p.weapon.def.id, instance: p.weapon }, () => {
       this.removePickup(p);
-      audio.select();
+      audio.weaponPickup();
       this.mode = 'play';
     }, () => { this.mode = 'play'; });
   }
@@ -2952,7 +3195,7 @@ export class GameScene extends Phaser.Scene {
     const c = ELEMENT_COLOR[p.element ?? 'rock'];
     this.fx.ring(pl.x, pl.y - 6, 22, c, 280, 2);
     this.fx.callout(pl.x, pl.y - 26, `护甲 +${restored}`, c);
-    audio.select();
+    audio.armor();
   }
 
   updatePickups(dt: number) {
@@ -2989,6 +3232,7 @@ export class GameScene extends Phaser.Scene {
         const step = Math.min(d, Math.min(540, 110 + p.t * 1000) * dt);
         p.x += (dx / d) * step;
         p.y += (dy / d) * step;
+        if (p.z) p.z = Math.max(0, p.z - dt * 80);
       } else {
         const f = Math.exp(-dt * 5);
         p.vx *= f;
@@ -2996,8 +3240,17 @@ export class GameScene extends Phaser.Scene {
         p.x += p.vx * dt;
         p.y += p.vy * dt;
         [p.x, p.y] = collide(this.dungeon, p.x, p.y, 3);
+        if (p.vz !== undefined) {
+          p.vz -= 420 * dt;
+          p.z = (p.z ?? 0) + p.vz * dt;
+          if (p.z <= 0) {
+            p.z = 0;
+            p.vz = p.vz < -50 ? -p.vz * 0.4 : undefined;
+          }
+        }
       }
-      p.sprite.setPosition(Math.round(p.x), Math.round(p.y + (p.magnet ? 0 : Math.round(Math.sin(p.t * 5) * 1.2))));
+      const bob = p.magnet || p.vz !== undefined ? 0 : Math.round(Math.sin(p.t * 5) * 1.2);
+      p.sprite.setPosition(Math.round(p.x), Math.round(p.y - (p.z ?? 0) + bob));
       if (canCollect && dist2(p.x, p.y, pl.x, pl.y - 4) < (pl.r + 6) ** 2 && this.mode === 'play') {
         if (p.kind === 'crystal') {
           this.collectCrystal(p);
@@ -3006,11 +3259,16 @@ export class GameScene extends Phaser.Scene {
         p.dead = true;
         p.sprite.destroy();
         if (p.kind === 'heart') {
+          // heal() has its own sound; a heart taken at full health still ticks.
+          if (this.run.hp >= this.run.mods.maxHp) audio.pickup(0);
           this.heal(1, pl.x, pl.y);
-          audio.select();
+          this.fx.ring(pl.x, pl.y - 6, 20, E.red, 260, 2);
+          this.fx.sparks(pl.x, pl.y - 6, 8, 'accent');
         } else {
           this.gemStreak++;
           this.gemT = 0.4;
+          // Each gem lands with a glint in its colour, a little brighter as a run of them streams in.
+          this.fx.glowPop(pl.x, pl.y - 6, 10 + Math.min(this.gemStreak, 12), p.tier === 3 ? E.red : p.tier === 2 ? E.green : E.cyan, 140);
           audio.pickup(this.gemStreak);
           this.gainXp(p.value);
         }
@@ -3034,7 +3292,7 @@ export class GameScene extends Phaser.Scene {
       this.fx.ring(p.x, p.y - 6, 36, E.cyan, 400);
       this.fx.sparks(p.x, p.y - 8, 10, 'ice');
       this.light.flash(p.x, p.y - 8, 65, E.cyan);
-      audio.select();
+      audio.chest(true);
       this.saveProgress();
       return;
     }
@@ -3048,7 +3306,7 @@ export class GameScene extends Phaser.Scene {
     this.fx.sparks(p.x, p.y - 8, 16, 'gold');
     this.light.flash(p.x, p.y - 8, 90, E.yellow);
     this.stop(0.08);
-    audio.levelUp();
+    audio.chest();
     const run = this.run;
     const items = rollChestChoices(run);
     const show = () => {
@@ -3159,7 +3417,7 @@ export class GameScene extends Phaser.Scene {
     this.trapdoor = undefined;
     // Gems still on the floor are not lost.
     for (const g of this.pickups) if (g.kind === 'gem' && !g.dead) this.gainXp(g.value);
-    audio.select();
+    audio.descend(td.final);
     const cam = this.cameras.main;
     cam.fadeOut(500, 255, 255, 255);
     cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
@@ -3418,6 +3676,8 @@ export class GameScene extends Phaser.Scene {
     if (this.mode === 'end' || this.mode === 'dead' || this.mode === 'title') return;
     this.mode = 'end';
     ui.showHud(false);
+    audio.setIntensity(0);
+    audio.victory();
     this.cameras.main.fadeIn(600, 255, 255, 255);
     const rec = this.recordRun(true);
     ui.end({ victory: true, run: this.run, ...rec }, () => this.restart(), () => this.endToTitle());
@@ -3477,12 +3737,24 @@ export class GameScene extends Phaser.Scene {
       const left = Math.cos(p.aim) < 0;
       p.sprite.setPosition(Math.round(p.x), Math.round(p.y)).setFlipX(left);
       p.sprite.setAlpha(p.iframes > 0 && p.dashT <= 0 && this.mode === 'play' ? (Math.floor(this.time0 * 20) % 2 ? 0.3 : 1) : 1);
+      // Squash and stretch: long along a dash as it sets off, knocked flat for a moment by a hit.
+      this.dashSquash = Math.max(0, this.dashSquash - dt * 6);
+      const ds = this.dashSquash * this.dashSquash * 0.35;
+      const hurt = this.playerHurtT;
+      this.playerHurtT = Math.max(0, hurt - dt);
+      const hs = hurt > 0 ? Math.sin((1 - hurt / 0.2) * Math.PI) * 0.2 : 0;
+      p.sprite.setScale(1 + ds * (Math.abs(p.dashX) - 0.5 * Math.abs(p.dashY)) + hs, 1 + ds * (Math.abs(p.dashY) - 0.5 * Math.abs(p.dashX)) - hs);
+      if (this.playerHurtT > 0.15) p.sprite.setTintFill(0xffffff);
+      else if (this.playerHurtT > 0) p.sprite.setTint(0xff7a7a);
+      else if (hurt > 0) p.sprite.clearTint();
       p.shadow.setPosition(Math.round(p.x), Math.round(p.y + 1));
       p.punch = Math.max(0, p.punch - dt * 10);
       const held = run.weapons[run.held];
       const handX = p.x + (left ? -2 : 2);
       const handY = p.y - 4;
-      const kick = p.punch * 2;
+      // Guns jump back and climb on each shot; the heavier the gun, the more.
+      const kick = p.punch * (2 + this.gunKick * 6);
+      const climb = p.punch * this.gunKick * (left ? 1 : -1);
       const gx = handX - Math.cos(p.aim) * kick;
       const gy = handY - Math.sin(p.aim) * kick;
       // Melee weapons act out the combo move; guns just kick back.
@@ -3499,7 +3771,7 @@ export class GameScene extends Phaser.Scene {
         this.swapT = Math.max(0, this.swapT - dt);
         const sw = this.swapT / 0.2;
         const flourish = sw * 2.4 * (left ? -1 : 1);
-        p.gun.setRotation(p.aim + swing + tilt + flourish).setScale(1, 1 - sw * 0.7).setFlipY(left).setDepth(Math.sin(p.aim) < -0.3 ? DEPTH.player - 0.1 : DEPTH.gun);
+        p.gun.setRotation(p.aim + swing + tilt + flourish + (melee ? 0 : climb)).setScale(1, 1 - sw * 0.7).setFlipY(left).setDepth(Math.sin(p.aim) < -0.3 ? DEPTH.player - 0.1 : DEPTH.gun);
       }
       const dual = p.skillT > 0 && run.weapons.length > 1;
       // The twin daggers: the second one rides in the off hand and takes every other stab.
@@ -3607,6 +3879,7 @@ export class GameScene extends Phaser.Scene {
       }
     }
     const vg = this.gfx;
+    this.fx.trails(this.pproj);
     this.drawReload(dt);
     for (const v of this.visuals) {
       const k = 1 - v.t / v.dur;

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://raw.githubusercontent.com/cloudflare/workers-sdk/main/packages/wrangler/config-schema.json",
+  "name": "adonis-game",
+  "pages_build_output_dir": "dist",
+  "compatibility_date": "2026-10-22",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "adonis-scores",
+      "database_id": "11e25a97-cbb6-4d9b-bf4c-f41da7fbbaa8",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

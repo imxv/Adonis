@@ -1,6 +1,7 @@
 import type Phaser from 'phaser';
 import { TAG_NAMES } from '../core/stats';
 import { ENEMIES, PETS, PET_ORDER, type EnemyKind } from '../data/enemies';
+import { HEROES, HERO_ORDER } from '../data/heroes';
 import { ELEMENT_COLOR, ELEMENT_NAME } from '../game/entities';
 import type { Element } from '../core/stats';
 import { FUSE_LEVEL, FUSION_ORDER, MAX_SPELL_LEVEL, SPELLS, SPELL_ORDER, fusionOf } from '../data/spells';
@@ -129,6 +130,7 @@ export function buildCodex(scene: Phaser.Scene): CodexTab[] {
   const weapons: CodexEntry[] = WEAPON_ORDER.map((id) => {
     const w = WEAPONS[id];
     const m = STAT_MEANING[w.kind];
+    const starter = HERO_ORDER.find((h) => HEROES[h].weapon === id);
     const damage =
       w.kind === 'spread' ? `${w.damage} × ${w.count} 颗` : w.kind === 'flame' ? `${w.damage} × 每团火焰` : w.kind === 'chain' ? `${w.damage}，连跳 ${w.count} 次` : w.kind === 'mortar' || w.kind === 'rocket' ? `${w.damage}（范围爆炸）` : `${w.damage}`;
     const pierce =
@@ -141,11 +143,12 @@ export function buildCodex(scene: Phaser.Scene): CodexTab[] {
     ];
     stats.push(['弹匣', w.mag ? `${w.mag} 发，换弹 ${w.reload} 秒` : w.kind === 'slash' ? '近战，无需换弹' : w.kind === 'boomerang' ? '飞轮回收，无需换弹' : '能量武器，无需换弹']);
     if (w.element === 'fire') stats.push(['元素', '火，命中点燃']);
+    if (w.fork) stats.push(['分叉', `命中或撞墙一分为二，递归 ${w.fork.length} 层`]);
     return {
       id,
       name: w.name,
       icon: tex(`gun-${id}`),
-      tag: id === 'pistol' ? `${KIND_NAME[w.kind]} · 起始武器` : KIND_NAME[w.kind],
+      tag: starter ? `${KIND_NAME[w.kind]} · ${HEROES[starter].name}起始武器` : KIND_NAME[w.kind],
       tagColor: E.cyan,
       desc: `${w.desc}。`,
       stats,

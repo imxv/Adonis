@@ -52,6 +52,9 @@ export function buildCommonTextures(scene: Phaser.Scene) {
   add(scene, 'deepseek-a', whale.a);
   add(scene, 'deepseek-b', whale.b);
   icon('deepseek', whale.a);
+  add(scene, 'coder-a', sprite(S.CODER_A).render());
+  add(scene, 'coder-b', sprite(S.CODER_B).render());
+  icon('coder', scene.textures.get('coder-a').getSourceImage() as HTMLCanvasElement);
   icon('jesus', registerJesusTextures(scene).icon);
   const vitals = vitalIcons();
   icon('armor', vitals.armor);
@@ -88,6 +91,9 @@ export function buildCommonTextures(scene: Phaser.Scene) {
     gale: ['.......lll....', '.....llwlwl...', '...lllwlwlwl..', 'bbbLLLLLLLLLLw', '...lllwlwlwl..', '.....llwlwl...', '.......lll....'],
     quake: ['.........yY..', '..DDDDDDDyYYy', 'DDDDDDDDDDyYY', 'DDDDDDDDDDDy.', '..BB.DD......', '..BB.........'],
     bramble: ['...l.L........', '..lLLl........', '.bbbbbbbbbbLlw', 'bbbbbbbbbbbbLl', '.bbbbbbbbbbLlw', '..BB..........', '..BB..........'],
+    // The programmer's mechanical keyboard: white keycaps over an RGB underglow, a green status light at the front and
+    // its cable trailing behind.
+    keyboard: ['...gwgwgwgwgwg...', '..DrOYlckPrOYlD..', 'KKDDDDDDDDDDDDDDl', '..nnnnnnnnnnnnnDw'],
   };
   for (const [id, rows] of Object.entries(guns)) {
     const c = Grid.ascii(rows).render();
@@ -264,6 +270,11 @@ export function buildCommonTextures(scene: Phaser.Scene) {
   add(scene, 'b-wind', Grid.ascii(['.mmm.', 'm...m', '..m.m', 'mm..m', '.mmm.']).render({ colors: { m: '#5fd6b8' }, outline: false }));
   add(scene, 'b-seed', Grid.ascii(['.gg.', 'gwlg', 'gllg', '.gg.']).render({ colors: { g: E.greenD, l: '#8fd14f', w: E.white }, outline: E.greenDD }));
   add(scene, 'b-rock', Grid.ascii(['.yy.', 'yYwy', 'yyYy', '.yy.']).render({ colors: { y: '#c28a2c', Y: '#f4b830', w: E.white } }));
+  // Recursion keyboard shots, one glyph per level: </> forks into {} and {} into 01.
+  const code = { colors: { w: '#c4f07a' }, outline: E.greenDD };
+  add(scene, 'b-code', Grid.ascii(['..w...w.w..', '.w....w..w.', 'w....w....w', '.w..w....w.', '..w.w...w..']).render(code));
+  add(scene, 'b-code-1', Grid.ascii(['.ww.ww.', '.w...w.', 'w.....w', '.w...w.', '.ww.ww.']).render(code));
+  add(scene, 'b-code-2', Grid.ascii(['.w...w.', 'w.w.ww.', 'w.w..w.', 'w.w..w.', '.w..www']).render(code));
 
   // The horde altar: a round stone dais with a red rune ring and a bell-shaped crystal; stepping on it starts the horde.
   const altar = new Grid(26, 18);
@@ -420,6 +431,11 @@ export function buildCommonTextures(scene: Phaser.Scene) {
   }
   add(scene, 'spark', Grid.ascii(['.w.', 'www', '.w.']).render({ outline: false }));
   add(scene, 'muzzle', Grid.ascii(['..Y..', '.YwY.', 'YwwwY', '.YwY.', '..Y..']).render({ outline: false }));
+  // A heavy gun's blast: a cone of fire drawn pointing right from the muzzle.
+  add(scene, 'muzzle-big', Grid.ascii(['.YY......', 'YwwYY.Y..', 'wwwwwwwYY', 'YwwYY.Y..', '.YY......']).render({ outline: false }));
+  // Where a hit lands: a star that breaks into a scatter on the next frame. White, tinted per hit.
+  add(scene, 'hit-0', Grid.ascii(['....w....', '....w....', '....w....', '...www...', 'wwwwwwwww', '...www...', '....w....', '....w....', '....w....']).render({ outline: false }));
+  add(scene, 'hit-1', Grid.ascii(['w.....w', '.w...w.', '..w.w..', '.......', '..w.w..', '.w...w.', 'w.....w']).render({ outline: false }));
   add(scene, 'dot', Grid.ascii(['ww', 'ww']).render({ outline: false }));
   add(scene, 'smoke', Grid.ascii(['.GG.', 'GGGG', 'GGGG', '.GG.']).render({ outline: false }));
   const shadow = document.createElement('canvas');

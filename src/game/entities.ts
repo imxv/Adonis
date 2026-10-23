@@ -3,6 +3,7 @@ import type Phaser from 'phaser';
 import type { Element } from '../core/stats';
 import type { Affix, BossKind, EnemyKind, Pets, SpawnStyle } from '../data/enemies';
 import type { WeaponInstance } from '../data/weapons';
+import type { DummyState } from './training';
 
 export type Img = Phaser.GameObjects.Image;
 
@@ -63,6 +64,8 @@ export interface Proj {
   hitProps?: Set<Obstacle>;
   /** Shards it bursts into when it stops (ice lance). */
   split?: number;
+  /** Textures of the levels it still forks into, two at a time, when it hits an enemy or a wall (recursion keyboard). */
+  fork?: string[];
   dist?: number;
   maxDist?: number;
   returning?: boolean;
@@ -131,6 +134,8 @@ export interface Enemy {
   anim: number;
   facing: number;
   flash: number;
+  /** Seconds since the last hit, while its body still wobbles from it. */
+  hurtT?: number;
   dead: boolean;
   scale: number;
   status: Status;
@@ -152,6 +157,8 @@ export interface Enemy {
    * dive starts from; for `hold` seconds after it the monster stands its ground before it moves or hurts anyone.
    */
   enter?: { kind: 'rise' | 'drop' | 'emerge' | SpawnStyle; t: number; landed?: boolean; ox?: number; hold?: number };
+  /** A training dummy: it never fights back or falls, and its group's meter counts the damage. */
+  dummy?: DummyState;
 }
 
 export interface BossState {
@@ -209,6 +216,9 @@ export interface Pickup {
   vy: number;
   value: number;
   t: number;
+  /** Height and upward speed while a dropped gem is still hopping. */
+  z?: number;
+  vz?: number;
   magnet: boolean;
   sprite: Img;
   dead: boolean;
