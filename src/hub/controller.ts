@@ -7,6 +7,8 @@ import { setTutorialStatus, shouldOfferTutorial } from '../tutorial/progress';
 import { audio } from '../audio/audio';
 import { mountGallery, type GalleryAction, type GalleryHandle } from './gallery';
 import { HallTour, askTutorial } from './tour';
+import { mountAccountBadge } from '../ui/signIn';
+import { account, onAccountChange } from '../net/account';
 import { createPixelRepairDisplay } from './gallery-pixel-renderer';
 import './controller.css';
 import '../ui/visualTheme.css';
@@ -61,6 +63,8 @@ export class HubController {
   private tour?: HallTour;
   private question?: { cancel(): void };
   private asked = false;
+  /** Set while the tutorial question waits for the visitor to choose who they are. */
+  private waitForAccount?: () => void;
   mode: HubMode = 'gallery';
 
   constructor(private readonly options: HubOptions) {
@@ -72,7 +76,9 @@ export class HubController {
     this.root.append(this.galleryHost, this.externalHost);
     document.body.append(this.root);
     this.gallery = mountGallery({ container: this.galleryHost, onAction: (action) => this.act(action), hasSave: !!loadRun(), profile: this.profile() });
-    this.unsubscribe = subscribeProfile(() => this.refresh());
+    const unmountBadge = mountAccountBadge(this.galleryHost);
+    const unsubscribeProfile = subscribeProfile(() => this.refresh());
+    this.unsubscribe = () => { unsubscribeProfile(); unmountBadge(); };
     window.addEventListener('mobileviewportchange', () => this.external?.resize?.(), { signal: this.events.signal });
     document.addEventListener('visibilitychange', () => {
       this.gallery.pause(document.hidden || this.mode !== 'gallery' || !!this.question);
@@ -139,6 +145,16 @@ export class HubController {
   /** The first time the hall opens, ask once whether to take the tutorial; the answer is kept. */
   private offerTutorial() {
     if (this.asked || this.question || this.tour || !shouldOfferTutorial()) return;
+    // Who is playing comes first: the question waits until the sign-in panel has an answer.
+    if (!account().account) {
+      this.waitForAccount ??= onAccountChange((s) => {
+        if (!s.account) return;
+        this.waitForAccount?.();
+        this.waitForAccount = undefined;
+        if (this.mode === 'gallery') this.offerTutorial();
+      });
+      return;
+    }
     this.asked = true;
     this.gallery.pause(true);
     this.question = askTutorial(this.galleryHost, !!loadRun() || topScores().length > 0, (start) => {
@@ -470,6 +486,7 @@ export class HubController {
     this.events.abort();
     this.clearNotice();
     this.unsubscribe();
+    this.waitForAccount?.();
     this.question?.cancel();
     this.endTour();
     this.gallery.dispose();

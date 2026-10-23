@@ -2640,6 +2640,13 @@ body:not(.touch-device) .title .menu .item { flex-shrink: 0; padding-top: 0; pad
   box-shadow: inset 0 0 0 1px var(--gold);
 }
 
+/* A name, and the small tag after a GitHub player's name, on one line. */
+.bd-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
 .bd-empty {
   flex: 1;
   display: grid;

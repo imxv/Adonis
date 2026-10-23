@@ -10,6 +10,7 @@ import './ui/mobile.css';
 import { audio } from './audio/audio';
 import { installUiSounds } from './audio/uiSounds';
 import { provideWeaponTraining } from './ui/weaponDemo';
+import { startAccount } from './ui/signIn';
 
 // The nearby-weapon demo runs this subclass of GameScene; handing it over here keeps it in the main bundle.
 provideWeaponTraining((onReady, key) => new WeaponTrainingScene(onReady, key));
@@ -85,6 +86,8 @@ async function boot() {
     window.removeEventListener('pointerdown', unlockAudio, true);
     window.removeEventListener('keydown', unlockAudio);
   });
+  // Who is playing: a GitHub sign-in or a guest name, asked once over the hall.
+  void startAccount();
   (window as any).__game = game;
   (window as any).__kits = KIT_BY_ID;
 }
