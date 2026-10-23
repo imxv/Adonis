@@ -78,6 +78,10 @@ class AudioEngine {
   private whooshFilter!: Tone.Filter;
   private zap!: Tone.FMSynth;
   private growl!: Tone.FMSynth;
+  // Summons have voices of their own: a wave's swell runs for over a second and must not hold up the shared ones.
+  private summonNoise!: Tone.NoiseSynth;
+  private summonFilter!: Tone.Filter;
+  private summonTone!: Tone.FMSynth;
   // Spell fusion has voices of its own: its sounds are booked a second ahead and must not hold up the shared ones.
   private riseNoise!: Tone.NoiseSynth;
   private riseFilter!: Tone.Filter;
@@ -199,6 +203,18 @@ class AudioEngine {
     this.zap.volume.value = -22;
     this.growl = new Tone.FMSynth({ harmonicity: 0.5, modulationIndex: 16, envelope: { attack: 0.12, decay: 1.2, sustain: 0, release: 0.4 }, modulationEnvelope: { attack: 0.2, decay: 1, sustain: 0, release: 0.3 } }).connect(this.sfx);
     this.growl.volume.value = -10;
+    this.summonFilter = new Tone.Filter({ frequency: 300, type: 'bandpass', Q: 2.2 }).connect(this.sfx);
+    this.summonNoise = new Tone.NoiseSynth({ noise: { type: 'pink' }, envelope: { attack: 1, decay: 0.01, sustain: 1, release: 0.05 } }).connect(this.summonFilter);
+    this.summonNoise.volume.value = -15;
+    this.summonTone = new Tone.FMSynth({
+      harmonicity: 1.5,
+      modulationIndex: 4,
+      oscillator: { type: 'sine' },
+      modulation: { type: 'triangle' },
+      envelope: { attack: 0.6, decay: 0.01, sustain: 1, release: 0.06 },
+      modulationEnvelope: { attack: 0.8, decay: 0.01, sustain: 1, release: 0.06 },
+    } as any).connect(this.sfx);
+    this.summonTone.volume.value = -21;
 
     this.riseFilter = new Tone.Filter({ frequency: 300, type: 'bandpass', Q: 1.6 }).connect(this.sfx);
     this.riseNoise = new Tone.NoiseSynth({ noise: { type: 'pink' }, envelope: { attack: 1, decay: 0.01, sustain: 1, release: 0.03 } }).connect(this.riseFilter);
@@ -998,6 +1014,150 @@ class AudioEngine {
           this.sparkle.triggerAttackRelease(this.note(7, 1), 0.1, t, 0.35);
           this.sparkle.triggerAttackRelease(this.note(9, 1), 0.1, t + 0.05, 0.3);
       }
+    });
+  }
+
+  // ---------- Summons ----------
+
+  /** A note `semis` semitones above the style's root, `octave` octaves up. */
+  private rootNote(semis: number, octave = 0): number {
+    const root = this.scaleMidi[0] ?? 60;
+    return Tone.Frequency(root + semis + octave * 12, 'midi').toFrequency();
+  }
+
+  /**
+   * A wave starts loading in: a ping, then air and a low tone rising together to the moment it breaks out, with
+   * ticks that speed up and climb like something loading. One swell for the whole wave, however many are in it.
+   * `soft` is the quieter, shorter kind for packs summoned in the middle of a fight.
+   */
+  summonWave(dur: number, n: number, soft = false) {
+    if (!this.gate('summonWave', 300)) return;
+    this.safe(() => {
+      const v = soft ? 0.4 : Math.min(0.85, 0.6 + n * 0.03);
+      const t0 = this.at(this.summonNoise, 0.01);
+      this.summonNoise.envelope.attack = dur * 0.9;
+      this.sweep(this.summonFilter, 240, soft ? 1600 : 2800, t0, dur);
+      this.summonNoise.triggerAttack(t0, v);
+      this.summonNoise.triggerRelease(t0 + dur);
+      // Nothing may start these again before they have been let go.
+      this.tm.set(this.summonNoise, t0 + dur);
+      const t1 = this.at(this.summonTone, 0.01);
+      this.summonTone.envelope.attack = dur * 0.6;
+      this.summonTone.frequency.cancelScheduledValues(t1);
+      this.summonTone.triggerAttack(this.rootNote(0, -1), t1, v * 0.8);
+      this.summonTone.frequency.exponentialRampToValueAtTime(this.rootNote(12, -1), t1 + dur);
+      this.summonTone.triggerRelease(t1 + dur);
+      this.tm.set(this.summonTone, t1 + dur);
+      const t = Tone.now();
+      if (!soft) this.bell.triggerAttackRelease(this.note(7, 1), 0.5, t, 0.3);
+      const ticks = soft ? 3 : 6;
+      for (let i = 0; i < ticks; i++) {
+        const q = 1 - Math.pow(1 - (i + 1) / (ticks + 1), 1.5);
+        this.sparkle.triggerAttackRelease(this.note(i, 1), 0.04, t + q * dur, (soft ? 0.16 : 0.22) + i * 0.04);
+      }
+    });
+  }
+
+  /** The whole wave breaks out on one frame: a low hit, a crack and an open fifth, bigger for a bigger wave. */
+  waveArrive(n: number) {
+    if (!this.gate('waveArrive', 150)) return;
+    this.safe(() => {
+      const v = Math.min(1, 0.55 + n * 0.05);
+      const t = Tone.now();
+      this.sub.triggerAttackRelease('D1', 0.35, this.at(this.sub), v);
+      this.snap.triggerAttackRelease(0.03, this.at(this.snap), 0.8 * v);
+      const b = this.at(this.boomNoise);
+      this.sweep(this.boomFilter, 3600, 260, b, 0.32);
+      this.boomNoise.triggerAttackRelease(0.28, b, 0.45 * v);
+      [0, 7, 12].forEach((d, i) => this.fuseBell.triggerAttackRelease(this.rootNote(d, -1), 0.7, t + 0.01 + i * 0.012, 0.3 * v));
+    });
+  }
+
+  /**
+   * A wave is announced: two rising notes, three and a low thump for the last one. The first wave of a room only
+   * gets one soft note, as the gates slamming shut already hit hard.
+   */
+  waveCall(i: number, total: number) {
+    if (!this.gate('waveCall', 300)) return;
+    this.safe(() => {
+      const t = Tone.now();
+      if (i === 0) {
+        this.bell.triggerAttackRelease(this.note(4, 1), 0.4, t + 0.05, 0.25);
+        return;
+      }
+      const last = i === total - 1;
+      const notes = last ? [0, 4, 7] : [2, 5];
+      notes.forEach((d, j) => this.bell.triggerAttackRelease(this.note(d, 1), 0.35, t + j * 0.11, 0.45));
+      if (last) this.thump.triggerAttackRelease('A1', 0.2, this.at(this.thump, 0.22), 0.8);
+    });
+  }
+
+  /** A wave falls but the room is not done: a short bright lift, much smaller than the room clear. */
+  waveClear() {
+    this.safe(() => {
+      const t = Tone.now();
+      [4, 7].forEach((d, i) => this.sparkle.triggerAttackRelease(this.note(d, 2), 0.1, t + i * 0.07, 0.4));
+      this.bell.triggerAttackRelease(this.note(9, 1), 0.3, t + 0.14, 0.3);
+    });
+  }
+
+  /**
+   * A boss is being summoned: a low growl swells under a long rising rush of air, the rim's runes chime in turn as
+   * they light up, all the way up to the moment it breaks out.
+   */
+  bossIntro(dur: number) {
+    this.safe(() => {
+      const t0 = this.at(this.summonNoise, 0.02);
+      this.summonNoise.envelope.attack = dur * 0.95;
+      this.sweep(this.summonFilter, 140, 3200, t0, dur);
+      this.summonNoise.triggerAttack(t0, 0.9);
+      this.summonNoise.triggerRelease(t0 + dur);
+      this.tm.set(this.summonNoise, t0 + dur);
+      const t1 = this.at(this.summonTone, 0.02);
+      this.summonTone.envelope.attack = dur * 0.8;
+      this.summonTone.frequency.cancelScheduledValues(t1);
+      this.summonTone.triggerAttack(this.rootNote(0, -2), t1, 0.9);
+      this.summonTone.frequency.exponentialRampToValueAtTime(this.rootNote(7, -1), t1 + dur);
+      this.summonTone.triggerRelease(t1 + dur);
+      this.tm.set(this.summonTone, t1 + dur);
+      this.growl.triggerAttackRelease('A0', dur * 0.9, this.at(this.growl, 0.1), 0.5);
+      const t = Tone.now();
+      // The twelve runes light up between 30% and 80% of the way.
+      for (let i = 0; i < 12; i++) this.bell.triggerAttackRelease(this.note(i % 5, i < 6 ? 0 : 1), 0.25, t + dur * (0.3 + (0.5 * i) / 12), 0.18 + i * 0.015);
+    });
+  }
+
+  /** Lightning striking the boss's sigil. */
+  bossStrike() {
+    if (!this.gate('bossStrike', 80)) return;
+    this.safe(() => {
+      this.snap.triggerAttackRelease(0.04, this.at(this.snap), 1);
+      this.zap.triggerAttackRelease(this.note(0, 2), 0.12, this.at(this.zap), 0.9);
+      const b = this.at(this.boomNoise);
+      this.sweep(this.boomFilter, 5200, 600, b, 0.25);
+      this.boomNoise.triggerAttackRelease(0.22, b, 0.55);
+    });
+  }
+
+  /** The boss breaks out of its summon: a bright crash and a wide chord. */
+  bossBreak() {
+    this.safe(() => {
+      const t = Tone.now();
+      this.snap.triggerAttackRelease(0.05, this.at(this.snap), 1);
+      const b = this.at(this.boomNoise);
+      this.sweep(this.boomFilter, 6000, 400, b, 0.5);
+      this.boomNoise.triggerAttackRelease(0.45, b, 0.8);
+      this.sub.triggerAttackRelease('A1', 0.4, this.at(this.sub), 0.8);
+      [0, 7, 12, 19].forEach((d, i) => this.fuseBell.triggerAttackRelease(this.rootNote(d, -1), 1.2, t + 0.01 + i * 0.015, 0.45));
+    });
+  }
+
+  /** It lands: a deep hit for something heavy, a soft one for something that floats down. */
+  bossLand(heavy: boolean) {
+    this.safe(() => {
+      this.sub.triggerAttackRelease(heavy ? 'D1' : 'A1', heavy ? 0.6 : 0.3, this.at(this.sub), heavy ? 1 : 0.6);
+      this.thump.triggerAttackRelease('C1', 0.3, this.at(this.thump), heavy ? 1 : 0.5);
+      if (heavy) this.explode(true);
     });
   }
 

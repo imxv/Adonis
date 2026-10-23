@@ -152,8 +152,11 @@ export interface Enemy {
   boss?: BossState;
   mini?: boolean;
   hurry?: boolean;
-  /** Entrance after a summon: grows out of the circle, drops in, or steps out of a rift. */
-  enter?: { kind: 'rise' | 'drop' | 'emerge' | SpawnStyle; t: number; landed?: boolean; ox?: number };
+  /**
+   * Entrance after a summon: grows out of the circle, drops in, or steps out of a rift. `ox` is where a roll or a
+   * dive starts from; for `hold` seconds after it the monster stands its ground before it moves or hurts anyone.
+   */
+  enter?: { kind: 'rise' | 'drop' | 'emerge' | SpawnStyle; t: number; landed?: boolean; ox?: number; hold?: number };
   /** A training dummy: it never fights back or falls, and its group's meter counts the damage. */
   dummy?: DummyState;
 }
@@ -181,6 +184,10 @@ export interface BossState {
   enraged: boolean;
   invuln: number;
   name: string;
+  /** Seconds left of its entrance (the fall, the landing and the roar); it does nothing until then. */
+  intro?: number;
+  /** How full its health bar has been drawn, filling up as it arrives. */
+  bar?: number;
   /** Seconds left gathering the move in `pattern` before it is let go. */
   windup?: number;
   /** A jump (or, for floating guardians, a glide) to a new spot between moves. */
@@ -285,13 +292,27 @@ export interface Telegraph {
   onDone?: () => void;
   /** Summons: 1 weak, 2 medium, 3 strong, 4 elite, 5 boss. */
   tier?: number;
-  /** Lightning strikes already thrown down by an elite summon. */
+  /** Lightning strikes already thrown down by an elite or boss summon, and the rumbles the boss's has shaken. */
   strikes?: number;
+  beats?: number;
   /** Line strikes: how wide the strike is. */
   w?: number;
   /** Summons: how the monster will arrive, and its colour for the puddle it oozes out of. */
   style?: SpawnStyle;
   color?: number;
+  /** Summons: the monster's silhouette loading in (a fill and its outline), offset by (ox, oy) to where its entrance starts. */
+  ghost?: Img[];
+  ox?: number;
+  oy?: number;
+  /** Summons cast together land together. */
+  group?: SummonGroup;
+}
+
+/** A set of monsters summoned on one clock; `onLand` runs once, when the last of them has arrived. */
+export interface SummonGroup {
+  left: number;
+  enemies: Enemy[];
+  onLand?: (enemies: Enemy[]) => void;
 }
 
 export interface Visual {
