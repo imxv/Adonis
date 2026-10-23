@@ -3,6 +3,7 @@ import type Phaser from 'phaser';
 import type { Element } from '../core/stats';
 import type { Affix, BossKind, EnemyKind, Pets, SpawnStyle } from '../data/enemies';
 import type { WeaponInstance } from '../data/weapons';
+import type { DummyState } from './training';
 
 export type Img = Phaser.GameObjects.Image;
 
@@ -63,6 +64,8 @@ export interface Proj {
   hitProps?: Set<Obstacle>;
   /** Shards it bursts into when it stops (ice lance). */
   split?: number;
+  /** Textures of the levels it still forks into, two at a time, when it hits an enemy or a wall (recursion keyboard). */
+  fork?: string[];
   dist?: number;
   maxDist?: number;
   returning?: boolean;
@@ -151,6 +154,8 @@ export interface Enemy {
   hurry?: boolean;
   /** Entrance after a summon: grows out of the circle, drops in, or steps out of a rift. */
   enter?: { kind: 'rise' | 'drop' | 'emerge' | SpawnStyle; t: number; landed?: boolean; ox?: number };
+  /** A training dummy: it never fights back or falls, and its group's meter counts the damage. */
+  dummy?: DummyState;
 }
 
 export interface BossState {
