@@ -31,13 +31,15 @@ try {
       'export * as life from "./life-catalog.ts";', 'export * as catalog from "./catalog.ts";',
       'export * as storage from "./store.ts";', 'export * as schema from "./schema.ts";',
       'export * as publicLife from "./life.ts";',
+      'export * as lifePath from "./life-path.ts";',
     ].join('\n'), resolveDir: sourceDir, loader: 'ts' },
     outfile: bundlePath, bundle: true, platform: 'node', format: 'esm', target: 'node20', logLevel: 'silent',
   });
-  const { rules, lifeRules, life, catalog, storage, schema, publicLife } = await import(pathToFileURL(bundlePath).href);
-  const { createProfile, plant, harvest, pack, prepare, settle } = rules;
+  const { rules, lifeRules, life, catalog, storage, schema, publicLife, lifePath } = await import(pathToFileURL(bundlePath).href);
+  const { createProfile, plant, harvest, craft, pack, prepare, settle } = rules;
   const { beginFishingRule: begin, finishFishingRule: finish, cookRule: cook, deliverRule: deliver, restoreRule: restore } = lifeRules;
-  const { LIFE_LIMITS, createFishingAttempt, fishForSeed } = life;
+  const { LIFE_LIMITS, createFishingAttempt, fishForSeed, fishOnCatch } = life;
+  const { nextLifeStep, lifeStepDestination } = lifePath;
   const { META_LIMITS } = catalog;
   const { createProfileStore, PROFILE_KEY } = storage;
   const checks = [];
@@ -111,8 +113,84 @@ try {
     for (const id of ['', 'fishing.0', 'fishing.2', 'fishing.999999', 'other/1', null]) noChange(p, () => finish(p, id, 'caught'), 'invalid');
     for (const outcome of ['pending', '', null]) noChange(p, () => finish(p, attempt.attemptId, outcome), 'invalid');
   });
+  check('the first kept fish is silver-sprat even when the seed names another species', () => {
+    const p = createProfile();
+    const attempt = begin(p).attempt;
+    assert.equal(attempt.seed, 3075563350);
+    assert.equal(fishForSeed(attempt.seed), 'reef-bream');
+    assert.equal(fishOnCatch(attempt.seed, false), 'silver-sprat');
+    const terminal = finish(p, attempt.attemptId, 'caught');
+    assert.equal(terminal.applied, true);
+    assert.equal(terminal.receipt.fish, 'silver-sprat');
+    assert.equal(terminal.receipt.seed, attempt.seed);
+    assert.equal(terminal.receipt.awarded, 1);
+    assert.equal(p.life.fish['silver-sprat'], 1);
+    assert.equal(p.life.fish['reef-bream'], 0);
+    const replay = noChange(p, () => finish(p, attempt.attemptId, 'caught'));
+    assert.equal(replay.duplicate, true);
+    assert.equal(replay.receipt.fish, 'silver-sprat');
+    assert.equal(p.life.fish['silver-sprat'], 1);
+    const saved = roundtrip(p);
+    assert.equal(saved.life.fishing.receipts[0].fish, 'silver-sprat');
+    assert.equal(saved.life.fishing.receipts[0].seed, attempt.seed);
+    const reloaded = schema.decodeProfile(JSON.parse(JSON.stringify(p))).profile;
+    const again = finish(reloaded, attempt.attemptId, 'caught');
+    assert.equal(again.duplicate, true);
+    assert.equal(again.receipt.fish, 'silver-sprat');
+    assert.equal(reloaded.life.fish['silver-sprat'], 1);
+  });
+  check('a miss or a full creel does not spend the first-catch guarantee', () => {
+    const missed = createProfile();
+    const first = begin(missed).attempt;
+    assert.equal(finish(missed, first.attemptId, 'missed').receipt.fish, null);
+    const caught = catchOne(missed);
+    assert.equal(caught.sequence, 2);
+    assert.equal(caught.fish, 'silver-sprat');
+    assert.notEqual(fishForSeed(caught.seed), 'silver-sprat');
+    const full = createProfile();
+    full.life.fish['silver-sprat'] = LIFE_LIMITS.fish;
+    const blocked = begin(full).attempt;
+    const released = finish(full, blocked.attemptId, 'caught');
+    assert.equal(released.reason, 'capacity');
+    assert.equal(released.receipt.fish, 'silver-sprat');
+    assert.equal(released.receipt.awarded, 0);
+    assert.equal(full.life.fish['silver-sprat'], LIFE_LIMITS.fish);
+    full.life.fish['silver-sprat'] = LIFE_LIMITS.fish - 1;
+    const kept = catchOne(full);
+    assert.equal(kept.fish, 'silver-sprat');
+    assert.equal(full.life.fish['silver-sprat'], LIFE_LIMITS.fish);
+  });
+  check('after one kept fish, the next catch follows the seed and a historical reef-bream receipt stays put', () => {
+    const historical = createProfile();
+    const attempt = createFishingAttempt(1);
+    historical.life.fishing.receipts = [{ ...attempt, outcome: 'caught', fish: 'reef-bream', awarded: 1, growth: 1 }];
+    historical.life.fishing.nextSequence = 2;
+    historical.life.fish['reef-bream'] = 1;
+    historical.growth = 1;
+    const decoded = roundtrip(historical);
+    assert.equal(decoded.life.fishing.receipts[0].fish, 'reef-bream');
+    assert.equal(decoded.life.fishing.receipts[0].seed, attempt.seed);
+    const next = catchOne(decoded);
+    assert.equal(next.fish, fishForSeed(next.seed));
+    assert.equal(decoded.life.fishing.receipts[0].fish, 'reef-bream');
+    assert.equal(fishOnCatch(next.seed, true), fishForSeed(next.seed));
+    const forged = structuredClone(decoded);
+    forged.life.fishing.receipts[0].fish = 'golden-mullet';
+    assert.equal(schema.decodeProfile(forged).status, 'unsupported');
+  });
+  check('an open first attempt still awards silver-sprat after the same seed is reloaded', () => {
+    const p = createProfile();
+    const started = begin(p);
+    const decoded = schema.decodeProfile(JSON.parse(JSON.stringify(p)));
+    assert.equal(decoded.status, 'ok');
+    assert.deepEqual(decoded.profile.life.fishing.active, started.attempt);
+    const finished = finish(decoded.profile, started.attempt.attemptId, 'caught');
+    assert.equal(finished.receipt.fish, 'silver-sprat');
+    assert.equal(finished.receipt.seed, started.attempt.seed);
+    assert.equal(roundtrip(decoded.profile).life.fishing.receipts[0].fish, 'silver-sprat');
+  });
   check('full fish capacity settles the attempt with zero fish and zero garden growth', () => {
-    const p = createProfile(); const attempt = begin(p).attempt; const fish = fishForSeed(attempt.seed);
+    const p = createProfile(); const attempt = begin(p).attempt; const fish = 'silver-sprat';
     p.life.fish[fish] = LIFE_LIMITS.fish; assert.equal(plant(p, 0, 'olive').applied, true);
     const stock = clone(p.life.fish); const growth = p.growth; const bed = clone(p.beds[0]);
     const value = finish(p, attempt.attemptId, 'caught');
@@ -247,6 +325,63 @@ try {
     noChange(p, () => deliver(p, 'unknown/commission'), 'invalid'); noChange(p, () => restore(p, 'unknown/repair'), 'invalid');
   });
 
+  check('the life path lights the next unfinished step from the save and an empty slot stops on packing', () => {
+    const fresh = createProfile();
+    assert.equal(nextLifeStep(fresh), 'plant');
+    assert.equal(lifeStepDestination(fresh, 'plant'), 'garden');
+    assert.equal(plant(fresh, 0, 'olive').applied, true);
+    assert.equal(nextLifeStep(fresh), 'fish');
+    assert.equal(lifeStepDestination(fresh, 'fish'), 'fishing');
+    const caught = catchOne(fresh);
+    assert.equal(caught.fish, 'silver-sprat');
+    assert.equal(nextLifeStep(fresh), 'share');
+    assert.equal(lifeStepDestination(fresh, 'share'), 'commissions');
+    assert.equal(harvest(fresh, 0).applied, true);
+    assert.equal(lifeStepDestination(fresh, 'share'), 'kitchen');
+    assert.equal(cook(fresh, 'olive-skewer', 'path/cook').applied, true);
+    assert.equal(nextLifeStep(fresh), 'pack');
+    assert.equal(fresh.packedSupply, null);
+    assert.equal(lifeStepDestination(fresh, 'pack'), 'garden');
+    assert.equal(pack(fresh, 'olive-draught').applied, true);
+    assert.equal(nextLifeStep(fresh), 'adventure');
+    assert.equal(lifeStepDestination(fresh, 'adventure'), 'adventure');
+    assert.equal(prepare(fresh, 'path/run').applied, true);
+    assert.equal(fresh.packedSupply, null);
+    assert.equal(nextLifeStep(fresh), 'pack');
+    assert.equal(settle(fresh, { runId: 'path/run', victory: true, floor: 2, kills: 8, elapsedSeconds: 40 }).applied, true);
+    assert.equal(nextLifeStep(fresh), 'pack');
+    fresh.supplies['olive-draught'] = 1;
+    assert.equal(pack(fresh, 'olive-draught').applied, true);
+    assert.equal(nextLifeStep(fresh), 'return');
+    assert.equal(lifeStepDestination(fresh, 'return'), 'garden');
+  });
+  check('garden crafting does not finish the kitchen step, and an old save keeps its place', () => {
+    const crafted = createProfile();
+    crafted.produce.olive = 1;
+    assert.equal(craft(crafted, 'olive-draught').applied, true);
+    crafted.life.fish['silver-sprat'] = 1;
+    assert.equal(nextLifeStep(crafted), 'share');
+    const commissioned = createProfile();
+    commissioned.life.completedCommissions = ['garden-table'];
+    assert.equal(nextLifeStep(commissioned), 'fish');
+    const veteran = createProfile();
+    const attempt = createFishingAttempt(1);
+    veteran.life.fishing.receipts = [{ ...attempt, outcome: 'caught', fish: 'reef-bream', awarded: 1, growth: 1 }];
+    veteran.life.fishing.nextSequence = 2;
+    veteran.life.fish['reef-bream'] = 1;
+    veteran.growth = 1;
+    veteran.beds[0] = { plant: 'olive', plantedAt: 0 };
+    veteran.life.cooked = [{ actionId: 'old/cook', recipeId: 'olive-skewer' }];
+    veteran.supplies['olive-draught'] = 1;
+    veteran.packedSupply = 'olive-draught';
+    veteran.settledRuns = ['old/run'];
+    const decoded = roundtrip(veteran);
+    assert.equal(decoded.life.fishing.receipts[0].fish, 'reef-bream');
+    assert.equal(nextLifeStep(decoded), 'return');
+    decoded.packedSupply = null;
+    assert.equal(nextLifeStep(decoded), 'pack');
+    assert.equal(decoded.life.fishing.receipts[0].fish, 'reef-bream');
+  });
   check('fishing → crop → cooking → seed return → one packed run supply is a complete loop', () => {
     const p = createProfile(); assert.equal(plant(p, 0, 'olive').applied, true);
     assert.equal(harvest(p, 0).reason, 'not-ready');

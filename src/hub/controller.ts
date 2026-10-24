@@ -7,6 +7,8 @@ import { setTutorialStatus, shouldOfferTutorial } from '../tutorial/progress';
 import { audio } from '../audio/audio';
 import { mountGallery, type GalleryAction, type GalleryHandle } from './gallery';
 import { HallTour, askTutorial } from './tour';
+import { mountLifeGuide, mountReturnCard, type LifeGuideHandle, type RunReturnReceipt } from './life-guide';
+import { lifeStepDestination, nextLifeStep } from '../meta/life-path';
 import { mountAccountBadge } from '../ui/signIn';
 import { account, onAccountChange } from '../net/account';
 import { createPixelRepairDisplay } from './gallery-pixel-renderer';
@@ -63,6 +65,12 @@ export class HubController {
   private tour?: HallTour;
   private question?: { cancel(): void };
   private asked = false;
+  private readonly guide: LifeGuideHandle;
+  private returnCard?: { close(): void };
+  /** Set while a return card is about to open, so the hall does not ask the tutorial over it. */
+  private presentingReturn = false;
+  /** Run ids whose return card was already shown on this page. A reload starts empty, so it cannot pop twice. */
+  private readonly shownReturns = new Set<string>();
   /** Set while the tutorial question waits for the visitor to choose who they are. */
   private waitForAccount?: () => void;
   mode: HubMode = 'gallery';
@@ -76,6 +84,7 @@ export class HubController {
     this.root.append(this.galleryHost, this.externalHost);
     document.body.append(this.root);
     this.gallery = mountGallery({ container: this.galleryHost, onAction: (action) => this.act(action), hasSave: !!loadRun(), profile: this.profile() });
+    this.guide = mountLifeGuide(this.galleryHost, (action) => { if (this.mode === 'gallery') this.act(action); });
     const unmountBadge = mountAccountBadge(this.galleryHost);
     const unsubscribeProfile = subscribeProfile(() => this.refresh());
     this.unsubscribe = () => { unsubscribeProfile(); unmountBadge(); };
@@ -111,6 +120,16 @@ export class HubController {
   private refresh() {
     this.gallery.refresh({ hasSave: !!loadRun(), profile: this.profile() });
     this.refreshPage?.();
+    this.syncGuide();
+  }
+
+  /** Light the next life step from the save. A tour keeps its own highlight. */
+  private syncGuide() {
+    const profile = loadProfile().profile;
+    const hidden = !!this.tour || !!this.question || !!this.returnCard || this.presentingReturn || this.mode !== 'gallery';
+    this.guide.update(profile, hidden);
+    if (this.tour) return;
+    this.gallery.guide(hidden ? null : lifeStepDestination(profile, nextLifeStep(profile)));
   }
 
   private setMode(mode: HubMode) {
@@ -138,13 +157,13 @@ export class HubController {
     this.setMode('gallery');
     this.options.suspendGame();
     this.refresh();
-    this.gallery.pause(document.hidden || !!this.question);
+    this.gallery.pause(document.hidden || !!this.question || !!this.returnCard || this.presentingReturn);
     this.offerTutorial();
   }
 
   /** The first time the hall opens, ask once whether to take the tutorial; the answer is kept. */
   private offerTutorial() {
-    if (this.asked || this.question || this.tour || !shouldOfferTutorial()) return;
+    if (this.asked || this.question || this.tour || this.returnCard || this.presentingReturn || !shouldOfferTutorial()) return;
     // Who is playing comes first: the question waits until the sign-in panel has an answer.
     if (!account().account) {
       this.waitForAccount ??= onAccountChange((s) => {
@@ -162,7 +181,9 @@ export class HubController {
       if (this.mode === 'gallery') this.gallery.pause(document.hidden);
       if (start) this.startTour();
       else setTutorialStatus('skipped');
+      this.syncGuide();
     });
+    this.syncGuide();
   }
 
   /** Begin the tutorial at its first hall step; settings use this to replay it. */
@@ -174,6 +195,7 @@ export class HubController {
     setTutorialStatus('started');
     this.tour?.dispose();
     this.tour = new HallTour({ host: this.galleryHost, gallery: this.gallery, onSkip: () => this.endTour(true) });
+    this.syncGuide();
     if (this.mode !== 'gallery') this.show();
     else this.gallery.pause(document.hidden);
   }
@@ -188,11 +210,39 @@ export class HubController {
     this.tour?.dispose();
     this.tour = undefined;
     if (skipped) setTutorialStatus('skipped');
+    if (this.mode !== 'disposed') this.syncGuide();
+  }
+
+  /** Show the settlement card once for this page. The numbers are the receipt already returned by settle. */
+  presentReturn(receipt: RunReturnReceipt) {
+    if (this.mode === 'disposed' || this.shownReturns.has(receipt.runId)) return;
+    this.shownReturns.add(receipt.runId);
+    this.presentingReturn = true;
+    if (this.mode !== 'gallery') this.show();
+    this.presentingReturn = false;
+    if (this.mode !== 'gallery') return;
+    this.closeReturn();
+    this.gallery.pause(true);
+    const profile = loadProfile().profile;
+    this.returnCard = mountReturnCard(this.galleryHost, receipt.reward, profile, (action) => {
+      this.closeReturn();
+      this.act(action);
+    }, () => this.closeReturn());
+    this.syncGuide();
+  }
+
+  private closeReturn() {
+    if (!this.returnCard) return;
+    this.returnCard.close();
+    this.returnCard = undefined;
+    if (this.mode === 'gallery') this.gallery.pause(document.hidden || !!this.question);
+    if (this.mode !== 'disposed') this.syncGuide();
   }
 
   enterRun() {
     if (this.mode === 'disposed') return;
     this.endTour();
+    this.closeReturn();
     this.generation++;
     this.releaseExternal();
     this.clearNotice();
@@ -488,7 +538,9 @@ export class HubController {
     this.unsubscribe();
     this.waitForAccount?.();
     this.question?.cancel();
+    this.closeReturn();
     this.endTour();
+    this.guide.dispose();
     this.gallery.dispose();
     this.root.remove();
   }

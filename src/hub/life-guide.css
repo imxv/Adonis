@@ -1,0 +1,82 @@
+/* Next-step strip: the hall's gold-edged plate, sitting under the title and above the painting. */
+.ag-life-path {
+  position: absolute;
+  z-index: 4;
+  top: max(84px, calc(env(safe-area-inset-top) + 72px));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: max-content;
+  max-width: calc(100% - 24px);
+  margin: 0;
+  padding: 4px;
+  border: 2px solid #aa783d;
+  background: #101c35f2;
+  box-shadow: 0 2px 0 2px #080f23, inset 0 0 0 2px #243858;
+  color: #e9ddc3;
+  font: 400 12px/1.5 'ag-fusion-pixel', 'FusionPixel', monospace;
+  pointer-events: auto;
+}
+.ag-life-path[hidden] { display: none !important; }
+.ag-life-path ol {
+  display: flex;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+.ag-life-path li { display: flex; flex: none; }
+.ag-life-path button,
+.ag-life-path span {
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  border: 2px solid #585463;
+  color: #8d8a96;
+  background: #1b2238;
+  white-space: nowrap;
+}
+.ag-life-path button {
+  cursor: pointer;
+  border-color: #eac77b;
+  box-shadow: inset 0 2px #92623a, inset 0 -2px #382b32;
+  color: #fff0b4;
+  background: #60442e;
+  font: inherit;
+  touch-action: manipulation;
+}
+.ag-life-path button:focus-visible { outline: 2px solid #fff0b4; outline-offset: 2px; }
+.ag-life-path button:active { transform: translateY(2px); background: #604c43; box-shadow: inset 0 2px #302a36; }
+.ag-life-path .is-done span { border-color: #7e9755; color: #b4cda0; background: #25413d; }
+.ag-life-path-hint { margin: 0; padding: 0 4px 2px; color: #c5c3c7; text-align: center; }
+@media (hover: hover) {
+  .ag-life-path button:hover { border-color: #fff0b4; background: #5c4b42; }
+}
+@media (max-width: 900px) {
+  .ag-life-path { top: max(108px, calc(env(safe-area-inset-top) + 96px)); }
+  .ag-life-path button, .ag-life-path span { padding: 0 6px; }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .ag-life-path {
+    top: auto;
+    bottom: max(64px, calc(env(safe-area-inset-bottom) + 56px));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ag-life-path button:active { transform: none; }
+}
+
+/* Settlement card: same veil and plate as the hall's other dialogs. */
+.ag-return-veil { z-index: 7; }
+.ag-return-card { width: min(420px, 100%); max-height: calc(100% - 24px); overflow: auto; overscroll-behavior: contain; }
+.ag-return-lines { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.ag-return-lines li { padding: 6px 8px; border: 2px solid #392c2b; background: #1b2238; color: #e9ddc3; }
+.ag-return-next { color: #c5d5b2 !important; }
+.ag-return-card button { min-height: 44px; }
