@@ -1,6 +1,6 @@
 import { META_LIMITS } from './catalog';
 import { advanceGardenGrowth, validId, type RuleResult } from './rules';
-import { COMMISSIONS, COMMISSION_IDS, createFishingAttempt, fishForSeed, LIFE_LIMITS, RECIPES, RECIPE_IDS, RESTORATIONS, RESTORATION_IDS } from './life-catalog';
+import { COMMISSIONS, COMMISSION_IDS, createFishingAttempt, fishOnCatch, hasKeptCatch, LIFE_LIMITS, RECIPES, RECIPE_IDS, RESTORATIONS, RESTORATION_IDS } from './life-catalog';
 import type { CommissionId, FishingAttempt, FishingOutcome, FishingReceipt, LifeCost, LifeReward, RecipeId, RestorationId } from './life-catalog';
 import type { MetaFailure, MetaProfile, PlantId, SupplyId } from './types';
 const result = (applied = false, reason?: MetaFailure, duplicate = false): RuleResult => ({ applied, duplicate, ...(reason ? { reason } : {}) });
@@ -40,7 +40,7 @@ export function finishFishingRule(profile: MetaProfile, attemptId: string, outco
   if (old) return { ...result(false, undefined, true), receipt: structuredClone(old) };
   const active = profile.life.fishing.active;
   if (!active || active.attemptId !== attemptId) return { ...result(false, 'invalid'), receipt: null };
-  const fish = outcome === 'caught' ? fishForSeed(active.seed) : null;
+  const fish = outcome === 'caught' ? fishOnCatch(active.seed, hasKeptCatch(profile.life.fishing.receipts)) : null;
   const capacity = fish !== null && profile.life.fish[fish] >= LIFE_LIMITS.fish;
   const receipt: FishingReceipt = { ...active, outcome, fish, awarded: fish !== null && !capacity ? 1 : 0, growth: fish !== null && !capacity ? 1 : 0, ...(capacity ? { reason: 'capacity' as const } : {}) };
   if (receipt.awarded && fish) { profile.life.fish[fish]++; advanceGardenGrowth(profile, 1); }

@@ -1,7 +1,7 @@
 import { META_LIMITS, NO_SUPPLY_EFFECT, PLANTS, PLANT_IDS, SUPPLIES, SUPPLY_IDS } from './catalog';
 import { createProfile, isPlant, isSupply, validId } from './rules';
 import type { MetaProfile, PreparedRun } from './types';
-import { COMMISSION_IDS, FISH_IDS, LIFE_LIMITS, RECIPE_IDS, RESTORATION_IDS, createFishingAttempt, createLifeProgress, fishForSeed, type LifeProgress } from './life-catalog';
+import { COMMISSION_IDS, FISH_IDS, LIFE_LIMITS, RECIPE_IDS, RESTORATION_IDS, createFishingAttempt, createLifeProgress, legalCatchFish, type LifeProgress } from './life-catalog';
 
 export type DecodeResult = { profile: MetaProfile; status: 'ok' | 'migrated' | 'recovered' | 'unsupported' };
 const object = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -45,6 +45,7 @@ function decodeLife(input: unknown): LifeProgress | null {
   const count = fishing.receipts.length + (fishing.active === null ? 0 : 1);
   if (count > LIFE_LIMITS.fishingAttempts || fishing.nextSequence !== firstSequence + count) return null;
   life.fishing.nextSequence = firstSequence + count;
+  let keptBefore = false;
   for (const [index, value] of fishing.receipts.entries()) {
     if (!object(value)) return null;
     const attempt = createFishingAttempt(firstSequence + index);
@@ -55,7 +56,8 @@ function decodeLife(input: unknown): LifeProgress | null {
     if (value.reason !== undefined) receiptKeys.push('reason');
     if (!keysExactly(value, receiptKeys) || (value.awarded !== 0 && value.awarded !== 1) || (value.growth !== 0 && value.growth !== 1) || (value.reason !== undefined && value.reason !== 'capacity')) return null;
     if (value.outcome === 'caught') {
-      if (value.fish !== fishForSeed(attempt.seed) || (value.awarded === 0 ? value.growth !== 0 || value.reason !== 'capacity' : value.growth !== 1 || value.reason !== undefined)) return null;
+      if (!legalCatchFish(attempt.seed, keptBefore, value.fish) || (value.awarded === 0 ? value.growth !== 0 || value.reason !== 'capacity' : value.growth !== 1 || value.reason !== undefined)) return null;
+      if (value.awarded === 1) keptBefore = true;
     } else if (value.fish !== null || value.awarded !== 0 || value.growth !== 0 || value.reason !== undefined) return null;
     life.fishing.receipts.push({ ...attempt, outcome: value.outcome, fish: value.fish as LifeProgress['fishing']['receipts'][number]['fish'], awarded: value.awarded, growth: value.growth, ...(value.reason ? { reason: value.reason } : {}) });
   }

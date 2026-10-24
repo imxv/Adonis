@@ -115,7 +115,7 @@ try {
     ['receipt duplicate', (p) => { p.life.fishing.receipts[1] = clone(p.life.fishing.receipts[0]); }],
     ['receipt identity substitution', (p) => { p.life.fishing.receipts[0].attemptId = 'fishing/other'; }],
     ['receipt seed substitution', (p) => { p.life.fishing.receipts[0].seed++; }],
-    ['caught fish substitution', (p) => { const v = p.life.fishing.receipts[0]; v.fish = FISH_IDS.find((id) => id !== v.fish); }],
+    ['caught fish substitution', (p) => { p.life.fishing.receipts[0].fish = 'golden-mullet'; }],
     ['capacity reward mismatch', (p) => { p.life.fishing.receipts[1].growth = 1; }],
     ['non-caught reward', (p) => { p.life.fishing.receipts[2].awarded = 1; }],
     ['unknown outcome', (p) => { p.life.fishing.receipts[3].outcome = 'pending'; }],
@@ -146,6 +146,21 @@ try {
     assert.equal(result.reason, 'unavailable');
     assert.equal(backing.values.get(PROFILE_KEY), raw);
     assert.equal(backing.writes.length, 0);
+  });
+
+  check('a first silver-sprat receipt decodes on a seed that names another fish and is not rewritten', () => {
+    const p = createProfile();
+    const attempt = createFishingAttempt(1);
+    assert.equal(fishForSeed(attempt.seed), 'reef-bream');
+    p.life.fishing.receipts = [{ ...attempt, outcome: 'caught', fish: 'silver-sprat', awarded: 1, growth: 1 }];
+    p.life.fishing.nextSequence = 2;
+    p.life.fish['silver-sprat'] = 1;
+    p.growth = 1;
+    const decoded = schema.decodeProfile(JSON.parse(JSON.stringify(p)));
+    assert.equal(decoded.status, 'ok');
+    assert.equal(decoded.profile.life.fishing.receipts[0].fish, 'silver-sprat');
+    assert.equal(decoded.profile.life.fishing.receipts[0].seed, attempt.seed);
+    assert.equal(decoded.profile.life.fish['reef-bream'], 0);
   });
 
   check('full receipt ledger remains readable and cannot lose the final terminal record', () => {

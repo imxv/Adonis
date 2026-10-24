@@ -234,6 +234,8 @@ export class GameScene extends Phaser.Scene {
   private runGeneration = 0;
   private levelGeneration = 0;
   private recorded?: { runId: string; score: number; rank: number; date: number; settlement: string; warning?: string | null };
+  /** Settlement numbers copied once, shown when this run returns to the hall, then dropped. */
+  private returnReceipt?: { runId: string; reward: { fragments: number; growth: number; seeds: number } } | null;
   /** Open while the player is in the training ground: weapons on racks, dummies, and nothing saved or scored. */
   training?: TrainingState;
 
@@ -482,6 +484,9 @@ export class GameScene extends Phaser.Scene {
     const peak = this.rhythm.peakRank();
     const rank = addScore({ ...base, score, date, rank: peak, runId: run.runId, supply: run.supply });
     const result = settleRun({ runId: run.runId, victory, floor: base.floor, kills: run.kills, elapsedSeconds: run.elapsed });
+    if (result.applied && !result.duplicate) {
+      this.returnReceipt = { runId: run.runId, reward: { fragments: result.reward.fragments, growth: result.reward.growth, seeds: result.reward.seeds } };
+    }
     const settlement = result.duplicate ? '本次冒险的花园奖励已领取。'
       : result.applied ? `带回修复碎片 ${result.reward.fragments} · 种子 ${result.reward.seeds} · 花园生长 +${result.reward.growth}`
       : result.reason === 'unavailable' || result.reason === 'capacity' ? '局外记录暂不可用，请查看花园提示。'
@@ -591,6 +596,7 @@ export class GameScene extends Phaser.Scene {
     this.runGeneration++;
     this.endTutorial();
     this.recorded = undefined;
+    this.returnReceipt = null;
     this.training = undefined;
     this.god = this.params.has('god');
     this.hub?.enterRun();
@@ -2942,8 +2948,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   endToTitle() {
+    const receipt = this.returnReceipt ?? null;
+    this.returnReceipt = null;
     this.clearLevel();
     this.showTitle();
+    if (receipt) this.hub?.presentReturn(receipt);
   }
 
   // ---------------------------------------------------------------- enemies

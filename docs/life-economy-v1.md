@@ -45,9 +45,9 @@ fishForSeed(seed:number): FishId;
 
 D负责抛竿/咬钩/张力与成功失败状态，C负责持久化身份及唯一奖励。每次真正开局调用begin；已有活跃尝试返回原ID/seed，`duplicate:true`也可继续玩，不能另生成奖励ID。重载后可重新用同seed开始该尝试；离开时cancel当前attempt。UI不得以mount、动画结束或订阅回调重复发奖。
 
-finish只接受已发出的当前ID，或返回历史终态。成功、失败、取消全部终结该ID；重复/改结果不改旧终态、不增加库存。`caught`由C按seed确定鱼，入库1并推进1生长；失败/取消无奖励。鱼篓已满时仍写终态，`applied:true, reason:'capacity', receipt.awarded:0`，无鱼/无生长；不能腾仓后重放同ID。显示“捕获入库”应看 `receipt.awarded===1 && applied`，不能只看outcome或applied。
+finish只接受已发出的当前ID，或返回历史终态。成功、失败、取消全部终结该ID；重复/改结果不改旧终态、不增加库存。`caught`在这份存档还没有成功入库的鱼时必为银鳞沙丁，其后仍由seed确定鱼种；seed写在尝试上，不因保底改写。入库1并推进1生长；失败、取消，以及鱼篓已满（`awarded:0`）都不算成功入库，也不消耗这次保底。鱼篓已满时仍写终态，`applied:true, reason:'capacity', receipt.awarded:0`，无鱼/无生长；不能腾仓后重放同ID。显示“捕获入库”应看 `receipt.awarded===1 && applied`，不能只看outcome或applied。历史回执保持原鱼种，读档不改写。
 
-3种鱼各上限9、无免费初始鱼：`silver-sprat`银鳞沙丁、`reef-bream`珊纹鲷、`golden-mullet`金尾鲻。三种同等稳定分布，由seed决定；seed基于持久化序号，不依赖系统时间刷新。最多4096次尝试，不淘汰旧终态来重接历史ID。
+3种鱼各上限9、无免费初始鱼：`silver-sprat`银鳞沙丁、`reef-bream`珊纹鲷、`golden-mullet`金尾鲻。三种同等稳定分布，由seed决定；尚未成功钓到过鱼时，这次成功固定为银鳞沙丁。其后每次成功仍由seed决定。seed基于持久化序号，不依赖系统时间刷新。最多4096次尝试，不淘汰旧终态来重接历史ID。
 
 ## A：烹饪与委托合同
 

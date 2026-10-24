@@ -75,3 +75,16 @@ export function createFishingAttempt(sequence: number): FishingAttempt {
   return { attemptId: `fishing.${sequence}`, sequence, seed };
 }
 export function fishForSeed(seed: number): FishId { return FISH_IDS[(seed >>> 0) % FISH_IDS.length]; }
+/** A fish was kept only when the receipt put one in the creel. A miss, a cancel, or a full creel does not count. */
+export function hasKeptCatch(receipts: readonly { outcome: FishingOutcome; awarded: number }[]): boolean {
+  return receipts.some((receipt) => receipt.outcome === 'caught' && receipt.awarded === 1);
+}
+/** The first fish a save actually keeps is silver-sprat. Every later catch stays on the seed. The seed itself does not change. */
+export function fishOnCatch(seed: number, keptBefore: boolean): FishId {
+  return keptBefore ? fishForSeed(seed) : 'silver-sprat';
+}
+/** Before the first kept fish, a receipt may name the guarantee or the seed species. After that, only the seed species. */
+export function legalCatchFish(seed: number, keptBefore: boolean, fish: unknown): fish is FishId {
+  if (typeof fish !== 'string' || !FISH_IDS.includes(fish as FishId)) return false;
+  return keptBefore ? fish === fishForSeed(seed) : fish === 'silver-sprat' || fish === fishForSeed(seed);
+}
